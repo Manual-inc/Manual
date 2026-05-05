@@ -1,0 +1,15 @@
+[package]
+name = "skill"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "skill"
+path = "src/lib.rs"
+
+[[bin]]
+name = "manual-skill"
+path = "src/main.rs"
+
+[dependencies]
+cli.workspace = true

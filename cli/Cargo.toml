@@ -1,0 +1,15 @@
+[package]
+name = "cli"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cli"
+path = "src/main.rs"
+
+[dependencies]
+manual_core.workspace = true

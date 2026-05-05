@@ -1,0 +1,44 @@
+const BUNDLED_SKILL_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/templates/default-skill");
+
+pub fn run<I, S>(args: I) -> Result<String, cli::CliError>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut forwarded = args
+        .into_iter()
+        .map(|value| value.as_ref().to_string())
+        .collect::<Vec<_>>();
+
+    if forwarded.is_empty() {
+        return cli::run(["cli", "about"]);
+    }
+
+    forwarded[0] = "manual-skill".to_string();
+
+    match forwarded.get(1).map(String::as_str) {
+        None => cli::run(["cli", "about"]),
+        Some("template-path") => Ok(BUNDLED_SKILL_DIR.to_string()),
+        Some("validate-bundled") => {
+            cli::run(["cli", "validate-skill", BUNDLED_SKILL_DIR])
+        }
+        Some(_) => {
+            forwarded[0] = "cli".to_string();
+            let forwarded_refs = forwarded.iter().map(String::as_str).collect::<Vec<_>>();
+            cli::run(forwarded_refs)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run;
+
+    #[test]
+    fn validate_bundled_template_uses_cli_validation() {
+        let output =
+            run(["manual-skill", "validate-bundled"]).expect("bundled template should validate");
+
+        assert!(output.contains("validated skill template"));
+    }
+}

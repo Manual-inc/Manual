@@ -1,0 +1,10 @@
+[package]
+name = "manual-core"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "manual_core"
+path = "src/lib.rs"
+
+[dependencies]
