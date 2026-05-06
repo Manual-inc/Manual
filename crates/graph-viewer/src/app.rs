@@ -4,7 +4,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use eframe::egui::{self, Color32, Ui};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 
-use crate::{circular_layout, load_graph_file, Graph, GraphLayout, GraphView};
+use crate::{Graph, GraphLayout, GraphView, circular_layout, load_graph_file};
 
 pub struct GraphViewerApp {
     graph_path: PathBuf,

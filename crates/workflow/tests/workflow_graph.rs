@@ -23,7 +23,10 @@ fn parses_workflow_edge_kind_from_workflow_spec_identifier() {
     );
     assert_eq!(WorkflowEdgeKind::Parallel.to_string(), "parallel");
     assert_eq!(
-        "unknown".parse::<WorkflowEdgeKind>().unwrap_err().to_string(),
+        "unknown"
+            .parse::<WorkflowEdgeKind>()
+            .unwrap_err()
+            .to_string(),
         "unknown workflow edge kind: unknown"
     );
 }

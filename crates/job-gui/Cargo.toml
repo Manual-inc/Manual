@@ -1,0 +1,17 @@
+[package]
+name = "job-gui"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "job_gui"
+path = "src/lib.rs"
+
+[dependencies]
+eframe = "=0.33.3"
+job.workspace = true
+job_registry.workspace = true
+
+[dev-dependencies]
+node.workspace = true
+workflow.workspace = true

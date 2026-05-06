@@ -19,13 +19,15 @@ This repository currently starts as a compact Rust workspace:
 - `crates/cli`: a thin command entrypoint for inspecting and validating Manual assets.
 - `crates/skill`: a bundled agent skill template plus validation entrypoints.
 - `crates/agent`: adapters for controlling external agent CLIs as JSONL streams.
+- `crates/agent-gui`: reusable native agent profile components for managing agent runtime metadata.
 - `crates/script`: a Rust-script runner that passes input JSON into a user-defined Rust `main` function, supports Cargo dependencies, and captures output.
+- `crates/script-gui`: reusable `egui` components and a native manager app for listing, viewing, registering, editing, and deleting scripts.
 - `crates/sandbox`: cross-platform policy models and OS-specific sandbox execution plans.
 - `crates/sandbox-registry`: named sandbox definitions and lookup logic backed by the `sandbox` policy model.
 - `crates/runtime`: the execution layer that turns input, sandbox policy, and a script or agent target into a captured run.
 - `crates/app`: an early application shell that depends on the shared core.
 - `crates/graph-viewer`: reusable native graph visualization primitives and a JSON graph viewer.
-- `crates/workflow-viewer`: a workflow visualization layer that converts `workflow` graphs into `graph-viewer` graphs.
+- `crates/workflow-gui`: reusable native workflow management components for listing, viewing, creating, editing, deleting, and graphing workflows.
 - `crates/node-gui`: a reusable `egui` node details component for inspecting node identity, description, and contract metadata.
 
 The product direction is broader than the first implementation: Manual is intended to become a local-first automation control plane for workflow graphs, agent routing, sandbox policies, run history, cost tracking, artifacts, and a localhost visualization surface.
@@ -97,16 +99,39 @@ Edges also accept `from` and `to` aliases:
 { "from": "a", "to": "b" }
 ```
 
-## Workflow Viewer
+## Workflow GUI
 
-`workflow-viewer` adapts validated `workflow::Workflow` values into the
-`manual-graph-viewer` graph model, preserving workflow node kinds, entry node
-labels, edge labels, and edge kinds for native visualization.
+`workflow-gui` adapts validated `workflow::Workflow` values into the
+`manual-graph-viewer` graph model and provides reusable `egui` components for
+workflow registry list, detail, create, edit, and delete pages.
 
-Run the bundled sample workflow viewer:
+Run the bundled sample workflow GUI through the app:
 
 ```sh
-cargo run -p workflow-viewer
+cargo run -p app -- --workflow-gui
+```
+
+## Script GUI
+
+`script-gui` provides a reusable `egui` component for managing
+`script-registry` entries. Embed `ScriptRegistryPanel` in another app by passing
+it a mutable `ScriptRegistry`, or run the file-backed manager through the app
+shell:
+
+```sh
+cargo run -p app -- --script-gui
+```
+
+## Agent GUI
+
+`agent-gui` provides a reusable `AgentManagerPanel` for agent profile list,
+detail, register, edit, and delete pages. It owns only GUI state, so app shells
+can embed it with their own persistence layer.
+
+Open the app directly on the agent manager:
+
+```sh
+cargo run -p app -- --agent-gui
 ```
 
 ## Node GUI

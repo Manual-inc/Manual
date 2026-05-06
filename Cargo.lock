@@ -119,6 +119,13 @@ name = "agent"
 version = "0.1.0"
 
 [[package]]
+name = "agent-gui"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -175,7 +182,23 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "app"
 version = "0.1.0"
 dependencies = [
+ "agent-gui",
+ "eframe",
+ "job",
+ "job-gui",
+ "job-registry",
  "manual-core",
+ "node",
+ "node-gui",
+ "sandbox",
+ "sandbox-gui",
+ "sandbox-registry",
+ "script",
+ "script-gui",
+ "script-registry",
+ "workflow",
+ "workflow-gui",
+ "workflow-registry",
 ]
 
 [[package]]
@@ -1623,6 +1646,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "job-gui"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "job",
+ "job-registry",
+ "node",
+ "workflow",
+]
+
+[[package]]
 name = "job-registry"
 version = "0.1.0"
 dependencies = [
@@ -2667,6 +2701,15 @@ name = "sandbox"
 version = "0.1.0"
 
 [[package]]
+name = "sandbox-gui"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "sandbox",
+ "sandbox-registry",
+]
+
+[[package]]
 name = "sandbox-registry"
 version = "0.1.0"
 dependencies = [
@@ -2690,6 +2733,15 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 [[package]]
 name = "script"
 version = "0.1.0"
+
+[[package]]
+name = "script-gui"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "script",
+ "script-registry",
+]
 
 [[package]]
 name = "script-registry"
@@ -4246,22 +4298,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "workflow-gui"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "manual-graph-viewer",
+ "node",
+ "workflow",
+ "workflow-registry",
+]
+
+[[package]]
 name = "workflow-registry"
 version = "0.1.0"
 dependencies = [
  "node",
  "serde",
  "toml",
- "workflow",
-]
-
-[[package]]
-name = "workflow-viewer"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "manual-graph-viewer",
- "node",
  "workflow",
 ]
 

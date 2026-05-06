@@ -6,17 +6,21 @@ members = [
     "crates/workflow-registry",
     "crates/job",
     "crates/job-registry",
+    "crates/job-gui",
     "crates/app",
     "crates/cli",
     "crates/skill",
     "crates/agent",
+    "crates/agent-gui",
     "crates/script",
     "crates/script-registry",
+    "crates/script-gui",
     "crates/sandbox",
     "crates/sandbox-registry",
+    "crates/sandbox-gui",
     "crates/runtime",
     "crates/graph-viewer",
-    "crates/workflow-viewer",
+    "crates/workflow-gui",
     "crates/node-gui",
 ]
 resolver = "3"
@@ -32,13 +36,17 @@ workflow = { path = "crates/workflow" }
 workflow_registry = { package = "workflow-registry", path = "crates/workflow-registry" }
 job = { path = "crates/job" }
 job_registry = { package = "job-registry", path = "crates/job-registry" }
+job_gui = { package = "job-gui", path = "crates/job-gui" }
 agent = { path = "crates/agent" }
+agent_gui = { package = "agent-gui", path = "crates/agent-gui" }
 script = { path = "crates/script" }
 script_registry = { package = "script-registry", path = "crates/script-registry" }
+script_gui = { package = "script-gui", path = "crates/script-gui" }
 sandbox = { path = "crates/sandbox" }
 sandbox_registry = { package = "sandbox-registry", path = "crates/sandbox-registry" }
+sandbox_gui = { package = "sandbox-gui", path = "crates/sandbox-gui" }
 runtime = { path = "crates/runtime" }
 cli = { path = "crates/cli" }
 manual_graph_viewer = { package = "manual-graph-viewer", path = "crates/graph-viewer" }
-workflow_viewer = { package = "workflow-viewer", path = "crates/workflow-viewer" }
+workflow_gui = { package = "workflow-gui", path = "crates/workflow-gui" }
 node_gui = { package = "node-gui", path = "crates/node-gui" }

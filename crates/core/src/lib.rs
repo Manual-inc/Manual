@@ -16,17 +16,22 @@ pub fn workspace_descriptor() -> WorkspaceDescriptor {
             "workflow-registry",
             "job",
             "job-registry",
+            "job-gui",
             "app",
             "cli",
             "skill",
             "agent",
+            "agent-gui",
             "script",
             "script-registry",
+            "script-gui",
             "sandbox",
             "sandbox-registry",
+            "sandbox-gui",
             "runtime",
             "graph-viewer",
-            "workflow-viewer",
+            "workflow-gui",
+            "node-gui",
         ],
     }
 }
@@ -49,17 +54,22 @@ mod tests {
                 "workflow-registry",
                 "job",
                 "job-registry",
+                "job-gui",
                 "app",
                 "cli",
                 "skill",
                 "agent",
+                "agent-gui",
                 "script",
                 "script-registry",
+                "script-gui",
                 "sandbox",
                 "sandbox-registry",
+                "sandbox-gui",
                 "runtime",
                 "graph-viewer",
-                "workflow-viewer"
+                "workflow-gui",
+                "node-gui"
             ]
         );
     }

@@ -113,6 +113,37 @@ impl SandboxRegistry {
         Ok(())
     }
 
+    pub fn update(
+        &mut self,
+        existing_id: impl Into<String>,
+        definition: SandboxDefinition,
+    ) -> Result<(), SandboxRegistryError> {
+        let existing_id = SandboxId::new(existing_id).map_err(SandboxRegistryError::InvalidId)?;
+
+        if !self.definitions.contains_key(&existing_id) {
+            return Err(SandboxRegistryError::UnknownId(existing_id));
+        }
+
+        if definition.id() != &existing_id && self.definitions.contains_key(definition.id()) {
+            return Err(SandboxRegistryError::DuplicateId(definition.id().clone()));
+        }
+
+        self.definitions.remove(&existing_id);
+        self.definitions.insert(definition.id().clone(), definition);
+        Ok(())
+    }
+
+    pub fn remove(
+        &mut self,
+        id: impl Into<String>,
+    ) -> Result<SandboxDefinition, SandboxRegistryError> {
+        let id = SandboxId::new(id).map_err(SandboxRegistryError::InvalidId)?;
+
+        self.definitions
+            .remove(&id)
+            .ok_or(SandboxRegistryError::UnknownId(id))
+    }
+
     pub fn resolve(
         &self,
         id: impl Into<String>,

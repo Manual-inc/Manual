@@ -17,12 +17,15 @@ The repository contains these workspace members:
 | `cli` | Thin command entrypoint with `about` and skill validation behavior. | Become the user and agent entrypoint for workflow, job, run, cost, artifact, sandbox, and serve commands. |
 | `skill` | Bundled skill template and delegation into the CLI validator. | Package Manual instructions so agents can create, validate, and run workflows through the CLI. |
 | `agent` | JSONL-oriented adapters for Codex and Claude Code. | Route workflow nodes into agent runtimes while keeping process handling uniform. |
+| `agent-gui` | Reusable native agent profile components. | Let app shells manage agent runtime metadata independently from process adapters. |
 | `script` | Rust source plus JSON input execution wrapper. | Run deterministic Rust snippets as workflow nodes while capturing stdout, stderr, and exit status. |
 | `sandbox` | Cross-platform sandbox policy model, backend detection, and execution plan compiler. | Enforce node boundaries with macOS Seatbelt, Linux bubblewrap/seccomp, and Windows restricted-token backends. |
 | `sandbox-registry` | Named sandbox definitions and lookup logic. | Let workflows and runners resolve sandbox references without coupling registry concerns into the sandbox runtime crate. |
 | `runtime` | Composes input, sandbox policy, and a script or agent target into an executed run. | Become the node execution layer used by jobs, cost capture, artifacts, and higher-level workflow orchestration. |
+| `graph-viewer` | Reusable native graph visualization primitives and a JSON graph viewer. | Provide the shared graph canvas for local workflow and run inspection surfaces. |
+| `workflow-gui` | Reusable workflow registry management components. | Let the app list, view, create, edit, delete, and graph workflow templates without coupling UI code into the workflow model. |
 | `node-gui` | Reusable `egui` node detail component. | Keep node inspection portable across native app shells and future localhost visualization surfaces. |
-| `app` | Minimal app shell that proves the core can be shared. | Become the local visualization or application surface, likely served by `manual serve`. |
+| `app` | Native application shell that embeds reusable GUI components. | Become the local visualization or application surface, likely served by `manual serve`. |
 
 ## Product Architecture
 
@@ -50,7 +53,8 @@ Manual should keep these concerns separate:
 - Workflow template lookup belongs in `workflow-registry`.
 - CLI parsing belongs in `cli`.
 - Skill packaging belongs in `skill`.
-- Visualization belongs in `app` or a future server crate.
+- Reusable visualization components belong in focused GUI crates such as `graph-viewer`, `workflow-gui`, and `node-gui`.
+- Application composition belongs in `app` or a future server crate.
 - Runtime adapter code belongs in `agent`.
 - Rust source execution belongs in `script`.
 - Sandbox policy modeling and backend plan compilation belong in `sandbox`.

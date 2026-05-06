@@ -54,6 +54,80 @@ fn registry_reports_unknown_sandbox_ids() {
 }
 
 #[test]
+fn registry_updates_existing_sandbox_definition() {
+    let mut registry = SandboxRegistry::new();
+    registry
+        .insert(SandboxDefinition::new("readonly", SandboxPolicy::read_only("/workspace")).unwrap())
+        .unwrap();
+
+    registry
+        .update(
+            "readonly",
+            SandboxDefinition::new(
+                "workspace-write",
+                SandboxPolicy::workspace_write("/workspace"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+    assert!(matches!(
+        registry.resolve("readonly").unwrap_err(),
+        SandboxRegistryError::UnknownId(id) if id.as_str() == "readonly"
+    ));
+    assert_eq!(
+        registry.resolve("workspace-write").unwrap().policy(),
+        &SandboxPolicy::workspace_write("/workspace")
+    );
+}
+
+#[test]
+fn registry_update_rejects_renames_to_existing_ids() {
+    let mut registry = SandboxRegistry::new();
+    registry
+        .insert(SandboxDefinition::new("readonly", SandboxPolicy::read_only("/workspace")).unwrap())
+        .unwrap();
+    registry
+        .insert(
+            SandboxDefinition::new(
+                "workspace-write",
+                SandboxPolicy::workspace_write("/workspace"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+    let error = registry
+        .update(
+            "readonly",
+            SandboxDefinition::new("workspace-write", SandboxPolicy::danger_full_access()).unwrap(),
+        )
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        SandboxRegistryError::DuplicateId(id) if id.as_str() == "workspace-write"
+    ));
+    assert_eq!(
+        registry.resolve("readonly").unwrap().policy(),
+        &SandboxPolicy::read_only("/workspace")
+    );
+}
+
+#[test]
+fn registry_removes_existing_sandbox_definition() {
+    let mut registry = SandboxRegistry::new();
+    registry
+        .insert(SandboxDefinition::new("readonly", SandboxPolicy::read_only("/workspace")).unwrap())
+        .unwrap();
+
+    let removed = registry.remove("readonly").unwrap();
+
+    assert_eq!(removed.id().as_str(), "readonly");
+    assert!(registry.is_empty());
+}
+
+#[test]
 fn sandbox_id_rejects_empty_or_whitespace_values() {
     assert!(SandboxId::new("").is_err());
     assert!(SandboxId::new("   ").is_err());

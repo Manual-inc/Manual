@@ -4,4 +4,20 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+agent_gui.workspace = true
+eframe = "=0.33.3"
+job.workspace = true
+job_gui.workspace = true
+job_registry.workspace = true
 manual_core.workspace = true
+node.workspace = true
+node_gui.workspace = true
+sandbox.workspace = true
+sandbox_gui.workspace = true
+sandbox_registry.workspace = true
+script.workspace = true
+script_gui.workspace = true
+script_registry.workspace = true
+workflow.workspace = true
+workflow_gui.workspace = true
+workflow_registry.workspace = true

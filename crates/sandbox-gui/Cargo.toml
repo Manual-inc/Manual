@@ -1,0 +1,13 @@
+[package]
+name = "sandbox-gui"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "sandbox_gui"
+path = "src/lib.rs"
+
+[dependencies]
+eframe = "=0.33.3"
+sandbox.workspace = true
+sandbox_registry.workspace = true

@@ -19,9 +19,7 @@ where
     match forwarded.get(1).map(String::as_str) {
         None => cli::run(["cli", "about"]),
         Some("template-path") => Ok(BUNDLED_SKILL_DIR.to_string()),
-        Some("validate-bundled") => {
-            cli::run(["cli", "validate-skill", BUNDLED_SKILL_DIR])
-        }
+        Some("validate-bundled") => cli::run(["cli", "validate-skill", BUNDLED_SKILL_DIR]),
         Some(_) => {
             forwarded[0] = "cli".to_string();
             let forwarded_refs = forwarded.iter().map(String::as_str).collect::<Vec<_>>();

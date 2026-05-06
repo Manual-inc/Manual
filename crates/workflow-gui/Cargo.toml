@@ -1,10 +1,10 @@
 [package]
-name = "workflow-viewer"
+name = "workflow-gui"
 version.workspace = true
 edition.workspace = true
 
 [lib]
-name = "workflow_viewer"
+name = "workflow_gui"
 path = "src/lib.rs"
 
 [dependencies]
@@ -12,3 +12,4 @@ eframe = "=0.33.3"
 manual_graph_viewer.workspace = true
 node.workspace = true
 workflow.workspace = true
+workflow_registry.workspace = true

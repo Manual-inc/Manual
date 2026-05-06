@@ -1,0 +1,13 @@
+[package]
+name = "script-gui"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "script_gui"
+path = "src/lib.rs"
+
+[dependencies]
+eframe = "=0.33.3"
+script.workspace = true
+script_registry.workspace = true

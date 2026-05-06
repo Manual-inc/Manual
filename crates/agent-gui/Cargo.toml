@@ -1,0 +1,11 @@
+[package]
+name = "agent-gui"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "agent_gui"
+path = "src/lib.rs"
+
+[dependencies]
+eframe = "=0.33.3"

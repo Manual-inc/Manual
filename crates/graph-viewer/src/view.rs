@@ -1,5 +1,5 @@
 use eframe::egui::{
-    self, vec2, Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2,
+    self, Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, vec2,
 };
 
 use crate::{Edge, Graph, GraphLayout, Node, PanOffset, SmoothZoom, ZoomLevel};
@@ -304,7 +304,7 @@ fn abbreviate(value: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eframe::egui::{pos2, CentralPanel, Context, RawInput, Shape};
+    use eframe::egui::{CentralPanel, Context, RawInput, Shape, pos2};
 
     fn sample_graph() -> Graph {
         Graph::from_json_str(
@@ -720,9 +720,10 @@ mod tests {
         assert!((north.x - 10.0).abs() < 0.0001);
         assert!((north.y - 25.0).abs() < 0.0001);
 
-        assert!(view
-            .screen_position(pos2(10.0, 20.0), 5.0, "missing", &layout)
-            .is_none());
+        assert!(
+            view.screen_position(pos2(10.0, 20.0), 5.0, "missing", &layout)
+                .is_none()
+        );
     }
 
     #[test]
