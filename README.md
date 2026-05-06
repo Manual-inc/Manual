@@ -28,3 +28,41 @@ node docs/build.mjs
 ```
 
 After running the build, publish the `docs/` directory with GitHub Pages.
+
+## Graph Viewer
+
+`manual-graph-viewer` is a native desktop graph viewer built with `egui/eframe`.
+It reads graph data from JSON, draws nodes and directed edges, and reloads the
+visualization automatically whenever the JSON file is saved.
+
+Run it with the sample graph:
+
+```sh
+cargo run -p manual-graph-viewer -- crates/graph-viewer/examples/sample_graph.json
+```
+
+Or pass your own JSON file:
+
+```sh
+cargo run -p manual-graph-viewer -- /path/to/graph.json
+```
+
+Expected JSON shape:
+
+```json
+{
+  "nodes": [
+    { "id": "a", "label": "Alpha", "color": "#4f8cff" },
+    { "id": "b" }
+  ],
+  "edges": [
+    { "source": "a", "target": "b", "label": "links to" }
+  ]
+}
+```
+
+Edges also accept `from` and `to` aliases:
+
+```json
+{ "from": "a", "to": "b" }
+```

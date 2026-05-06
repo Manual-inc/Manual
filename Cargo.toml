@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "app", "cli", "skill"]
+members = ["core", "app", "cli", "skill", "crates/graph-viewer"]
 resolver = "3"
 
 [workspace.package]

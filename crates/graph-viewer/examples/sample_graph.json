@@ -1,0 +1,16 @@
+{
+  "nodes": [
+    { "id": "manual", "label": "Manual", "color": "#4f8cff" },
+    { "id": "parser", "label": "JSON Parser", "color": "#41b883" },
+    { "id": "watcher", "label": "File Watcher", "color": "#e09f3e" },
+    { "id": "layout", "label": "Layout", "color": "#b565d9" },
+    { "id": "canvas", "label": "Canvas", "color": "#ef6461" }
+  ],
+  "edges": [
+    { "source": "manual", "target": "parser", "label": "loads" },
+    { "source": "watcher", "target": "parser", "label": "reloads" },
+    { "source": "parser", "target": "layout", "label": "nodes" },
+    { "source": "layout", "target": "canvas", "label": "positions" },
+    { "source": "parser", "target": "canvas", "label": "edges" }
+  ]
+}
