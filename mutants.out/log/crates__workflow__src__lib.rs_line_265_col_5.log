@@ -1,0 +1,197 @@
+
+*** crates/workflow/src/lib.rs:265:5: replace validate_graph -> Result<(), WorkflowError> with Ok(())
+
+*** mutation diff:
+--- crates/workflow/src/lib.rs
++++ replace validate_graph -> Result<(), WorkflowError> with Ok(())
+@@ -257,51 +257,10 @@
+ 
+ impl std::error::Error for WorkflowError {}
+ 
+ fn validate_graph(
+     entry_node: &NodeId,
+     nodes: &[Node],
+     edges: &[WorkflowEdge],
+ ) -> Result<(), WorkflowError> {
+-    if nodes.is_empty() {
+-        return Err(WorkflowError::EmptyGraph);
+-    }
+-
+-    let mut node_ids = BTreeSet::new();
+-
+-    for node in nodes {
+-        if !node_ids.insert(node.id.as_str().to_string()) {
+-            return Err(WorkflowError::DuplicateNode(node.id.to_string()));
+-        }
+-    }
+-
+-    if !node_ids.contains(entry_node.as_str()) {
+-        return Err(WorkflowError::MissingEntryNode(entry_node.to_string()));
+-    }
+-
+-    for (edge_index, edge) in edges.iter().enumerate() {
+-        if edge.source == edge.target {
+-            return Err(WorkflowError::SelfLoop {
+-                edge_index,
+-                node_id: edge.source.to_string(),
+-            });
+-        }
+-
+-        if !node_ids.contains(edge.source.as_str()) {
+-            return Err(WorkflowError::MissingEndpoint {
+-                edge_index,
+-                endpoint: "source",
+-                node_id: edge.source.to_string(),
+-            });
+-        }
+-
+-        if !node_ids.contains(edge.target.as_str()) {
+-            return Err(WorkflowError::MissingEndpoint {
+-                edge_index,
+-                endpoint: "target",
+-                node_id: edge.target.to_string(),
+-            });
+-        }
+-    }
+-
+-    Ok(())
++    Ok(()) /* ~ changed by cargo-mutants ~ */
+ }
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=workflow@0.1.0
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/node)
+       Dirty workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/workflow): the file `crates/workflow/src/lib.rs` has changed (1778057885.803275903s, 3s after last build at 1778057882.922990285s)
+   Compiling workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/workflow)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow --edition=2024 crates/workflow/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2012b3c4eb9d4337 -C extra-filename=-7bbe6559442a70d2 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow --edition=2024 crates/workflow/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2e7419a2ef4117ad -C extra-filename=-8f9285c1db0b2396 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rmeta`
+warning: unused import: `std::collections::BTreeSet`
+ --> crates/workflow/src/lib.rs:1:5
+  |
+1 | use std::collections::BTreeSet;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `entry_node`
+   --> crates/workflow/src/lib.rs:261:5
+    |
+261 |     entry_node: &NodeId,
+    |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_entry_node`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `nodes`
+   --> crates/workflow/src/lib.rs:262:5
+    |
+262 |     nodes: &[Node],
+    |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_nodes`
+
+warning: unused variable: `edges`
+   --> crates/workflow/src/lib.rs:263:5
+    |
+263 |     edges: &[WorkflowEdge],
+    |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_edges`
+
+warning: `workflow` (lib) generated 4 warnings (4 duplicates)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow_graph --edition=2024 crates/workflow/tests/workflow_graph.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=fbc7778101c51f4a -C extra-filename=-d9c5f6cd0f11218a --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib`
+warning: `workflow` (lib test) generated 4 warnings (run `cargo fix --lib -p workflow --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.32s
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/workflow-7bbe6559442a70d2`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/workflow_graph-d9c5f6cd0f11218a`
+
+*** result: Success
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --verbose --package=workflow@0.1.0
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/node)
+warning: unused import: `std::collections::BTreeSet`
+ --> crates/workflow/src/lib.rs:1:5
+  |
+1 | use std::collections::BTreeSet;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `entry_node`
+   --> crates/workflow/src/lib.rs:261:5
+    |
+261 |     entry_node: &NodeId,
+    |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_entry_node`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `nodes`
+   --> crates/workflow/src/lib.rs:262:5
+    |
+262 |     nodes: &[Node],
+    |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_nodes`
+
+warning: unused variable: `edges`
+   --> crates/workflow/src/lib.rs:263:5
+    |
+263 |     edges: &[WorkflowEdge],
+    |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_edges`
+
+warning: `workflow` (lib) generated 4 warnings (run `cargo fix --lib -p workflow` to apply 1 suggestion)
+       Fresh workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/workflow)
+warning: `workflow` (lib test) generated 4 warnings (4 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/workflow-7bbe6559442a70d2`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/workflow_graph-d9c5f6cd0f11218a`
+
+running 8 tests
+test parses_workflow_edge_kind_from_workflow_spec_identifier ... ok
+test workflow_edge_kind_uses_workflow_spec_identifiers ... ok
+test workflow_combines_nodes_into_a_task_graph ... ok
+test workflow_rejects_duplicate_node_ids ... FAILED
+test workflow_rejects_missing_entry_nodes ... FAILED
+test workflow_rejects_direct_self_loops ... FAILED
+test workflow_rejects_empty_graphs ... FAILED
+test workflow_rejects_graphs_with_missing_edge_endpoints ... FAILED
+
+failures:
+
+---- workflow_rejects_duplicate_node_ids stdout ----
+
+thread 'workflow_rejects_duplicate_node_ids' panicked at crates/workflow/tests/workflow_graph.rs:130:6:
+workflow should reject duplicate node ids: Workflow { id: "duplicate", name: "Duplicate workflow", goal: "Demonstrate duplicate node validation.", entry_node: NodeId("inspect"), nodes: [Node { id: NodeId("inspect"), kind: LlmTask, description: "Inspect the repository.", contract: NodeContract { inputs: [], outputs: [], sandbox: None, runtime: None, artifacts: [], acceptance: None } }, Node { id: NodeId("inspect"), kind: CodeTask, description: "Run a reproduction.", contract: NodeContract { inputs: [], outputs: [], sandbox: None, runtime: None, artifacts: [], acceptance: None } }], edges: [] }
+
+---- workflow_rejects_missing_entry_nodes stdout ----
+
+thread 'workflow_rejects_missing_entry_nodes' panicked at crates/workflow/tests/workflow_graph.rs:149:6:
+workflow should reject missing entry nodes: Workflow { id: "missing-entry", name: "Missing entry workflow", goal: "Demonstrate entry validation.", entry_node: NodeId("trigger"), nodes: [Node { id: NodeId("inspect"), kind: LlmTask, description: "Inspect the repository.", contract: NodeContract { inputs: [], outputs: [], sandbox: None, runtime: None, artifacts: [], acceptance: None } }], edges: [] }
+
+---- workflow_rejects_direct_self_loops stdout ----
+
+thread 'workflow_rejects_direct_self_loops' panicked at crates/workflow/tests/workflow_graph.rs:171:6:
+workflow should reject direct self-loops: Workflow { id: "self-loop", name: "Self-loop workflow", goal: "Demonstrate direct loop validation.", entry_node: NodeId("inspect"), nodes: [Node { id: NodeId("inspect"), kind: Loop, description: "Repeat bounded inspection.", contract: NodeContract { inputs: [], outputs: [], sandbox: None, runtime: None, artifacts: [], acceptance: None } }], edges: [WorkflowEdge { source: NodeId("inspect"), target: NodeId("inspect"), kind: LoopBack, label: None }] }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- workflow_rejects_empty_graphs stdout ----
+
+thread 'workflow_rejects_empty_graphs' panicked at crates/workflow/tests/workflow_graph.rs:109:6:
+workflow should reject empty graphs: Workflow { id: "empty", name: "Empty workflow", goal: "Demonstrate empty graph validation.", entry_node: NodeId("trigger"), nodes: [], edges: [] }
+
+---- workflow_rejects_graphs_with_missing_edge_endpoints stdout ----
+
+thread 'workflow_rejects_graphs_with_missing_edge_endpoints' panicked at crates/workflow/tests/workflow_graph.rs:83:6:
+workflow should reject edges pointing to missing nodes: Workflow { id: "broken", name: "Broken workflow", goal: "Demonstrate endpoint validation.", entry_node: NodeId("trigger"), nodes: [Node { id: NodeId("trigger"), kind: Trigger, description: "Receive the request.", contract: NodeContract { inputs: [], outputs: [], sandbox: None, runtime: None, artifacts: [], acceptance: None } }], edges: [WorkflowEdge { source: NodeId("trigger"), target: NodeId("missing"), kind: Sequence, label: None }] }
+
+
+failures:
+    workflow_rejects_direct_self_loops
+    workflow_rejects_duplicate_node_ids
+    workflow_rejects_empty_graphs
+    workflow_rejects_graphs_with_missing_edge_endpoints
+    workflow_rejects_missing_entry_nodes
+
+test result: FAILED. 3 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p workflow --test workflow_graph`
+
+*** result: Failure(101)

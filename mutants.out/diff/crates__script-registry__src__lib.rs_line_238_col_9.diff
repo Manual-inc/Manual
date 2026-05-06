@@ -1,0 +1,33 @@
+--- crates/script-registry/src/lib.rs
++++ replace <impl ScriptStore for FileScriptStore>::save -> Result<(), ScriptStoreError> with Ok(())
+@@ -230,29 +230,17 @@
+                 path: self.path.clone(),
+                 message: error.to_string(),
+             })?;
+ 
+         document.into_registry()
+     }
+ 
+     fn save(&self, registry: &ScriptRegistry) -> Result<(), ScriptStoreError> {
+-        let document = StoredScriptDocument::from_registry(registry);
+-        let contents =
+-            toml::to_string_pretty(&document).map_err(|error| ScriptStoreError::Encode {
+-                message: error.to_string(),
+-            })?;
+-
+-        if let Some(parent) = self.path.parent() {
+-            if !parent.as_os_str().is_empty() {
+-                fs::create_dir_all(parent).map_err(|error| ScriptStoreError::io(parent, error))?;
+-            }
+-        }
+-
+-        fs::write(&self.path, contents).map_err(|error| ScriptStoreError::io(&self.path, error))
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum ScriptStoreError {
+     Io { path: PathBuf, message: String },
+     Decode { path: PathBuf, message: String },
+     Encode { message: String },

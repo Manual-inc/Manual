@@ -1,0 +1,22 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptDefinition::with_dependency -> Self with Default::default()
+@@ -87,18 +87,17 @@
+         &self.rust_source
+     }
+ 
+     pub fn dependencies(&self) -> &[ScriptDependency] {
+         &self.dependencies
+     }
+ 
+     pub fn with_dependency(mut self, dependency: ScriptDependency) -> Self {
+-        self.dependencies.push(dependency);
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_dependencies<I>(mut self, dependencies: I) -> Self
+     where
+         I: IntoIterator<Item = ScriptDependency>,
+     {
+         self.dependencies.extend(dependencies);
+         self

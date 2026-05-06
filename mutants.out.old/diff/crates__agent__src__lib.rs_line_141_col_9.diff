@@ -1,0 +1,24 @@
+--- crates/agent/src/lib.rs
++++ replace JsonlChild::next_line -> io::Result<Option<String>> with Ok(None)
+@@ -133,20 +133,17 @@
+ #[derive(Debug)]
+ pub struct JsonlChild {
+     child: Child,
+     lines: JsonlLines<BufReader<ChildStdout>>,
+ }
+ 
+ impl JsonlChild {
+     pub fn next_line(&mut self) -> io::Result<Option<String>> {
+-        match self.lines.next() {
+-            Some(line) => line.map(Some),
+-            None => Ok(None),
+-        }
++        Ok(None) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn wait(mut self) -> io::Result<ExitStatus> {
+         self.child.wait()
+     }
+ }
+ 
+ impl Iterator for JsonlChild {

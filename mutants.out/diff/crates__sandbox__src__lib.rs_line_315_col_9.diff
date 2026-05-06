@@ -1,0 +1,42 @@
+--- crates/sandbox/src/lib.rs
++++ replace SandboxRunner::compile -> Result<CompiledSandboxPlan, SandboxError> with Ok(Default::default())
+@@ -307,38 +307,17 @@
+         backend_report(self.platform, self.backend_available)
+     }
+ 
+     pub fn compile(
+         &self,
+         command: &CommandSpec,
+         policy: &SandboxPolicy,
+     ) -> Result<CompiledSandboxPlan, SandboxError> {
+-        if policy.preset == SandboxPreset::DangerFullAccess {
+-            return Ok(CompiledSandboxPlan {
+-                backend: BackendReport {
+-                    platform: self.platform,
+-                    kind: BackendKind::Direct,
+-                    available: true,
+-                    detail: "sandbox disabled by explicit danger-full-access policy".to_string(),
+-                },
+-                program: command.program.clone(),
+-                args: command.args.clone(),
+-                current_dir: command.current_dir.clone(),
+-                env: command.env.clone(),
+-                stdin: command.stdin.clone(),
+-            });
+-        }
+-
+-        match self.platform {
+-            Platform::Macos => Ok(compile_macos(command, policy, self.backend_available)),
+-            Platform::Linux => Ok(compile_linux(command, policy, self.backend_available)),
+-            Platform::Windows => Ok(compile_windows(command, policy, self.backend_available)),
+-            Platform::Unsupported(os) => Err(SandboxError::UnsupportedPlatform(os.to_string())),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn run(
+         &self,
+         command: &CommandSpec,
+         policy: &SandboxPolicy,
+     ) -> Result<SandboxResult, SandboxError> {
+         let plan = self.compile(command, policy)?;

@@ -1,0 +1,21 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptDefinition::rust_source -> &str with "xyzzy"
+@@ -79,17 +79,17 @@
+         })
+     }
+ 
+     pub fn id(&self) -> &ScriptId {
+         &self.id
+     }
+ 
+     pub fn rust_source(&self) -> &str {
+-        &self.rust_source
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn dependencies(&self) -> &[ScriptDependency] {
+         &self.dependencies
+     }
+ 
+     pub fn with_dependency(mut self, dependency: ScriptDependency) -> Self {
+         self.dependencies.push(dependency);

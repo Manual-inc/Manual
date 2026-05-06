@@ -1,0 +1,21 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace SandboxRegistry::iter -> impl Iterator<Item =&SandboxDefinition> with ::std::iter::once(Box::leak(Box::new(Default::default())))
+@@ -132,17 +132,17 @@
+         self.definitions.len()
+     }
+ 
+     pub fn is_empty(&self) -> bool {
+         self.definitions.is_empty()
+     }
+ 
+     pub fn iter(&self) -> impl Iterator<Item = &SandboxDefinition> {
+-        self.definitions.values()
++        ::std::iter::once(Box::leak(Box::new(Default::default()))) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum SandboxRegistryError {
+     InvalidId(SandboxIdError),
+     DuplicateId(SandboxId),
+     UnknownId(SandboxId),

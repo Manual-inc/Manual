@@ -1,0 +1,28 @@
+--- crates/graph-viewer/src/app.rs
++++ replace GraphViewerApp::apply_pending_file_changes with ()
+@@ -56,24 +56,17 @@
+             Err(error) => {
+                 self.status = format!("Load error: {error}");
+                 self.last_error = Some(error.to_string());
+             }
+         }
+     }
+ 
+     fn apply_pending_file_changes(&mut self) {
+-        let mut changed = false;
+-        while self.change_rx.try_recv().is_ok() {
+-            changed = true;
+-        }
+-
+-        if changed {
+-            self.reload_graph();
+-        }
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn draw_toolbar(&mut self, ui: &mut Ui) {
+         ui.horizontal_wrapped(|ui| {
+             ui.strong("Manual Graph Viewer");
+             ui.separator();
+             ui.monospace(abbreviate(&self.graph_path.display().to_string(), 96))
+                 .on_hover_text(self.graph_path.display().to_string());

@@ -1,0 +1,21 @@
+--- crates/job-registry/src/lib.rs
++++ delete ! in <impl JobStore for FileJobStore>::load
+@@ -108,17 +108,17 @@
+ 
+     pub fn path(&self) -> &Path {
+         &self.path
+     }
+ }
+ 
+ impl JobStore for FileJobStore {
+     fn load(&self) -> Result<JobRegistry, JobStoreError> {
+-        if !self.path.exists() {
++        if  /* ~ changed by cargo-mutants ~ */self.path.exists() {
+             return Ok(JobRegistry::new());
+         }
+ 
+         let contents =
+             fs::read_to_string(&self.path).map_err(|error| JobStoreError::io(&self.path, error))?;
+         let document: StoredJobDocument =
+             toml::from_str(&contents).map_err(|error| JobStoreError::Decode {
+                 path: self.path.clone(),

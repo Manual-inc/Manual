@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/view.rs
++++ replace + with - in GraphView::ui
+@@ -106,17 +106,17 @@
+         draw_canvas_background(&painter, rect);
+ 
+         if graph.nodes().is_empty() {
+             draw_center_message(&painter, rect, "Empty graph");
+             return response;
+         }
+ 
+         let graph_rect = rect.shrink2(Vec2::new(64.0, 64.0));
+-        let center = graph_rect.center() + vec2(self.pan.x(), self.pan.y());
++        let center = graph_rect.center() - /* ~ changed by cargo-mutants ~ */ vec2(self.pan.x(), self.pan.y());
+         let scale =
+             graph_rect.width().min(graph_rect.height()) * 0.42 * self.zoom.displayed().value();
+ 
+         for edge in graph.edges() {
+             self.draw_edge(&painter, center, scale, edge, layout);
+         }
+ 
+         for node in graph.nodes() {

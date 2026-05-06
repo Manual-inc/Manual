@@ -1,0 +1,35 @@
+--- crates/agent/src/lib.rs
++++ replace AgentCommand::spawn_jsonl -> io::Result<JsonlChild> with Ok(Default::default())
+@@ -66,31 +66,17 @@
+         if let Some(current_dir) = &self.current_dir {
+             command.current_dir(current_dir);
+         }
+ 
+         command
+     }
+ 
+     pub fn spawn_jsonl(&self) -> io::Result<JsonlChild> {
+-        let mut command = self.to_std_command();
+-        command.stdin(Stdio::null());
+-        command.stdout(Stdio::piped());
+-        command.stderr(Stdio::inherit());
+-
+-        let mut child = command.spawn()?;
+-        let stdout = child
+-            .stdout
+-            .take()
+-            .ok_or_else(|| io::Error::other("agent command stdout was not piped"))?;
+-
+-        Ok(JsonlChild {
+-            child,
+-            lines: JsonlLines::new(BufReader::new(stdout)),
+-        })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug)]
+ pub struct JsonlLines<R> {
+     reader: R,
+     buffer: String,
+ }

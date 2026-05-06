@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace <impl fmt::Display for JobStatus>::fmt -> fmt::Result with Ok(Default::default())
+@@ -73,17 +73,17 @@
+             Self::Failed => "failed",
+             Self::Canceled => "canceled",
+         }
+     }
+ }
+ 
+ impl fmt::Display for JobStatus {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        f.write_str(self.as_str())
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+ pub enum NodeRunStatus {
+     Pending,
+     Ready,
+     Running,

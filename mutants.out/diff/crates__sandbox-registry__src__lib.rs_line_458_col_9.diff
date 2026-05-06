@@ -1,0 +1,25 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace <impl From<FilesystemAccess> for StoredFilesystemAccess>::from -> Self with Default::default()
+@@ -450,21 +450,17 @@
+ enum StoredFilesystemAccess {
+     Read,
+     Write,
+     None,
+ }
+ 
+ impl From<FilesystemAccess> for StoredFilesystemAccess {
+     fn from(value: FilesystemAccess) -> Self {
+-        match value {
+-            FilesystemAccess::Read => Self::Read,
+-            FilesystemAccess::Write => Self::Write,
+-            FilesystemAccess::None => Self::None,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl From<StoredFilesystemAccess> for FilesystemAccess {
+     fn from(value: StoredFilesystemAccess) -> Self {
+         match value {
+             StoredFilesystemAccess::Read => Self::Read,
+             StoredFilesystemAccess::Write => Self::Write,

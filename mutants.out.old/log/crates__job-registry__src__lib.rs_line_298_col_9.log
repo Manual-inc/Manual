@@ -1,0 +1,75 @@
+
+*** crates/job-registry/src/lib.rs:298:9: replace <impl From<StoredJobStatus> for JobStatus>::from -> Self with Default::default()
+
+*** mutation diff:
+--- crates/job-registry/src/lib.rs
++++ replace <impl From<StoredJobStatus> for JobStatus>::from -> Self with Default::default()
+@@ -290,23 +290,17 @@
+             JobStatus::Failed => Self::Failed,
+             JobStatus::Canceled => Self::Canceled,
+         }
+     }
+ }
+ 
+ impl From<StoredJobStatus> for JobStatus {
+     fn from(value: StoredJobStatus) -> Self {
+-        match value {
+-            StoredJobStatus::Created => Self::Created,
+-            StoredJobStatus::Running => Self::Running,
+-            StoredJobStatus::Succeeded => Self::Succeeded,
+-            StoredJobStatus::Failed => Self::Failed,
+-            StoredJobStatus::Canceled => Self::Canceled,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+ #[serde(rename_all = "snake_case")]
+ enum StoredNodeRunStatus {
+     Pending,
+     Ready,
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=job-registry@0.1.0
+       Fresh unicode-ident v1.0.24
+       Fresh hashbrown v0.17.0
+       Fresh equivalent v1.0.2
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/node)
+       Fresh toml_write v0.1.2
+       Fresh winnow v0.7.15
+       Fresh proc-macro2 v1.0.106
+       Fresh indexmap v2.14.0
+       Fresh workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/workflow)
+       Fresh quote v1.0.45
+       Fresh serde_core v1.0.228
+       Fresh job v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/job)
+       Fresh syn v2.0.117
+       Fresh serde_derive v1.0.228
+       Fresh serde v1.0.228
+       Fresh toml_datetime v0.6.11
+       Fresh serde_spanned v0.6.9
+       Fresh toml_edit v0.22.27
+       Fresh toml v0.8.23
+       Dirty job-registry v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/job-registry): couldn't read metadata for file `target/debug/deps/libjob_registry-1bee4245d242e5f5.rlib`
+   Compiling job-registry v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/job-registry)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job_registry --edition=2024 crates/job-registry/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=dc2a9318434d402c -C extra-filename=-1bee4245d242e5f5 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps --extern job=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libjob-989a3b77c2d83e11.rmeta --extern serde=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libserde-9d56c8f99faab1ce.rmeta --extern toml=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libtoml-3f2b5ed09ad10256.rmeta`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job_registry --edition=2024 crates/job-registry/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=079db504f57319a5 -C extra-filename=-43654634db541f6b --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps --extern job=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libjob-989a3b77c2d83e11.rlib --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern serde=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libserde-9d56c8f99faab1ce.rlib --extern toml=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libtoml-3f2b5ed09ad10256.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib`
+error[E0277]: the trait bound `JobStatus: Default` is not satisfied
+   --> crates/job-registry/src/lib.rs:298:9
+    |
+298 |         Default::default() /* ~ changed by cargo-mutants ~ */
+    |         ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `JobStatus`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `job-registry` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job_registry --edition=2024 crates/job-registry/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=079db504f57319a5 -C extra-filename=-43654634db541f6b --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps --extern job=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libjob-989a3b77c2d83e11.rlib --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern serde=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libserde-9d56c8f99faab1ce.rlib --extern toml=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libtoml-3f2b5ed09ad10256.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `job-registry` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job_registry --edition=2024 crates/job-registry/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=dc2a9318434d402c -C extra-filename=-1bee4245d242e5f5 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps --extern job=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libjob-989a3b77c2d83e11.rmeta --extern serde=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libserde-9d56c8f99faab1ce.rmeta --extern toml=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libtoml-3f2b5ed09ad10256.rmeta` (exit status: 1)
+
+*** result: Failure(101)

@@ -1,0 +1,34 @@
+--- crates/job-registry/src/lib.rs
++++ replace StoredJob::into_job -> Result<Job, JobStoreError> with Ok(Default::default())
+@@ -226,30 +226,17 @@
+             workflow_id: job.workflow_id().to_string(),
+             input_json: job.input_json().to_string(),
+             status: job.status().into(),
+             nodes: job.nodes().iter().map(StoredJobNode::from_node).collect(),
+         }
+     }
+ 
+     fn into_job(self) -> Result<Job, JobStoreError> {
+-        let nodes = self
+-            .nodes
+-            .into_iter()
+-            .map(StoredJobNode::into_node)
+-            .collect::<Result<Vec<_>, _>>()?;
+-
+-        Job::restore(
+-            self.id,
+-            self.workflow_id,
+-            self.input_json,
+-            self.status.into(),
+-            nodes,
+-        )
+-        .map_err(JobStoreError::Job)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct StoredJobNode {
+     node_id: String,
+     status: StoredNodeRunStatus,
+     attempts: u32,

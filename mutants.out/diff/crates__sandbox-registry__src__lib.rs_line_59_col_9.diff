@@ -1,0 +1,26 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace <impl fmt::Display for SandboxIdError>::fmt -> fmt::Result with Ok(Default::default())
+@@ -51,22 +51,17 @@
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum SandboxIdError {
+     Empty,
+     ContainsWhitespace(String),
+ }
+ 
+ impl fmt::Display for SandboxIdError {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        match self {
+-            Self::Empty => write!(f, "sandbox id cannot be empty"),
+-            Self::ContainsWhitespace(value) => {
+-                write!(f, "sandbox id cannot contain whitespace: {value}")
+-            }
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl std::error::Error for SandboxIdError {}
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct SandboxDefinition {
+     id: SandboxId,

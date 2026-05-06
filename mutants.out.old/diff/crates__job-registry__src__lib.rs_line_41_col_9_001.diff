@@ -1,0 +1,21 @@
+--- crates/job-registry/src/lib.rs
++++ replace JobRegistry::get_mut -> Option<&mut Job> with Some(Box::leak(Box::new(Default::default())))
+@@ -33,17 +33,17 @@
+         self.jobs.get(&id).ok_or(JobRegistryError::UnknownId(id))
+     }
+ 
+     pub fn get(&self, id: &JobId) -> Option<&Job> {
+         self.jobs.get(id)
+     }
+ 
+     pub fn get_mut(&mut self, id: &JobId) -> Option<&mut Job> {
+-        self.jobs.get_mut(id)
++        Some(Box::leak(Box::new(Default::default()))) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn remove(&mut self, id: &JobId) -> Option<Job> {
+         self.jobs.remove(id)
+     }
+ 
+     pub fn len(&self) -> usize {
+         self.jobs.len()

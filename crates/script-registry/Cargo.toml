@@ -1,0 +1,13 @@
+[package]
+name = "script-registry"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "script_registry"
+path = "src/lib.rs"
+
+[dependencies]
+script.workspace = true
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"

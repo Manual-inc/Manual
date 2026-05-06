@@ -1,0 +1,21 @@
+--- crates/workflow/src/lib.rs
++++ delete ! in validate_graph
+@@ -289,17 +289,17 @@
+         if !node_ids.contains(edge.source.as_str()) {
+             return Err(WorkflowError::MissingEndpoint {
+                 edge_index,
+                 endpoint: "source",
+                 node_id: edge.source.to_string(),
+             });
+         }
+ 
+-        if !node_ids.contains(edge.target.as_str()) {
++        if  /* ~ changed by cargo-mutants ~ */node_ids.contains(edge.target.as_str()) {
+             return Err(WorkflowError::MissingEndpoint {
+                 edge_index,
+                 endpoint: "target",
+                 node_id: edge.target.to_string(),
+             });
+         }
+     }
+ 

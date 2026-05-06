@@ -1,0 +1,21 @@
+--- crates/script/src/lib.rs
++++ replace ScriptWorkspace::path -> &Path with Box::leak(Box::new(Default::default()))
+@@ -308,17 +308,17 @@
+         ));
+ 
+         fs::create_dir(&path).map_err(to_io_error)?;
+ 
+         Ok(Self { path })
+     }
+ 
+     fn path(&self) -> &Path {
+-        &self.path
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Drop for ScriptWorkspace {
+     fn drop(&mut self) {
+         let _ = fs::remove_dir_all(&self.path);
+     }
+ }

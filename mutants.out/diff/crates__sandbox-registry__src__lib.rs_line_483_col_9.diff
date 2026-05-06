@@ -1,0 +1,23 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredNetworkPolicy::from_policy -> Self with Default::default()
+@@ -475,19 +475,17 @@
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct StoredNetworkPolicy {
+     mode: StoredNetworkMode,
+ }
+ 
+ impl StoredNetworkPolicy {
+     fn from_policy(policy: &NetworkPolicy) -> Self {
+-        Self {
+-            mode: policy.mode.into(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn into_policy(self) -> NetworkPolicy {
+         NetworkPolicy {
+             mode: self.mode.into(),
+         }
+     }
+ }

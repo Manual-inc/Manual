@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/view.rs
++++ replace GraphView::target_zoom -> ZoomLevel with Default::default()
+@@ -24,17 +24,17 @@
+         }
+     }
+ 
+     pub fn zoom(&self) -> ZoomLevel {
+         self.zoom.displayed()
+     }
+ 
+     pub fn target_zoom(&self) -> ZoomLevel {
+-        self.zoom.target()
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn zoom_mut(&mut self) -> &mut SmoothZoom {
+         &mut self.zoom
+     }
+ 
+     pub fn reset_zoom(&mut self) {
+         self.zoom.reset();

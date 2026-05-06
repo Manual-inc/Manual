@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/lib.rs
++++ replace > with < in ZoomLevel::zoom_by_scroll
+@@ -221,17 +221,17 @@
+         *self = Self::new(self.value * Self::STEP);
+     }
+ 
+     pub fn zoom_out(&mut self) {
+         *self = Self::new(self.value / Self::STEP);
+     }
+ 
+     pub fn zoom_by_scroll(&mut self, scroll_delta_y: f32) {
+-        if scroll_delta_y > 0.0 {
++        if scroll_delta_y < /* ~ changed by cargo-mutants ~ */ 0.0 {
+             self.zoom_in();
+         } else if scroll_delta_y < 0.0 {
+             self.zoom_out();
+         }
+     }
+ 
+     pub fn scaled_by(self, factor: f32) -> Self {
+         Self::new(self.value * factor)

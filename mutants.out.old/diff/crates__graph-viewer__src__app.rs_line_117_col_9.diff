@@ -1,0 +1,34 @@
+--- crates/graph-viewer/src/app.rs
++++ replace <impl eframe::App for GraphViewerApp>::update with ()
+@@ -109,30 +109,17 @@
+         };
+ 
+         self.view.ui(ui, graph, &self.layout);
+     }
+ }
+ 
+ impl eframe::App for GraphViewerApp {
+     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+-        self.apply_pending_file_changes();
+-
+-        egui::TopBottomPanel::top("graph_viewer_toolbar")
+-            .exact_height(42.0)
+-            .show(ctx, |ui| {
+-                ui.add_space(8.0);
+-                self.draw_toolbar(ui);
+-            });
+-
+-        egui::CentralPanel::default()
+-            .frame(egui::Frame::NONE)
+-            .show(ctx, |ui| {
+-                self.draw_graph(ui);
+-            });
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ fn watch_graph_file(
+     graph_path: &Path,
+     change_tx: Sender<()>,
+     egui_ctx: egui::Context,
+ ) -> notify::Result<RecommendedWatcher> {

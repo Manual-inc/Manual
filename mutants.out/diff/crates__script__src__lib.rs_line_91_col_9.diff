@@ -1,0 +1,21 @@
+--- crates/script/src/lib.rs
++++ replace ScriptOutput::success -> bool with true
+@@ -83,17 +83,17 @@
+ pub struct ScriptOutput {
+     pub stdout: String,
+     pub stderr: String,
+     pub exit_code: Option<i32>,
+ }
+ 
+ impl ScriptOutput {
+     pub fn success(&self) -> bool {
+-        self.exit_code == Some(0)
++        true /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum ScriptError {
+     Io(String),
+     CompileFailed {
+         stdout: String,

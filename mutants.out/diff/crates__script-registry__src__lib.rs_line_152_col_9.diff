@@ -1,0 +1,21 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptRegistry::get -> Option<&ScriptDefinition> with None
+@@ -144,17 +144,17 @@
+         let id = ScriptId::new(id).map_err(ScriptRegistryError::InvalidId)?;
+ 
+         self.scripts
+             .get(&id)
+             .ok_or(ScriptRegistryError::UnknownId(id))
+     }
+ 
+     pub fn get(&self, id: &ScriptId) -> Option<&ScriptDefinition> {
+-        self.scripts.get(id)
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn get_mut(&mut self, id: &ScriptId) -> Option<&mut ScriptDefinition> {
+         self.scripts.get_mut(id)
+     }
+ 
+     pub fn remove(&mut self, id: &ScriptId) -> Option<ScriptDefinition> {
+         self.scripts.remove(id)

@@ -1,0 +1,25 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredSandboxPolicy::into_policy -> SandboxPolicy with Default::default()
+@@ -324,21 +324,17 @@
+         Self {
+             preset: policy.preset.into(),
+             filesystem: StoredFilesystemPolicy::from_policy(&policy.filesystem),
+             network: StoredNetworkPolicy::from_policy(&policy.network),
+         }
+     }
+ 
+     fn into_policy(self) -> SandboxPolicy {
+-        SandboxPolicy {
+-            preset: self.preset.into(),
+-            filesystem: self.filesystem.into_policy(),
+-            network: self.network.into_policy(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+ #[serde(rename_all = "kebab-case")]
+ enum StoredSandboxPreset {
+     ReadOnly,
+     WorkspaceWrite,

@@ -1,0 +1,26 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredSandboxDocument::from_registry -> Self with Default::default()
+@@ -266,22 +266,17 @@
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct StoredSandboxDocument {
+     sandboxes: Vec<StoredSandboxDefinition>,
+ }
+ 
+ impl StoredSandboxDocument {
+     fn from_registry(registry: &SandboxRegistry) -> Self {
+-        Self {
+-            sandboxes: registry
+-                .iter()
+-                .map(StoredSandboxDefinition::from_definition)
+-                .collect(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn into_registry(self) -> Result<SandboxRegistry, SandboxStoreError> {
+         let mut registry = SandboxRegistry::new();
+ 
+         for definition in self.sandboxes {
+             registry
+                 .insert(definition.into_definition()?)

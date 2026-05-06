@@ -1,0 +1,28 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredFilesystemPolicy::into_policy -> FilesystemPolicy with Default::default()
+@@ -379,24 +379,17 @@
+                 .entries
+                 .iter()
+                 .map(StoredFilesystemEntry::from_entry)
+                 .collect(),
+         }
+     }
+ 
+     fn into_policy(self) -> FilesystemPolicy {
+-        FilesystemPolicy {
+-            mode: self.mode.into(),
+-            entries: self
+-                .entries
+-                .into_iter()
+-                .map(StoredFilesystemEntry::into_entry)
+-                .collect(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+ #[serde(rename_all = "kebab-case")]
+ enum StoredFilesystemMode {
+     Restricted,
+     Unrestricted,

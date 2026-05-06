@@ -1,0 +1,21 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptId::into_string -> String with String::new()
+@@ -26,17 +26,17 @@
+         Ok(Self(value))
+     }
+ 
+     pub fn as_str(&self) -> &str {
+         &self.0
+     }
+ 
+     pub fn into_string(self) -> String {
+-        self.0
++        String::new() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for ScriptId {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         f.write_str(&self.0)
+     }
+ }

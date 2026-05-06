@@ -1,0 +1,24 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptStoreError::io -> Self with Default::default()
+@@ -256,20 +256,17 @@
+     Io { path: PathBuf, message: String },
+     Decode { path: PathBuf, message: String },
+     Encode { message: String },
+     Registry(ScriptRegistryError),
+ }
+ 
+ impl ScriptStoreError {
+     fn io(path: &Path, error: std::io::Error) -> Self {
+-        Self::Io {
+-            path: path.to_path_buf(),
+-            message: error.to_string(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for ScriptStoreError {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         match self {
+             Self::Io { path, message } => {
+                 write!(

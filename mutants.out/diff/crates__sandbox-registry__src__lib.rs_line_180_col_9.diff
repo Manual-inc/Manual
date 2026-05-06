@@ -1,0 +1,26 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace FileSandboxStore::for_repository -> Self with Default::default()
+@@ -172,22 +172,17 @@
+ }
+ 
+ impl FileSandboxStore {
+     pub fn new(path: impl Into<PathBuf>) -> Self {
+         Self { path: path.into() }
+     }
+ 
+     pub fn for_repository(repository_root: impl AsRef<Path>) -> Self {
+-        Self::new(
+-            repository_root
+-                .as_ref()
+-                .join(".manual")
+-                .join("sandboxes.toml"),
+-        )
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn path(&self) -> &Path {
+         &self.path
+     }
+ }
+ 
+ impl SandboxStore for FileSandboxStore {

@@ -1,0 +1,33 @@
+--- crates/script-registry/src/lib.rs
++++ replace <impl ScriptStore for FileScriptStore>::load -> Result<ScriptRegistry, ScriptStoreError> with Ok(Default::default())
+@@ -214,29 +214,17 @@
+ 
+     pub fn path(&self) -> &Path {
+         &self.path
+     }
+ }
+ 
+ impl ScriptStore for FileScriptStore {
+     fn load(&self) -> Result<ScriptRegistry, ScriptStoreError> {
+-        if !self.path.exists() {
+-            return Ok(ScriptRegistry::new());
+-        }
+-
+-        let contents = fs::read_to_string(&self.path)
+-            .map_err(|error| ScriptStoreError::io(&self.path, error))?;
+-        let document: StoredScriptDocument =
+-            toml::from_str(&contents).map_err(|error| ScriptStoreError::Decode {
+-                path: self.path.clone(),
+-                message: error.to_string(),
+-            })?;
+-
+-        document.into_registry()
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn save(&self, registry: &ScriptRegistry) -> Result<(), ScriptStoreError> {
+         let document = StoredScriptDocument::from_registry(registry);
+         let contents =
+             toml::to_string_pretty(&document).map_err(|error| ScriptStoreError::Encode {
+                 message: error.to_string(),
+             })?;

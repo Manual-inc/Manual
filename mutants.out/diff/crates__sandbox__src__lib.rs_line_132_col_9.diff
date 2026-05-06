@@ -1,0 +1,31 @@
+--- crates/sandbox/src/lib.rs
++++ replace SandboxPolicy::workspace_write -> Self with Default::default()
+@@ -124,27 +124,17 @@
+             },
+             network: NetworkPolicy {
+                 mode: NetworkMode::Restricted,
+             },
+         }
+     }
+ 
+     pub fn workspace_write(workspace_root: impl Into<PathBuf>) -> Self {
+-        let workspace_root = workspace_root.into();
+-        Self {
+-            preset: SandboxPreset::WorkspaceWrite,
+-            filesystem: FilesystemPolicy {
+-                mode: FilesystemMode::Restricted,
+-                entries: workspace_entries(workspace_root, FilesystemAccess::Write),
+-            },
+-            network: NetworkPolicy {
+-                mode: NetworkMode::Restricted,
+-            },
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn danger_full_access() -> Self {
+         Self {
+             preset: SandboxPreset::DangerFullAccess,
+             filesystem: FilesystemPolicy {
+                 mode: FilesystemMode::Unrestricted,
+                 entries: Vec::new(),

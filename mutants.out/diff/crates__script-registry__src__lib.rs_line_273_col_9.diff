@@ -1,0 +1,36 @@
+--- crates/script-registry/src/lib.rs
++++ replace <impl fmt::Display for ScriptStoreError>::fmt -> fmt::Result with Ok(Default::default())
+@@ -265,32 +265,17 @@
+             path: path.to_path_buf(),
+             message: error.to_string(),
+         }
+     }
+ }
+ 
+ impl fmt::Display for ScriptStoreError {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        match self {
+-            Self::Io { path, message } => {
+-                write!(
+-                    f,
+-                    "script store I/O failed at {}: {message}",
+-                    path.display()
+-                )
+-            }
+-            Self::Decode { path, message } => write!(
+-                f,
+-                "script store failed to decode {}: {message}",
+-                path.display()
+-            ),
+-            Self::Encode { message } => write!(f, "script store failed to encode: {message}"),
+-            Self::Registry(error) => write!(f, "{error}"),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl std::error::Error for ScriptStoreError {}
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct StoredScriptDocument {
+     scripts: Vec<StoredScriptDefinition>,

@@ -1,0 +1,51 @@
+
+*** crates/workflow/src/lib.rs:102:9: replace WorkflowEdge::try_sequence -> Result<Self, NodeIdError> with Ok(Default::default())
+
+*** mutation diff:
+--- crates/workflow/src/lib.rs
++++ replace WorkflowEdge::try_sequence -> Result<Self, NodeIdError> with Ok(Default::default())
+@@ -94,17 +94,17 @@
+     pub fn sequence(source: impl Into<String>, target: impl Into<String>) -> Self {
+         Self::new(WorkflowEdgeKind::Sequence, source, target)
+     }
+ 
+     pub fn try_sequence(
+         source: impl Into<String>,
+         target: impl Into<String>,
+     ) -> Result<Self, NodeIdError> {
+-        Self::try_new(WorkflowEdgeKind::Sequence, source, target)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn branch(source: impl Into<String>, target: impl Into<String>) -> Self {
+         Self::new(WorkflowEdgeKind::Branch, source, target)
+     }
+ 
+     pub fn loop_back(source: impl Into<String>, target: impl Into<String>) -> Self {
+         Self::new(WorkflowEdgeKind::LoopBack, source, target)
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=workflow@0.1.0
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/node)
+       Dirty workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/workflow): the file `crates/workflow/src/lib.rs` has changed (1778057879.970539745s, 3s after last build at 1778057876.958079312s)
+   Compiling workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/workflow)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow --edition=2024 crates/workflow/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2012b3c4eb9d4337 -C extra-filename=-7bbe6559442a70d2 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow --edition=2024 crates/workflow/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2e7419a2ef4117ad -C extra-filename=-8f9285c1db0b2396 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rmeta`
+error[E0277]: the trait bound `WorkflowEdge: Default` is not satisfied
+   --> crates/workflow/src/lib.rs:102:12
+    |
+102 |         Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+    |            ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `WorkflowEdge`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `workflow` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow --edition=2024 crates/workflow/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2012b3c4eb9d4337 -C extra-filename=-7bbe6559442a70d2 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `workflow` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow --edition=2024 crates/workflow/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2e7419a2ef4117ad -C extra-filename=-8f9285c1db0b2396 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rmeta` (exit status: 1)
+
+*** result: Failure(101)

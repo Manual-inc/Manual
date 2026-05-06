@@ -1,0 +1,22 @@
+--- crates/node/src/lib.rs
++++ replace Node::with_output -> Self with Default::default()
+@@ -167,18 +167,17 @@
+     }
+ 
+     pub fn with_input(mut self, input: impl Into<String>) -> Self {
+         self.contract.inputs.push(input.into());
+         self
+     }
+ 
+     pub fn with_output(mut self, output: impl Into<String>) -> Self {
+-        self.contract.outputs.push(output.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_sandbox(mut self, sandbox: impl Into<String>) -> Self {
+         self.contract.sandbox = Some(sandbox.into());
+         self
+     }
+ 
+     pub fn with_runtime(mut self, runtime: impl Into<String>) -> Self {

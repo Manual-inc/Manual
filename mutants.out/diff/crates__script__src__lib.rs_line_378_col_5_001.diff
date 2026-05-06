@@ -1,0 +1,30 @@
+--- crates/script/src/lib.rs
++++ replace dependency_manifest_value -> String with "xyzzy".into()
+@@ -370,26 +370,17 @@
+         manifest.push('\n');
+     }
+ 
+     manifest.push_str("\n[workspace]\n");
+     manifest
+ }
+ 
+ fn dependency_manifest_value(dependency: &ScriptDependency) -> String {
+-    match &dependency.source {
+-        ScriptDependencySource::Version(version) => toml_string_literal(version),
+-        ScriptDependencySource::Path(path) => {
+-            format!(
+-                "{{ path = {} }}",
+-                toml_string_literal(&path.display().to_string())
+-            )
+-        }
+-        ScriptDependencySource::ManifestValue(value) => value.clone(),
+-    }
++    "xyzzy".into() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ fn rust_string_literal(value: &str) -> String {
+     quoted_string_literal(value)
+ }
+ 
+ fn toml_string_literal(value: &str) -> String {
+     quoted_string_literal(value)

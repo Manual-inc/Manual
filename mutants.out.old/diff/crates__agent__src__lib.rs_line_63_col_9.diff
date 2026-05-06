@@ -1,0 +1,28 @@
+--- crates/agent/src/lib.rs
++++ replace AgentCommand::to_std_command -> Command with Default::default()
+@@ -55,24 +55,17 @@
+         &self.args
+     }
+ 
+     pub fn current_dir(&self) -> Option<&Path> {
+         self.current_dir.as_deref()
+     }
+ 
+     pub fn to_std_command(&self) -> Command {
+-        let mut command = Command::new(&self.program);
+-        command.args(&self.args);
+-
+-        if let Some(current_dir) = &self.current_dir {
+-            command.current_dir(current_dir);
+-        }
+-
+-        command
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn spawn_jsonl(&self) -> io::Result<JsonlChild> {
+         let mut command = self.to_std_command();
+         command.stdin(Stdio::null());
+         command.stdout(Stdio::piped());
+         command.stderr(Stdio::inherit());
+ 

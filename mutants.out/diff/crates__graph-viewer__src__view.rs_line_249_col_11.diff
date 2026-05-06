@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/view.rs
++++ replace += with -= in draw_canvas_grid
+@@ -241,17 +241,17 @@
+     }
+ 
+     let mut y = rect.top();
+     while y <= rect.bottom() {
+         painter.line_segment(
+             [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
+             stroke,
+         );
+-        y += step;
++        y -= /* ~ changed by cargo-mutants ~ */ step;
+     }
+ }
+ 
+ fn draw_center_message(painter: &Painter, rect: Rect, message: &str) {
+     painter.text(
+         rect.center(),
+         Align2::CENTER_CENTER,
+         message,

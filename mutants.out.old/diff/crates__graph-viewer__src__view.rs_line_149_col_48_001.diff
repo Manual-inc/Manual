@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/view.rs
++++ replace * with / in GraphView::screen_position
+@@ -141,17 +141,17 @@
+         &self,
+         center: Pos2,
+         scale: f32,
+         node_id: &str,
+         layout: &GraphLayout,
+     ) -> Option<Pos2> {
+         layout
+             .position(node_id)
+-            .map(|point| center + vec2(point.x * scale, point.y * scale))
++            .map(|point| center + vec2(point.x / /* ~ changed by cargo-mutants ~ */ scale, point.y * scale))
+     }
+ 
+     fn draw_edge(
+         &self,
+         painter: &Painter,
+         center: Pos2,
+         scale: f32,
+         edge: &Edge,

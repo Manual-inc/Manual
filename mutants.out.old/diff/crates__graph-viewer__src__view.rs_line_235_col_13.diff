@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/view.rs
++++ replace <= with > in draw_canvas_grid
+@@ -227,17 +227,17 @@
+     painter.rect_filled(rect, 0.0, Color32::from_rgb(15, 18, 22));
+     draw_canvas_grid(painter, rect);
+ }
+ 
+ fn draw_canvas_grid(painter: &Painter, rect: Rect) {
+     let stroke = Stroke::new(1.0, Color32::from_rgb(25, 30, 36));
+     let step = 48.0;
+     let mut x = rect.left();
+-    while x <= rect.right() {
++    while x > /* ~ changed by cargo-mutants ~ */ rect.right() {
+         painter.line_segment(
+             [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
+             stroke,
+         );
+         x += step;
+     }
+ 
+     let mut y = rect.top();

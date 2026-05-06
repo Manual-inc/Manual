@@ -1,0 +1,178 @@
+crates/agent/src/lib.rs:51:9: replace AgentCommand::program -> &str with ""
+crates/agent/src/lib.rs:55:9: replace AgentCommand::args -> &[String] with Vec::leak(vec![String::new()])
+crates/agent/src/lib.rs:51:9: replace AgentCommand::program -> &str with "xyzzy"
+crates/agent/src/lib.rs:55:9: replace AgentCommand::args -> &[String] with Vec::leak(Vec::new())
+crates/agent/src/lib.rs:55:9: replace AgentCommand::args -> &[String] with Vec::leak(vec!["xyzzy".into()])
+crates/agent/src/lib.rs:59:9: replace AgentCommand::current_dir -> Option<&Path> with None
+crates/agent/src/lib.rs:117:9: replace <impl Iterator for JsonlLines<R>>::next -> Option<Self::Item> with None
+crates/agent/src/lib.rs:122:51: replace || with && in <impl Iterator for JsonlLines<R>>::next
+crates/agent/src/lib.rs:141:9: replace JsonlChild::next_line -> io::Result<Option<String>> with Ok(None)
+crates/agent/src/lib.rs:141:9: replace JsonlChild::next_line -> io::Result<Option<String>> with Ok(Some(String::new()))
+crates/agent/src/lib.rs:141:9: replace JsonlChild::next_line -> io::Result<Option<String>> with Ok(Some("xyzzy".into()))
+crates/agent/src/lib.rs:148:9: replace JsonlChild::wait -> io::Result<ExitStatus> with Ok(Default::default())
+crates/agent/src/lib.rs:156:9: replace <impl Iterator for JsonlChild>::next -> Option<Self::Item> with None
+crates/cli/src/lib.rs:32:5: replace run -> Result<String, CliError> with Ok(String::new())
+crates/cli/src/lib.rs:32:5: replace run -> Result<String, CliError> with Ok("xyzzy".into())
+crates/cli/src/lib.rs:47:5: replace about -> String with String::new()
+crates/cli/src/lib.rs:47:5: replace about -> String with "xyzzy".into()
+crates/job/src/lib.rs:25:9: replace JobId::as_str -> &str with ""
+crates/job/src/lib.rs:25:9: replace JobId::as_str -> &str with "xyzzy"
+crates/job/src/lib.rs:98:9: replace NodeRunStatus::as_str -> &'static str with ""
+crates/job/src/lib.rs:98:9: replace NodeRunStatus::as_str -> &'static str with "xyzzy"
+crates/job/src/lib.rs:110:9: replace NodeRunStatus::is_success_terminal -> bool with true
+crates/job/src/lib.rs:110:9: replace NodeRunStatus::is_success_terminal -> bool with false
+crates/job/src/lib.rs:116:9: replace <impl fmt::Display for NodeRunStatus>::fmt -> fmt::Result with Ok(Default::default())
+crates/job/src/lib.rs:221:9: replace Job::workflow_id -> &str with ""
+crates/job/src/lib.rs:221:9: replace Job::workflow_id -> &str with "xyzzy"
+crates/job/src/lib.rs:225:9: replace Job::input_json -> &str with ""
+crates/job/src/lib.rs:225:9: replace Job::input_json -> &str with "xyzzy"
+crates/job/src/lib.rs:233:9: replace Job::nodes -> &[JobNode] with Vec::leak(Vec::new())
+crates/job/src/lib.rs:237:9: replace Job::node_status -> Option<NodeRunStatus> with None
+crates/job/src/lib.rs:239:48: replace == with != in Job::node_status
+crates/job/src/lib.rs:244:9: replace Job::mark_node_ready -> Result<(), JobError> with Ok(())
+crates/job/src/lib.rs:248:9: replace Job::start_node -> Result<(), JobError> with Ok(())
+crates/job/src/lib.rs:252:9: replace Job::succeed_node -> Result<(), JobError> with Ok(())
+crates/job/src/lib.rs:264:9: replace Job::transition_node -> Result<(), JobError> with Ok(())
+crates/job/src/lib.rs:272:12: delete ! in Job::transition_node
+crates/job/src/lib.rs:268:39: replace == with != in Job::transition_node
+crates/job/src/lib.rs:282:27: replace += with -= in Job::transition_node
+crates/job/src/lib.rs:290:9: replace Job::refresh_status with ()
+crates/job/src/lib.rs:293:37: replace == with != in Job::refresh_status
+crates/job/src/lib.rs:320:5: replace valid_node_transition -> bool with true
+crates/job/src/lib.rs:320:5: replace valid_node_transition -> bool with false
+crates/job/src/lib.rs:343:9: replace <impl fmt::Display for JobError>::fmt -> fmt::Result with Ok(Default::default())
+crates/job-registry/src/lib.rs:22:9: replace JobRegistry::insert -> Result<(), JobRegistryError> with Ok(())
+crates/job-registry/src/lib.rs:49:9: replace JobRegistry::len -> usize with 1
+crates/job-registry/src/lib.rs:49:9: replace JobRegistry::len -> usize with 0
+crates/job-registry/src/lib.rs:53:9: replace JobRegistry::is_empty -> bool with false
+crates/job-registry/src/lib.rs:57:9: replace JobRegistry::iter -> impl Iterator<Item =&Job> with ::std::iter::empty()
+crates/job-registry/src/lib.rs:64:9: replace JobRegistry::jobs_for_workflow -> impl Iterator<Item =&'a Job>+'a with ::std::iter::empty()
+crates/job-registry/src/lib.rs:66:50: replace == with != in JobRegistry::jobs_for_workflow
+crates/job-registry/src/lib.rs:79:9: replace <impl fmt::Display for JobRegistryError>::fmt -> fmt::Result with Ok(Default::default())
+crates/job-registry/src/lib.rs:116:9: replace <impl JobStore for FileJobStore>::load -> Result<JobRegistry, JobStoreError> with Ok(Default::default())
+crates/job-registry/src/lib.rs:116:12: delete ! in <impl JobStore for FileJobStore>::load
+crates/job-registry/src/lib.rs:132:9: replace <impl JobStore for FileJobStore>::save -> Result<(), JobStoreError> with Ok(())
+crates/job-registry/src/lib.rs:139:16: delete ! in <impl JobStore for FileJobStore>::save
+crates/job-registry/src/lib.rs:201:9: replace StoredJobDocument::into_registry -> Result<JobRegistry, JobStoreError> with Ok(Default::default())
+crates/graph-viewer/src/lib.rs:102:9: replace Graph::nodes -> &[Node] with Vec::leak(Vec::new())
+crates/graph-viewer/src/lib.rs:106:9: replace Graph::edges -> &[Edge] with Vec::leak(Vec::new())
+crates/graph-viewer/src/lib.rs:111:5: replace validate_graph -> Result<(), GraphLoadError> with Ok(())
+crates/graph-viewer/src/lib.rs:114:12: delete ! in validate_graph
+crates/graph-viewer/src/lib.rs:29:9: replace <impl fmt::Display for GraphLoadError>::fmt -> fmt::Result with Ok(Default::default())
+crates/graph-viewer/src/lib.rs:120:12: delete ! in validate_graph
+crates/graph-viewer/src/lib.rs:128:12: delete ! in validate_graph
+crates/graph-viewer/src/lib.rs:159:9: replace GraphLayout::position -> Option<Point> with None
+crates/graph-viewer/src/lib.rs:167:19: replace == with != in circular_layout
+crates/graph-viewer/src/lib.rs:171:19: replace == with != in circular_layout
+crates/graph-viewer/src/lib.rs:177:40: replace / with % in circular_layout
+crates/graph-viewer/src/lib.rs:177:40: replace / with * in circular_layout
+crates/graph-viewer/src/lib.rs:177:25: replace * with + in circular_layout
+crates/graph-viewer/src/lib.rs:177:25: replace * with / in circular_layout
+crates/graph-viewer/src/lib.rs:213:9: replace ZoomLevel::value -> f32 with 0.0
+crates/graph-viewer/src/lib.rs:213:9: replace ZoomLevel::value -> f32 with 1.0
+crates/graph-viewer/src/lib.rs:213:9: replace ZoomLevel::value -> f32 with -1.0
+crates/graph-viewer/src/lib.rs:217:9: replace ZoomLevel::percent -> u32 with 0
+crates/graph-viewer/src/lib.rs:217:9: replace ZoomLevel::percent -> u32 with 1
+crates/graph-viewer/src/lib.rs:217:21: replace * with + in ZoomLevel::percent
+crates/graph-viewer/src/lib.rs:217:21: replace * with / in ZoomLevel::percent
+crates/graph-viewer/src/lib.rs:221:9: replace ZoomLevel::zoom_in with ()
+crates/graph-viewer/src/lib.rs:221:38: replace * with + in ZoomLevel::zoom_in
+crates/graph-viewer/src/lib.rs:221:38: replace * with / in ZoomLevel::zoom_in
+crates/graph-viewer/src/lib.rs:225:9: replace ZoomLevel::zoom_out with ()
+crates/graph-viewer/src/lib.rs:225:38: replace / with % in ZoomLevel::zoom_out
+crates/graph-viewer/src/lib.rs:225:38: replace / with * in ZoomLevel::zoom_out
+crates/graph-viewer/src/lib.rs:229:9: replace ZoomLevel::zoom_by_scroll with ()
+crates/graph-viewer/src/lib.rs:229:27: replace > with == in ZoomLevel::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:229:27: replace > with < in ZoomLevel::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:229:27: replace > with >= in ZoomLevel::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:231:34: replace < with == in ZoomLevel::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:231:34: replace < with > in ZoomLevel::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:231:34: replace < with <= in ZoomLevel::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:237:9: replace ZoomLevel::scaled_by -> Self with Default::default()
+crates/graph-viewer/src/lib.rs:237:30: replace * with + in ZoomLevel::scaled_by
+crates/graph-viewer/src/lib.rs:237:30: replace * with / in ZoomLevel::scaled_by
+crates/graph-viewer/src/lib.rs:241:9: replace ZoomLevel::lerp_toward -> Self with Default::default()
+crates/graph-viewer/src/lib.rs:242:30: replace + with * in ZoomLevel::lerp_toward
+crates/graph-viewer/src/lib.rs:242:60: replace * with + in ZoomLevel::lerp_toward
+crates/graph-viewer/src/lib.rs:242:30: replace + with - in ZoomLevel::lerp_toward
+crates/graph-viewer/src/lib.rs:242:46: replace - with + in ZoomLevel::lerp_toward
+crates/graph-viewer/src/lib.rs:242:60: replace * with / in ZoomLevel::lerp_toward
+crates/graph-viewer/src/lib.rs:242:46: replace - with / in ZoomLevel::lerp_toward
+crates/graph-viewer/src/lib.rs:246:9: replace ZoomLevel::reset with ()
+crates/graph-viewer/src/lib.rs:273:9: replace SmoothZoom::displayed -> ZoomLevel with Default::default()
+crates/graph-viewer/src/lib.rs:281:9: replace SmoothZoom::zoom_in with ()
+crates/graph-viewer/src/lib.rs:277:9: replace SmoothZoom::target -> ZoomLevel with Default::default()
+crates/graph-viewer/src/lib.rs:285:9: replace SmoothZoom::zoom_out with ()
+crates/graph-viewer/src/lib.rs:289:9: replace SmoothZoom::zoom_by_scroll with ()
+crates/graph-viewer/src/lib.rs:289:27: replace == with != in SmoothZoom::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:293:38: replace * with + in SmoothZoom::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:293:38: replace * with / in SmoothZoom::zoom_by_scroll
+crates/graph-viewer/src/lib.rs:298:9: replace SmoothZoom::reset with ()
+crates/graph-viewer/src/lib.rs:302:9: replace SmoothZoom::jump_to_target with ()
+crates/graph-viewer/src/lib.rs:306:9: replace SmoothZoom::advance -> bool with true
+crates/graph-viewer/src/lib.rs:306:9: replace SmoothZoom::advance -> bool with false
+crates/graph-viewer/src/lib.rs:308:55: replace <= with > in SmoothZoom::advance
+crates/graph-viewer/src/lib.rs:308:26: replace - with + in SmoothZoom::advance
+crates/graph-viewer/src/lib.rs:336:9: replace PanOffset::x -> f32 with 0.0
+crates/graph-viewer/src/lib.rs:308:26: replace - with / in SmoothZoom::advance
+crates/graph-viewer/src/lib.rs:336:9: replace PanOffset::x -> f32 with 1.0
+crates/graph-viewer/src/lib.rs:336:9: replace PanOffset::x -> f32 with -1.0
+crates/graph-viewer/src/lib.rs:340:9: replace PanOffset::y -> f32 with 0.0
+crates/graph-viewer/src/lib.rs:340:9: replace PanOffset::y -> f32 with 1.0
+crates/graph-viewer/src/lib.rs:340:9: replace PanOffset::y -> f32 with -1.0
+crates/graph-viewer/src/lib.rs:344:9: replace PanOffset::pan_by with ()
+crates/graph-viewer/src/lib.rs:344:16: replace += with -= in PanOffset::pan_by
+crates/graph-viewer/src/lib.rs:344:16: replace += with *= in PanOffset::pan_by
+crates/graph-viewer/src/lib.rs:345:16: replace += with -= in PanOffset::pan_by
+crates/graph-viewer/src/lib.rs:345:16: replace += with *= in PanOffset::pan_by
+crates/graph-viewer/src/lib.rs:349:9: replace PanOffset::reset with ()
+crates/graph-viewer/src/app.rs:45:9: replace GraphViewerApp::reload_graph with ()
+crates/graph-viewer/src/app.rs:64:9: replace GraphViewerApp::apply_pending_file_changes with ()
+crates/graph-viewer/src/app.rs:106:9: replace GraphViewerApp::draw_graph with ()
+crates/graph-viewer/src/app.rs:75:9: replace GraphViewerApp::draw_toolbar with ()
+crates/graph-viewer/src/app.rs:117:9: replace <impl eframe::App for GraphViewerApp>::update with ()
+crates/graph-viewer/src/app.rs:151:5: replace watch_dir_for_graph_path -> PathBuf with Default::default()
+crates/graph-viewer/src/app.rs:153:24: delete ! in watch_dir_for_graph_path
+crates/graph-viewer/src/app.rs:164:5: replace handle_watch_event with ()
+crates/graph-viewer/src/app.rs:165:22: replace match guard event_touches_path(&event, watched_file) with true in handle_watch_event
+crates/graph-viewer/src/app.rs:165:22: replace match guard event_touches_path(&event, watched_file) with false in handle_watch_event
+crates/graph-viewer/src/app.rs:174:5: replace event_touches_path -> bool with true
+crates/graph-viewer/src/app.rs:174:5: replace event_touches_path -> bool with false
+crates/graph-viewer/src/app.rs:174:40: replace == with != in event_touches_path
+crates/graph-viewer/src/app.rs:178:5: replace absolute_path -> PathBuf with Default::default()
+crates/graph-viewer/src/app.rs:188:5: replace abbreviate -> String with String::new()
+crates/graph-viewer/src/app.rs:188:5: replace abbreviate -> String with "xyzzy".into()
+crates/graph-viewer/src/view.rs:21:9: replace GraphView::with_zoom -> Self with Default::default()
+crates/graph-viewer/src/view.rs:28:9: replace GraphView::zoom -> ZoomLevel with Default::default()
+crates/graph-viewer/src/view.rs:32:9: replace GraphView::target_zoom -> ZoomLevel with Default::default()
+crates/graph-viewer/src/view.rs:36:9: replace GraphView::zoom_mut -> &mut SmoothZoom with Box::leak(Box::new(Default::default()))
+crates/graph-viewer/src/view.rs:40:9: replace GraphView::reset_zoom with ()
+crates/graph-viewer/src/view.rs:44:9: replace GraphView::pan -> PanOffset with Default::default()
+crates/graph-viewer/src/view.rs:48:9: replace GraphView::pan_mut -> &mut PanOffset with Box::leak(Box::new(Default::default()))
+crates/graph-viewer/src/view.rs:56:9: replace GraphView::zoom_controls with ()
+crates/graph-viewer/src/view.rs:52:9: replace GraphView::reset_pan with ()
+crates/graph-viewer/src/view.rs:114:42: replace + with - in GraphView::ui
+crates/graph-viewer/src/view.rs:116:64: replace * with + in GraphView::ui
+crates/graph-viewer/src/view.rs:116:64: replace * with / in GraphView::ui
+crates/graph-viewer/src/view.rs:116:57: replace * with / in GraphView::ui
+crates/graph-viewer/src/view.rs:116:57: replace * with + in GraphView::ui
+crates/graph-viewer/src/view.rs:147:9: replace GraphView::screen_position -> Option<Pos2> with None
+crates/graph-viewer/src/view.rs:147:9: replace GraphView::screen_position -> Option<Pos2> with Some(Default::default())
+crates/graph-viewer/src/view.rs:149:33: replace + with - in GraphView::screen_position
+crates/graph-viewer/src/view.rs:149:48: replace * with / in GraphView::screen_position
+crates/graph-viewer/src/view.rs:149:48: replace * with + in GraphView::screen_position
+crates/graph-viewer/src/view.rs:149:65: replace * with + in GraphView::screen_position
+crates/graph-viewer/src/view.rs:149:65: replace * with / in GraphView::screen_position
+crates/graph-viewer/src/view.rs:160:9: replace GraphView::draw_edge with ()
+crates/graph-viewer/src/view.rs:174:26: replace + with - in GraphView::draw_edge
+crates/graph-viewer/src/view.rs:174:38: delete - in GraphView::draw_edge
+crates/graph-viewer/src/view.rs:191:9: replace GraphView::draw_node with ()
+crates/graph-viewer/src/view.rs:208:22: replace + with - in GraphView::draw_node
+crates/graph-viewer/src/view.rs:208:46: replace + with - in GraphView::draw_node
+crates/graph-viewer/src/view.rs:208:46: replace + with * in GraphView::draw_node
+crates/graph-viewer/src/view.rs:227:5: replace draw_canvas_background with ()
+crates/graph-viewer/src/view.rs:232:5: replace draw_canvas_grid with ()
+crates/graph-viewer/src/view.rs:235:13: replace <= with > in draw_canvas_grid
+crates/graph-viewer/src/view.rs:244:13: replace <= with > in draw_canvas_grid
+crates/graph-viewer/src/view.rs:249:11: replace += with *= in draw_canvas_grid
+crates/graph-viewer/src/view.rs:254:5: replace draw_center_message with ()

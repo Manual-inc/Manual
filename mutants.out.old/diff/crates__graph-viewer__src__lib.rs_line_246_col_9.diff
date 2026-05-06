@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/lib.rs
++++ replace ZoomLevel::reset with ()
+@@ -238,17 +238,17 @@
+     }
+ 
+     pub fn lerp_toward(self, target: Self, amount: f32) -> Self {
+         let amount = amount.clamp(0.0, 1.0);
+         Self::new(self.value + (target.value - self.value) * amount)
+     }
+ 
+     pub fn reset(&mut self) {
+-        *self = Self::default();
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Default for ZoomLevel {
+     fn default() -> Self {
+         Self { value: 1.0 }
+     }
+ }

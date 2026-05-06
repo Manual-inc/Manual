@@ -1,0 +1,28 @@
+--- crates/agent/src/codex.rs
++++ replace jsonl_command -> AgentCommand with Default::default()
+@@ -47,24 +47,10 @@
+     AgentCommand::new("codex").arg("-h")
+ }
+ 
+ pub fn exec_help_command() -> AgentCommand {
+     AgentCommand::new("codex").with_args(["exec", "-h"])
+ }
+ 
+ pub fn jsonl_command(request: CodexRequest) -> AgentCommand {
+-    let mut command = AgentCommand::new("codex").with_args(["exec", "--json"]);
+-
+-    if let Some(model) = request.model {
+-        command = command.arg("--model").arg(model);
+-    }
+-
+-    if let Some(sandbox) = request.sandbox {
+-        command = command.arg("--sandbox").arg(sandbox);
+-    }
+-
+-    if let Some(workdir) = request.workdir {
+-        command = command.arg("--cd").arg(workdir.display().to_string());
+-    }
+-
+-    command.with_args(request.extra_args).arg(request.prompt)
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }

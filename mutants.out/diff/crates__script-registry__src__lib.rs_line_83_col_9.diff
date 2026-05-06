@@ -1,0 +1,21 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptDefinition::id -> &ScriptId with Box::leak(Box::new(Default::default()))
+@@ -75,17 +75,17 @@
+         Ok(Self {
+             id: ScriptId::new(id).map_err(ScriptRegistryError::InvalidId)?,
+             rust_source: rust_source.into(),
+             dependencies: Vec::new(),
+         })
+     }
+ 
+     pub fn id(&self) -> &ScriptId {
+-        &self.id
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn rust_source(&self) -> &str {
+         &self.rust_source
+     }
+ 
+     pub fn dependencies(&self) -> &[ScriptDependency] {
+         &self.dependencies

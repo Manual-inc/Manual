@@ -1,0 +1,70 @@
+
+*** crates/job/src/lib.rs:281:15: replace == with != in Job::transition_node
+
+*** mutation diff:
+--- crates/job/src/lib.rs
++++ replace == with != in Job::transition_node
+@@ -273,17 +273,17 @@
+             return Err(JobError::InvalidNodeTransition {
+                 node_id: node_id.to_string(),
+                 from,
+                 to,
+             });
+         }
+ 
+         node.status = to;
+-        if to == NodeRunStatus::Running {
++        if to != /* ~ changed by cargo-mutants ~ */ NodeRunStatus::Running {
+             node.attempts += 1;
+         }
+         self.refresh_status();
+ 
+         Ok(())
+     }
+ 
+     fn refresh_status(&mut self) {
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=job@0.1.0
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/node)
+       Fresh workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/workflow)
+       Dirty job v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/job): the file `crates/job/src/lib.rs` has changed (1778057580.745086569s, 3s after last build at 1778057577.980756405s)
+   Compiling job v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/job)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job --edition=2024 crates/job/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=08269f022a7d2b2e -C extra-filename=-551c083093ecebc5 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job --edition=2024 crates/job/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a6a479581596090d -C extra-filename=-989a3b77c2d83e11 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rmeta --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rmeta`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job_lifecycle --edition=2024 crates/job/tests/job_lifecycle.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=700116fcd3ec61b1 -C extra-filename=-22bf3541b52d087f --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern job=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libjob-989a3b77c2d83e11.rlib --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/job-551c083093ecebc5`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/job_lifecycle-22bf3541b52d087f`
+
+*** result: Success
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --verbose --package=job@0.1.0
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/node)
+       Fresh workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/workflow)
+       Fresh job v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/job)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/job-551c083093ecebc5`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/job_lifecycle-22bf3541b52d087f`
+
+running 3 tests
+test job_rejects_unknown_nodes_and_invalid_transitions ... ok
+test job_records_node_execution_state_for_one_workflow_run ... ok
+test jobs_instantiate_from_workflow_templates_independently ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests job
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustdoc --edition=2024 --crate-type lib --color auto --crate-name job --test crates/job/src/lib.rs --test-run-directory /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/crates/job -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps --extern job=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libjob-989a3b77c2d83e11.rlib --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-VgEIDy.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' --error-format human`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+*** result: Success

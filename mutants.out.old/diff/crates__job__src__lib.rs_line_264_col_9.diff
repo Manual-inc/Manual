@@ -1,0 +1,43 @@
+--- crates/job/src/lib.rs
++++ replace Job::transition_node -> Result<(), JobError> with Ok(())
+@@ -256,39 +256,17 @@
+         self.transition_node(node_id, NodeRunStatus::Failed)
+     }
+ 
+     fn transition_node(
+         &mut self,
+         node_id: impl Into<String>,
+         to: NodeRunStatus,
+     ) -> Result<(), JobError> {
+-        let node_id = NodeId::new(node_id).map_err(JobError::InvalidNodeId)?;
+-        let node = self
+-            .nodes
+-            .iter_mut()
+-            .find(|node| node.node_id == node_id)
+-            .ok_or_else(|| JobError::UnknownNode(node_id.to_string()))?;
+-        let from = node.status;
+-
+-        if !valid_node_transition(from, to) {
+-            return Err(JobError::InvalidNodeTransition {
+-                node_id: node_id.to_string(),
+-                from,
+-                to,
+-            });
+-        }
+-
+-        node.status = to;
+-        if to == NodeRunStatus::Running {
+-            node.attempts += 1;
+-        }
+-        self.refresh_status();
+-
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn refresh_status(&mut self) {
+         if self
+             .nodes
+             .iter()
+             .any(|node| node.status == NodeRunStatus::Failed)
+         {

@@ -1,0 +1,21 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptId::as_str -> &str with "xyzzy"
+@@ -22,17 +22,17 @@
+         if value.chars().any(char::is_whitespace) {
+             return Err(ScriptIdError::ContainsWhitespace(value));
+         }
+ 
+         Ok(Self(value))
+     }
+ 
+     pub fn as_str(&self) -> &str {
+-        &self.0
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn into_string(self) -> String {
+         self.0
+     }
+ }
+ 
+ impl fmt::Display for ScriptId {

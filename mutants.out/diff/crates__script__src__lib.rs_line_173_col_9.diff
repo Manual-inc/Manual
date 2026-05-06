@@ -1,0 +1,50 @@
+--- crates/script/src/lib.rs
++++ replace ScriptRunner::compile_with_rustc -> Result<CompiledScript, ScriptError> with Ok(Default::default())
+@@ -165,46 +165,17 @@
+         if !request.dependencies.is_empty() {
+             return self.compile_with_cargo(request);
+         }
+ 
+         self.compile_with_rustc(request)
+     }
+ 
+     fn compile_with_rustc(&self, request: &ScriptRequest) -> Result<CompiledScript, ScriptError> {
+-        let workspace = ScriptWorkspace::create(&self.temp_root)?;
+-        let user_source_path = workspace.path().join("script.rs");
+-        let wrapper_path = workspace.path().join("main.rs");
+-        let binary_path = workspace.path().join(binary_name());
+-
+-        fs::write(&user_source_path, &request.rust_source).map_err(to_io_error)?;
+-        fs::write(&wrapper_path, wrapper_source(&user_source_path)).map_err(to_io_error)?;
+-
+-        let compile_output = Command::new(&self.rustc)
+-            .arg("--edition")
+-            .arg(&self.edition)
+-            .arg(&wrapper_path)
+-            .arg("-o")
+-            .arg(&binary_path)
+-            .output()
+-            .map_err(to_io_error)?;
+-
+-        if !compile_output.status.success() {
+-            return Err(ScriptError::CompileFailed {
+-                stdout: String::from_utf8_lossy(&compile_output.stdout).into_owned(),
+-                stderr: String::from_utf8_lossy(&compile_output.stderr).into_owned(),
+-                exit_code: compile_output.status.code(),
+-            });
+-        }
+-
+-        Ok(CompiledScript {
+-            workspace,
+-            binary_path,
+-            input_json: request.input_json.clone(),
+-        })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn compile_with_cargo(&self, request: &ScriptRequest) -> Result<CompiledScript, ScriptError> {
+         let workspace = ScriptWorkspace::create(&self.temp_root)?;
+         let src_dir = workspace.path().join("src");
+         let user_source_path = src_dir.join("script.rs");
+         let wrapper_path = src_dir.join("main.rs");
+         let manifest_path = workspace.path().join("Cargo.toml");

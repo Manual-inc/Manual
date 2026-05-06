@@ -1,0 +1,22 @@
+--- crates/agent/src/claude.rs
++++ replace ClaudeRequest::with_arg -> Self with Default::default()
+@@ -47,18 +47,17 @@
+     }
+ 
+     pub fn include_hook_events(mut self, include_hook_events: bool) -> Self {
+         self.include_hook_events = include_hook_events;
+         self
+     }
+ 
+     pub fn with_arg(mut self, arg: impl Into<String>) -> Self {
+-        self.extra_args.push(arg.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ pub fn help_command() -> AgentCommand {
+     AgentCommand::new("claude").arg("-h")
+ }
+ 
+ pub fn jsonl_command(request: ClaudeRequest) -> AgentCommand {

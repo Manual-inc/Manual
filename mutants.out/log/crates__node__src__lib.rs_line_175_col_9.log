@@ -1,0 +1,52 @@
+
+*** crates/node/src/lib.rs:175:9: replace Node::with_output -> Self with Default::default()
+
+*** mutation diff:
+--- crates/node/src/lib.rs
++++ replace Node::with_output -> Self with Default::default()
+@@ -167,18 +167,17 @@
+     }
+ 
+     pub fn with_input(mut self, input: impl Into<String>) -> Self {
+         self.contract.inputs.push(input.into());
+         self
+     }
+ 
+     pub fn with_output(mut self, output: impl Into<String>) -> Self {
+-        self.contract.outputs.push(output.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_sandbox(mut self, sandbox: impl Into<String>) -> Self {
+         self.contract.sandbox = Some(sandbox.into());
+         self
+     }
+ 
+     pub fn with_runtime(mut self, runtime: impl Into<String>) -> Self {
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=node@0.1.0
+    Blocking waiting for file lock on package cache
+       Dirty node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/node): couldn't read metadata for file `target/debug/deps/libnode-ef5821e0cee689fe.rlib`
+   Compiling node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/node)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name node --edition=2024 crates/node/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=520cd8b6ffaa8ea6 -C extra-filename=-ef5821e0cee689fe --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name node --edition=2024 crates/node/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=3bc862ccd01a2000 -C extra-filename=-b70d28c7a1789ac2 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps`
+error[E0277]: the trait bound `Node: Default` is not satisfied
+   --> crates/node/src/lib.rs:175:9
+    |
+175 |         Default::default() /* ~ changed by cargo-mutants ~ */
+    |         ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `Node`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `node` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name node --edition=2024 crates/node/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=3bc862ccd01a2000 -C extra-filename=-b70d28c7a1789ac2 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `node` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name node --edition=2024 crates/node/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=520cd8b6ffaa8ea6 -C extra-filename=-ef5821e0cee689fe --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps` (exit status: 1)
+
+*** result: Failure(101)

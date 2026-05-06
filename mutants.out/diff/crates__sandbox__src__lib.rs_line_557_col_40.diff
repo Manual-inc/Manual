@@ -1,0 +1,21 @@
+--- crates/sandbox/src/lib.rs
++++ replace || with && in compile_linux
+@@ -549,17 +549,17 @@
+                 args.push(sandbox_path);
+             }
+             FilesystemAccess::Write => {
+                 args.push("--bind".to_string());
+                 args.push(sandbox_path.clone());
+                 args.push(sandbox_path);
+             }
+             FilesystemAccess::None => {
+-                if entry.path.exists() || path_is_under_writable_entry(policy, &entry.path) {
++                if entry.path.exists() && /* ~ changed by cargo-mutants ~ */ path_is_under_writable_entry(policy, &entry.path) {
+                     args.push("--tmpfs".to_string());
+                     args.push(sandbox_path.clone());
+                     args.push("--remount-ro".to_string());
+                     args.push(sandbox_path);
+                 }
+             }
+         }
+     }

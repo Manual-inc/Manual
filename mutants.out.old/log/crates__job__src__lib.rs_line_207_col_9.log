@@ -1,0 +1,58 @@
+
+*** crates/job/src/lib.rs:207:9: replace Job::restore -> Result<Self, JobError> with Ok(Default::default())
+
+*** mutation diff:
+--- crates/job/src/lib.rs
++++ replace Job::restore -> Result<Self, JobError> with Ok(Default::default())
+@@ -199,23 +199,17 @@
+ 
+     pub fn restore(
+         id: impl Into<String>,
+         workflow_id: impl Into<String>,
+         input_json: impl Into<String>,
+         status: JobStatus,
+         nodes: Vec<JobNode>,
+     ) -> Result<Self, JobError> {
+-        Ok(Self {
+-            id: JobId::new(id).map_err(JobError::InvalidJobId)?,
+-            workflow_id: workflow_id.into(),
+-            input_json: input_json.into(),
+-            status,
+-            nodes,
+-        })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn id(&self) -> &JobId {
+         &self.id
+     }
+ 
+     pub fn workflow_id(&self) -> &str {
+         &self.workflow_id
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=job@0.1.0
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/node)
+       Fresh workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/workflow)
+       Dirty job v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/job): the file `crates/job/src/lib.rs` has changed (1778056977.910741394s, 2s after last build at 1778056975.463786219s)
+   Compiling job v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/crates/job)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job --edition=2024 crates/job/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=08269f022a7d2b2e -C extra-filename=-551c083093ecebc5 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job --edition=2024 crates/job/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a6a479581596090d -C extra-filename=-989a3b77c2d83e11 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rmeta --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rmeta`
+error[E0277]: the trait bound `Job: Default` is not satisfied
+   --> crates/job/src/lib.rs:207:12
+    |
+207 |         Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+    |            ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `Job`
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `job` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job --edition=2024 crates/job/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=08269f022a7d2b2e -C extra-filename=-551c083093ecebc5 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `job` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name job --edition=2024 crates/job/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a6a479581596090d -C extra-filename=-989a3b77c2d83e11 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rmeta --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-iLTt6f.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rmeta` (exit status: 1)
+
+*** result: Failure(101)

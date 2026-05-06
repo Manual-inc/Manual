@@ -1,0 +1,24 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredFilesystemEntry::from_entry -> Self with Default::default()
+@@ -426,20 +426,17 @@
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct StoredFilesystemEntry {
+     path: PathBuf,
+     access: StoredFilesystemAccess,
+ }
+ 
+ impl StoredFilesystemEntry {
+     fn from_entry(entry: &FilesystemEntry) -> Self {
+-        Self {
+-            path: entry.path.clone(),
+-            access: entry.access.into(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn into_entry(self) -> FilesystemEntry {
+         FilesystemEntry {
+             path: self.path,
+             access: self.access.into(),
+         }
+     }

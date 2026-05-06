@@ -1,0 +1,23 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeSandbox::workspace_write -> Self with Default::default()
+@@ -19,19 +19,17 @@
+ impl RuntimeSandbox {
+     pub fn read_only(workspace_root: impl Into<PathBuf>) -> Self {
+         Self::ReadOnly {
+             workspace_root: workspace_root.into(),
+         }
+     }
+ 
+     pub fn workspace_write(workspace_root: impl Into<PathBuf>) -> Self {
+-        Self::WorkspaceWrite {
+-            workspace_root: workspace_root.into(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn danger_full_access() -> Self {
+         Self::DangerFullAccess
+     }
+ 
+     pub fn policy(policy: SandboxPolicy) -> Self {
+         Self::Policy(policy)

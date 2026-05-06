@@ -1,0 +1,21 @@
+--- crates/job-registry/src/lib.rs
++++ replace JobRegistry::get -> Option<&Job> with None
+@@ -29,17 +29,17 @@
+ 
+     pub fn resolve(&self, id: impl Into<String>) -> Result<&Job, JobRegistryError> {
+         let id = JobId::new(id).map_err(JobRegistryError::InvalidId)?;
+ 
+         self.jobs.get(&id).ok_or(JobRegistryError::UnknownId(id))
+     }
+ 
+     pub fn get(&self, id: &JobId) -> Option<&Job> {
+-        self.jobs.get(id)
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn get_mut(&mut self, id: &JobId) -> Option<&mut Job> {
+         self.jobs.get_mut(id)
+     }
+ 
+     pub fn remove(&mut self, id: &JobId) -> Option<Job> {
+         self.jobs.remove(id)

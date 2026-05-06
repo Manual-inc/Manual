@@ -1,0 +1,21 @@
+--- crates/sandbox/src/lib.rs
++++ replace && with || in path_is_under_writable_entry
+@@ -613,17 +613,17 @@
+ }
+ 
+ fn path_is_under_writable_entry(policy: &SandboxPolicy, path: &Path) -> bool {
+     let path = unix_path_arg(path);
+ 
+     policy.filesystem.entries.iter().any(|entry| {
+         let entry_path = unix_path_arg(&entry.path);
+         entry.access == FilesystemAccess::Write
+-            && path != entry_path
++            || /* ~ changed by cargo-mutants ~ */ path != entry_path
+             && path
+                 .strip_prefix(&entry_path)
+                 .is_some_and(|suffix| suffix.starts_with('/'))
+     })
+ }
+ 
+ fn unix_path_arg(path: &Path) -> String {
+     path.display().to_string().replace('\\', "/")

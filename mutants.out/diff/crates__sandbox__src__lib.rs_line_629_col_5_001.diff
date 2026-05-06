@@ -1,0 +1,21 @@
+--- crates/sandbox/src/lib.rs
++++ replace unix_path_arg -> String with "xyzzy".into()
+@@ -621,17 +621,17 @@
+             && path != entry_path
+             && path
+                 .strip_prefix(&entry_path)
+                 .is_some_and(|suffix| suffix.starts_with('/'))
+     })
+ }
+ 
+ fn unix_path_arg(path: &Path) -> String {
+-    path.display().to_string().replace('\\', "/")
++    "xyzzy".into() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     use std::ffi::OsString;
+     use std::fs;

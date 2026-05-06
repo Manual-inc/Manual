@@ -1,0 +1,21 @@
+--- crates/workflow-registry/src/lib.rs
++++ replace <impl fmt::Display for WorkflowId>::fmt -> fmt::Result with Ok(Default::default())
+@@ -35,17 +35,17 @@
+ 
+     pub fn into_string(self) -> String {
+         self.0
+     }
+ }
+ 
+ impl fmt::Display for WorkflowId {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        f.write_str(&self.0)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum WorkflowIdError {
+     Empty,
+     ContainsWhitespace(String),
+ }

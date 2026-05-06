@@ -1,0 +1,21 @@
+--- crates/node/src/lib.rs
++++ replace <impl fmt::Display for NodeKind>::fmt -> fmt::Result with Ok(Default::default())
+@@ -91,17 +91,17 @@
+             Self::Approval => "approval",
+             Self::Artifact => "artifact",
+         }
+     }
+ }
+ 
+ impl fmt::Display for NodeKind {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        f.write_str(self.as_str())
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl FromStr for NodeKind {
+     type Err = NodeKindParseError;
+ 
+     fn from_str(value: &str) -> Result<Self, Self::Err> {
+         match value {

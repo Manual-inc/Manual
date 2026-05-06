@@ -1,0 +1,25 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace SandboxRegistry::resolve -> Result<&SandboxDefinition, SandboxRegistryError> with Ok(Box::leak(Box::new(Default::default())))
+@@ -112,21 +112,17 @@
+         self.definitions.insert(definition.id().clone(), definition);
+         Ok(())
+     }
+ 
+     pub fn resolve(
+         &self,
+         id: impl Into<String>,
+     ) -> Result<&SandboxDefinition, SandboxRegistryError> {
+-        let id = SandboxId::new(id).map_err(SandboxRegistryError::InvalidId)?;
+-
+-        self.definitions
+-            .get(&id)
+-            .ok_or(SandboxRegistryError::UnknownId(id))
++        Ok(Box::leak(Box::new(Default::default()))) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn get(&self, id: &SandboxId) -> Option<&SandboxDefinition> {
+         self.definitions.get(id)
+     }
+ 
+     pub fn len(&self) -> usize {
+         self.definitions.len()

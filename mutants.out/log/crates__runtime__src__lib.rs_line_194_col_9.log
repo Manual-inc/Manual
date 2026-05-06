@@ -1,0 +1,147 @@
+
+*** crates/runtime/src/lib.rs:194:9: replace RuntimeRunner::for_sandbox_runner -> Self with Default::default()
+
+*** mutation diff:
+--- crates/runtime/src/lib.rs
++++ replace RuntimeRunner::for_sandbox_runner -> Self with Default::default()
+@@ -186,20 +186,17 @@
+     pub fn detect() -> Self {
+         Self {
+             sandbox_runner: SandboxRunner::detect(),
+             script_runner: ScriptRunner::default(),
+         }
+     }
+ 
+     pub fn for_sandbox_runner(sandbox_runner: SandboxRunner) -> Self {
+-        Self {
+-            sandbox_runner,
+-            script_runner: ScriptRunner::default(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_script_runner(mut self, script_runner: ScriptRunner) -> Self {
+         self.script_runner = script_runner;
+         self
+     }
+ 
+     pub fn compile(&self, request: &RuntimeRequest) -> Result<RuntimePlan, RuntimeError> {
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=runtime@0.1.0
+    Blocking waiting for file lock on package cache
+       Fresh agent v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/agent)
+       Fresh script v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/script)
+       Fresh sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/sandbox)
+       Dirty runtime v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/runtime): the file `crates/runtime/src/lib.rs` has changed (1778057749.229955815s, 5s after last build at 1778057744.240553406s)
+   Compiling runtime v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/runtime)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name runtime --edition=2024 crates/runtime/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=edaf1587f9d3a3d6 -C extra-filename=-24731b632105dc02 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps --extern agent=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libagent-df1187056c019dff.rlib --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rlib --extern script=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libscript-d02cc1a249e66324.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name runtime --edition=2024 crates/runtime/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a2b3775ea973f797 -C extra-filename=-f6f0fa129a177682 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps --extern agent=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libagent-df1187056c019dff.rmeta --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rmeta --extern script=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libscript-d02cc1a249e66324.rmeta`
+warning: unused variable: `sandbox_runner`
+   --> crates/runtime/src/lib.rs:193:31
+    |
+193 |     pub fn for_sandbox_runner(sandbox_runner: SandboxRunner) -> Self {
+    |                               ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_sandbox_runner`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `runtime` (lib) generated 1 warning (1 duplicate)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name runtime_execution --edition=2024 crates/runtime/tests/runtime_execution.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=0b418deda2ba9045 -C extra-filename=-5d7181e04c09c4a4 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps --extern agent=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libagent-df1187056c019dff.rlib --extern runtime=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libruntime-f6f0fa129a177682.rlib --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rlib --extern script=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/libscript-d02cc1a249e66324.rlib`
+warning: `runtime` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.99s
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/runtime-24731b632105dc02`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/runtime_execution-5d7181e04c09c4a4`
+
+*** result: Success
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --verbose --package=runtime@0.1.0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+       Fresh script v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/script)
+       Fresh sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/sandbox)
+       Fresh agent v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/agent)
+warning: unused variable: `sandbox_runner`
+   --> crates/runtime/src/lib.rs:193:31
+    |
+193 |     pub fn for_sandbox_runner(sandbox_runner: SandboxRunner) -> Self {
+    |                               ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_sandbox_runner`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `runtime` (lib) generated 1 warning
+warning: `runtime` (lib test) generated 1 warning (1 duplicate)
+       Fresh runtime v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.52s
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/runtime-24731b632105dc02`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps/runtime_execution-5d7181e04c09c4a4`
+
+running 20 tests
+test danger_full_access_runtime_sandbox_defines_unrestricted_policy ... ok
+test danger_full_access_plan_uses_direct_backend_and_unrestricted_policy ... ok
+test detected_runtime_uses_current_platform_for_direct_plan ... ok
+test custom_policy_runtime_sandbox_preserves_policy_and_clones_outputs ... ok
+test read_only_runtime_sandbox_defines_restricted_read_policy ... ok
+test custom_policy_agent_plan_uses_exact_policy ... FAILED
+test read_only_agent_plan_uses_enforced_backend_and_stdin ... FAILED
+test runtime_error_display_includes_wrapped_error_message ... ok
+test runtime_output_success_only_accepts_zero_exit_code ... ok
+test runtime_request_exposes_target_and_input_for_planning ... ok
+test workspace_write_runtime_sandbox_defines_restricted_write_policy ... ok
+test workspace_write_agent_plan_preserves_current_dir_and_write_policy ... ok
+test custom_script_runner_is_used_for_script_compilation ... ok
+test agent_runtime_captures_nonzero_status_and_stderr ... ok
+test enforced_runtime_does_not_fallback_when_backend_is_missing ... FAILED
+test runs_agent_command_with_input_through_the_configured_sandbox ... ok
+test script_compile_error_is_reported_before_sandbox_backend_errors ... ok
+test restricted_script_plan_adds_compiled_workspace_read_entry ... FAILED
+test unrestricted_script_plan_does_not_add_compiled_workspace_entry ... ok
+test runs_rust_script_with_input_through_the_configured_sandbox ... ok
+
+failures:
+
+---- custom_policy_agent_plan_uses_exact_policy stdout ----
+
+thread 'custom_policy_agent_plan_uses_exact_policy' panicked at crates/runtime/tests/runtime_execution.rs:277:5:
+assertion `left == right` failed
+  left: MacosSeatbelt
+ right: WindowsRestrictedToken
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- read_only_agent_plan_uses_enforced_backend_and_stdin stdout ----
+
+thread 'read_only_agent_plan_uses_enforced_backend_and_stdin' panicked at crates/runtime/tests/runtime_execution.rs:191:5:
+assertion `left == right` failed
+  left: MacosSeatbelt
+ right: LinuxBubblewrap
+
+---- enforced_runtime_does_not_fallback_when_backend_is_missing stdout ----
+
+thread 'enforced_runtime_does_not_fallback_when_backend_is_missing' panicked at crates/runtime/tests/runtime_execution.rs:346:6:
+enforced runtime should not run when the backend is missing: RuntimeOutput { target: Agent, sandbox: BackendReport { platform: Macos, kind: MacosSeatbelt, available: true, detail: "requires /usr/bin/sandbox-exec and generated SBPL policy" }, stdout: "{}", stderr: "shell-init: error retrieving current directory: getcwd: cannot access parent directories: Operation not permitted\n", exit_code: Some(0) }
+
+---- restricted_script_plan_adds_compiled_workspace_read_entry stdout ----
+
+thread 'restricted_script_plan_adds_compiled_workspace_read_entry' panicked at crates/runtime/tests/runtime_execution.rs:305:5:
+assertion `left == right` failed
+  left: MacosSeatbelt
+ right: LinuxBubblewrap
+
+
+failures:
+    custom_policy_agent_plan_uses_exact_policy
+    enforced_runtime_does_not_fallback_when_backend_is_missing
+    read_only_agent_plan_uses_enforced_backend_and_stdin
+    restricted_script_plan_adds_compiled_workspace_read_entry
+
+test result: FAILED. 16 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.44s
+
+error: test failed, to rerun pass `-p runtime --test runtime_execution`
+
+*** result: Failure(101)

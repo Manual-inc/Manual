@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/view.rs
++++ replace GraphView::zoom_mut -> &mut SmoothZoom with Box::leak(Box::new(Default::default()))
+@@ -28,17 +28,17 @@
+         self.zoom.displayed()
+     }
+ 
+     pub fn target_zoom(&self) -> ZoomLevel {
+         self.zoom.target()
+     }
+ 
+     pub fn zoom_mut(&mut self) -> &mut SmoothZoom {
+-        &mut self.zoom
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn reset_zoom(&mut self) {
+         self.zoom.reset();
+     }
+ 
+     pub fn pan(&self) -> PanOffset {
+         self.pan

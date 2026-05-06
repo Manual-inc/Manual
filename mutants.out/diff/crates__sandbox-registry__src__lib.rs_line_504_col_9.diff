@@ -1,0 +1,24 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace <impl From<NetworkMode> for StoredNetworkMode>::from -> Self with Default::default()
+@@ -496,20 +496,17 @@
+ #[serde(rename_all = "kebab-case")]
+ enum StoredNetworkMode {
+     Restricted,
+     Enabled,
+ }
+ 
+ impl From<NetworkMode> for StoredNetworkMode {
+     fn from(value: NetworkMode) -> Self {
+-        match value {
+-            NetworkMode::Restricted => Self::Restricted,
+-            NetworkMode::Enabled => Self::Enabled,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl From<StoredNetworkMode> for NetworkMode {
+     fn from(value: StoredNetworkMode) -> Self {
+         match value {
+             StoredNetworkMode::Restricted => Self::Restricted,
+             StoredNetworkMode::Enabled => Self::Enabled,

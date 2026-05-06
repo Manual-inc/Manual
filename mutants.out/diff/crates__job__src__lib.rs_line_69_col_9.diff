@@ -1,0 +1,27 @@
+--- crates/job/src/lib.rs
++++ replace JobStatus::as_str -> &'static str with ""
+@@ -61,23 +61,17 @@
+     Running,
+     Succeeded,
+     Failed,
+     Canceled,
+ }
+ 
+ impl JobStatus {
+     pub fn as_str(self) -> &'static str {
+-        match self {
+-            Self::Created => "created",
+-            Self::Running => "running",
+-            Self::Succeeded => "succeeded",
+-            Self::Failed => "failed",
+-            Self::Canceled => "canceled",
+-        }
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for JobStatus {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         f.write_str(self.as_str())
+     }
+ }

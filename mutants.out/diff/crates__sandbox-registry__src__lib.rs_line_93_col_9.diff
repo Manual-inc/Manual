@@ -1,0 +1,21 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace SandboxDefinition::into_policy -> SandboxPolicy with Default::default()
+@@ -85,17 +85,17 @@
+         &self.id
+     }
+ 
+     pub fn policy(&self) -> &SandboxPolicy {
+         &self.policy
+     }
+ 
+     pub fn into_policy(self) -> SandboxPolicy {
+-        self.policy
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Default, PartialEq, Eq)]
+ pub struct SandboxRegistry {
+     definitions: BTreeMap<SandboxId, SandboxDefinition>,
+ }
+ 

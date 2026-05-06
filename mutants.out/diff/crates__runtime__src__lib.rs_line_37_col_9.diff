@@ -1,0 +1,21 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeSandbox::policy -> Self with Default::default()
+@@ -29,17 +29,17 @@
+         }
+     }
+ 
+     pub fn danger_full_access() -> Self {
+         Self::DangerFullAccess
+     }
+ 
+     pub fn policy(policy: SandboxPolicy) -> Self {
+-        Self::Policy(policy)
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn to_policy(&self) -> SandboxPolicy {
+         match self {
+             Self::ReadOnly { workspace_root } => SandboxPolicy::read_only(workspace_root),
+             Self::WorkspaceWrite { workspace_root } => {
+                 SandboxPolicy::workspace_write(workspace_root)
+             }

@@ -1,0 +1,21 @@
+--- crates/agent/src/codex.rs
++++ replace help_command -> AgentCommand with Default::default()
+@@ -39,17 +39,17 @@
+ 
+     pub fn with_arg(mut self, arg: impl Into<String>) -> Self {
+         self.extra_args.push(arg.into());
+         self
+     }
+ }
+ 
+ pub fn help_command() -> AgentCommand {
+-    AgentCommand::new("codex").arg("-h")
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ pub fn exec_help_command() -> AgentCommand {
+     AgentCommand::new("codex").with_args(["exec", "-h"])
+ }
+ 
+ pub fn jsonl_command(request: CodexRequest) -> AgentCommand {
+     let mut command = AgentCommand::new("codex").with_args(["exec", "--json"]);

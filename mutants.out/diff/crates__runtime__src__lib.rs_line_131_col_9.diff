@@ -1,0 +1,21 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeOutput::success -> bool with true
+@@ -123,17 +123,17 @@
+     pub sandbox: BackendReport,
+     pub stdout: String,
+     pub stderr: String,
+     pub exit_code: Option<i32>,
+ }
+ 
+ impl RuntimeOutput {
+     pub fn success(&self) -> bool {
+-        self.exit_code == Some(0)
++        true /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug)]
+ pub struct RuntimePlan {
+     pub target: RuntimeTargetKind,
+     pub sandbox: BackendReport,
+     pub command: CommandSpec,

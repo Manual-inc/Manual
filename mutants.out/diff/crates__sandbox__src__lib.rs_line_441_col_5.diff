@@ -1,0 +1,37 @@
+--- crates/sandbox/src/lib.rs
++++ replace compile_macos -> CompiledSandboxPlan with Default::default()
+@@ -433,33 +433,17 @@
+     std::env::split_paths(&path).any(|dir| dir.join(program).is_file())
+ }
+ 
+ fn compile_macos(
+     command: &CommandSpec,
+     policy: &SandboxPolicy,
+     backend_available: bool,
+ ) -> CompiledSandboxPlan {
+-    let sbpl = macos_sbpl(policy);
+-    let mut args = vec![
+-        "-p".to_string(),
+-        sbpl,
+-        "--".to_string(),
+-        command.program.clone(),
+-    ];
+-    args.extend(command.args.clone());
+-
+-    CompiledSandboxPlan {
+-        backend: backend_report(Platform::Macos, backend_available),
+-        program: "/usr/bin/sandbox-exec".to_string(),
+-        args,
+-        current_dir: command.current_dir.clone(),
+-        env: command.env.clone(),
+-        stdin: command.stdin.clone(),
+-    }
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ fn macos_sbpl(policy: &SandboxPolicy) -> String {
+     let mut policy_lines = vec![
+         "(version 1)".to_string(),
+         "(deny default)".to_string(),
+         "(allow process*)".to_string(),
+         "(allow sysctl*)".to_string(),

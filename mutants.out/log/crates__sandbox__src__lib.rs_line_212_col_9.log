@@ -1,0 +1,58 @@
+
+*** crates/sandbox/src/lib.rs:212:9: replace CommandSpec::env -> Self with Default::default()
+
+*** mutation diff:
+--- crates/sandbox/src/lib.rs
++++ replace CommandSpec::env -> Self with Default::default()
+@@ -204,18 +204,17 @@
+     }
+ 
+     pub fn current_dir(mut self, current_dir: impl Into<PathBuf>) -> Self {
+         self.current_dir = Some(current_dir.into());
+         self
+     }
+ 
+     pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+-        self.env.insert(key.into(), value.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn stdin(mut self, stdin: impl Into<String>) -> Self {
+         self.stdin = Some(stdin.into());
+         self
+     }
+ }
+ 
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=sandbox@0.1.0
+    Blocking waiting for file lock on package cache
+       Dirty sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/sandbox): couldn't read metadata for file `target/debug/deps/libsandbox-3854b11f8daf2006.rlib`
+   Compiling sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/crates/sandbox)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name sandbox --edition=2024 crates/sandbox/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2b325062dbe2c508 -C extra-filename=-3854b11f8daf2006 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name sandbox --edition=2024 crates/sandbox/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a114b1d7655828cd -C extra-filename=-84da628582973993 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps`
+error[E0277]: the trait bound `CommandSpec: Default` is not satisfied
+   --> crates/sandbox/src/lib.rs:212:9
+    |
+212 |         Default::default() /* ~ changed by cargo-mutants ~ */
+    |         ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `CommandSpec`
+    |
+help: consider annotating `CommandSpec` with `#[derive(Default)]`
+    |
+173 + #[derive(Default)]
+174 | pub struct CommandSpec {
+    |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `sandbox` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name sandbox --edition=2024 crates/sandbox/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a114b1d7655828cd -C extra-filename=-84da628582973993 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `sandbox` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name sandbox --edition=2024 crates/sandbox/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2b325062dbe2c508 -C extra-filename=-3854b11f8daf2006 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-U5FVzE.tmp/target/debug/deps` (exit status: 1)
+
+*** result: Failure(101)

@@ -1,0 +1,21 @@
+--- crates/job-registry/src/lib.rs
++++ replace JobRegistry::iter -> impl Iterator<Item =&Job> with ::std::iter::once(Box::leak(Box::new(Default::default())))
+@@ -49,17 +49,17 @@
+         self.jobs.len()
+     }
+ 
+     pub fn is_empty(&self) -> bool {
+         self.jobs.is_empty()
+     }
+ 
+     pub fn iter(&self) -> impl Iterator<Item = &Job> {
+-        self.jobs.values()
++        ::std::iter::once(Box::leak(Box::new(Default::default()))) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn jobs_for_workflow<'a>(
+         &'a self,
+         workflow_id: &'a str,
+     ) -> impl Iterator<Item = &'a Job> + 'a {
+         self.jobs
+             .values()

@@ -1,0 +1,22 @@
+--- crates/node/src/lib.rs
++++ replace Node::with_runtime -> Self with Default::default()
+@@ -177,18 +177,17 @@
+     }
+ 
+     pub fn with_sandbox(mut self, sandbox: impl Into<String>) -> Self {
+         self.contract.sandbox = Some(sandbox.into());
+         self
+     }
+ 
+     pub fn with_runtime(mut self, runtime: impl Into<String>) -> Self {
+-        self.contract.runtime = Some(runtime.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_artifact(mut self, artifact: impl Into<String>) -> Self {
+         self.contract.artifacts.push(artifact.into());
+         self
+     }
+ 
+     pub fn with_acceptance(mut self, acceptance: impl Into<String>) -> Self {

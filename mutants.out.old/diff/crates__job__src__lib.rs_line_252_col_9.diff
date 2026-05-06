@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace Job::succeed_node -> Result<(), JobError> with Ok(())
+@@ -244,17 +244,17 @@
+         self.transition_node(node_id, NodeRunStatus::Ready)
+     }
+ 
+     pub fn start_node(&mut self, node_id: impl Into<String>) -> Result<(), JobError> {
+         self.transition_node(node_id, NodeRunStatus::Running)
+     }
+ 
+     pub fn succeed_node(&mut self, node_id: impl Into<String>) -> Result<(), JobError> {
+-        self.transition_node(node_id, NodeRunStatus::Succeeded)
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn fail_node(&mut self, node_id: impl Into<String>) -> Result<(), JobError> {
+         self.transition_node(node_id, NodeRunStatus::Failed)
+     }
+ 
+     fn transition_node(
+         &mut self,

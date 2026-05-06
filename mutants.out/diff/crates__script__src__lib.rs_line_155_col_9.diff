@@ -1,0 +1,22 @@
+--- crates/script/src/lib.rs
++++ replace ScriptRunner::with_rustc -> Self with Default::default()
+@@ -147,18 +147,17 @@
+     }
+ 
+     pub fn with_cargo(mut self, cargo: impl Into<PathBuf>) -> Self {
+         self.cargo = cargo.into();
+         self
+     }
+ 
+     pub fn with_rustc(mut self, rustc: impl Into<PathBuf>) -> Self {
+-        self.rustc = rustc.into();
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_temp_root(mut self, temp_root: impl Into<PathBuf>) -> Self {
+         self.temp_root = temp_root.into();
+         self
+     }
+ 
+     pub fn compile(&self, request: &ScriptRequest) -> Result<CompiledScript, ScriptError> {

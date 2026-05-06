@@ -1,0 +1,46 @@
+--- crates/job/src/lib.rs
++++ replace Job::refresh_status with ()
+@@ -282,42 +282,17 @@
+             node.attempts += 1;
+         }
+         self.refresh_status();
+ 
+         Ok(())
+     }
+ 
+     fn refresh_status(&mut self) {
+-        if self
+-            .nodes
+-            .iter()
+-            .any(|node| node.status == NodeRunStatus::Failed)
+-        {
+-            self.status = JobStatus::Failed;
+-            return;
+-        }
+-
+-        if self
+-            .nodes
+-            .iter()
+-            .all(|node| node.status.is_success_terminal())
+-        {
+-            self.status = JobStatus::Succeeded;
+-            return;
+-        }
+-
+-        if self.nodes.iter().any(|node| {
+-            matches!(
+-                node.status,
+-                NodeRunStatus::Running | NodeRunStatus::Succeeded | NodeRunStatus::Skipped
+-            )
+-        }) {
+-            self.status = JobStatus::Running;
+-        }
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ fn valid_node_transition(from: NodeRunStatus, to: NodeRunStatus) -> bool {
+     matches!(
+         (from, to),
+         (NodeRunStatus::Pending, NodeRunStatus::Ready)
+             | (NodeRunStatus::Ready, NodeRunStatus::Running)

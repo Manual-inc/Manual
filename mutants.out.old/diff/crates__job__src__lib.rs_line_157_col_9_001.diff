@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace JobNode::attempts -> u32 with 1
+@@ -149,17 +149,17 @@
+         &self.node_id
+     }
+ 
+     pub fn status(&self) -> NodeRunStatus {
+         self.status
+     }
+ 
+     pub fn attempts(&self) -> u32 {
+-        self.attempts
++        1 /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct Job {
+     id: JobId,
+     workflow_id: String,
+     input_json: String,

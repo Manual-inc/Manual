@@ -1,0 +1,21 @@
+--- crates/agent/src/claude.rs
++++ replace help_command -> AgentCommand with Default::default()
+@@ -53,17 +53,17 @@
+ 
+     pub fn with_arg(mut self, arg: impl Into<String>) -> Self {
+         self.extra_args.push(arg.into());
+         self
+     }
+ }
+ 
+ pub fn help_command() -> AgentCommand {
+-    AgentCommand::new("claude").arg("-h")
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ pub fn jsonl_command(request: ClaudeRequest) -> AgentCommand {
+     let mut command = AgentCommand::new("claude").with_args([
+         "--print",
+         "--output-format",
+         "stream-json",
+         "--verbose",

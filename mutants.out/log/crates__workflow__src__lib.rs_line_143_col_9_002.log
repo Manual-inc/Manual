@@ -1,0 +1,83 @@
+
+*** crates/workflow/src/lib.rs:143:9: replace WorkflowEdge::label -> Option<&str> with Some("xyzzy")
+
+*** mutation diff:
+--- crates/workflow/src/lib.rs
++++ replace WorkflowEdge::label -> Option<&str> with Some("xyzzy")
+@@ -135,17 +135,17 @@
+         &self.target
+     }
+ 
+     pub fn kind(&self) -> WorkflowEdgeKind {
+         self.kind
+     }
+ 
+     pub fn label(&self) -> Option<&str> {
+-        self.label.as_deref()
++        Some("xyzzy") /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+ pub enum WorkflowEdgeKind {
+     Sequence,
+     Branch,
+     LoopBack,
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=workflow@0.1.0
+    Blocking waiting for file lock on package cache
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/node)
+       Dirty workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/workflow): couldn't read metadata for file `target/debug/deps/libworkflow-8f9285c1db0b2396.rlib`
+   Compiling workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/workflow)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow --edition=2024 crates/workflow/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2012b3c4eb9d4337 -C extra-filename=-7bbe6559442a70d2 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow --edition=2024 crates/workflow/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2e7419a2ef4117ad -C extra-filename=-8f9285c1db0b2396 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rmeta`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name workflow_graph --edition=2024 crates/workflow/tests/workflow_graph.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=fbc7778101c51f4a -C extra-filename=-d9c5f6cd0f11218a --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps --extern node=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libnode-ef5821e0cee689fe.rlib --extern workflow=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libworkflow-8f9285c1db0b2396.rlib`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.40s
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/workflow-7bbe6559442a70d2`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/workflow_graph-d9c5f6cd0f11218a`
+
+*** result: Success
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --verbose --package=workflow@0.1.0
+    Blocking waiting for file lock on package cache
+       Fresh node v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/node)
+       Fresh workflow v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/workflow)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/workflow-7bbe6559442a70d2`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/workflow_graph-d9c5f6cd0f11218a`
+
+running 8 tests
+test parses_workflow_edge_kind_from_workflow_spec_identifier ... ok
+test workflow_edge_kind_uses_workflow_spec_identifiers ... ok
+test workflow_rejects_direct_self_loops ... ok
+test workflow_rejects_duplicate_node_ids ... ok
+test workflow_rejects_empty_graphs ... ok
+test workflow_combines_nodes_into_a_task_graph ... FAILED
+test workflow_rejects_graphs_with_missing_edge_endpoints ... ok
+test workflow_rejects_missing_entry_nodes ... ok
+
+failures:
+
+---- workflow_combines_nodes_into_a_task_graph stdout ----
+
+thread 'workflow_combines_nodes_into_a_task_graph' panicked at crates/workflow/tests/workflow_graph.rs:64:5:
+assertion `left == right` failed
+  left: Some("xyzzy")
+ right: Some("summarize")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    workflow_combines_nodes_into_a_task_graph
+
+test result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p workflow --test workflow_graph`
+
+*** result: Failure(101)

@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace Job::id -> &JobId with Box::leak(Box::new(Default::default()))
+@@ -209,17 +209,17 @@
+             workflow_id: workflow_id.into(),
+             input_json: input_json.into(),
+             status,
+             nodes,
+         })
+     }
+ 
+     pub fn id(&self) -> &JobId {
+-        &self.id
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn workflow_id(&self) -> &str {
+         &self.workflow_id
+     }
+ 
+     pub fn input_json(&self) -> &str {
+         &self.input_json

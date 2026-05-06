@@ -1,0 +1,33 @@
+--- crates/agent/src/lib.rs
++++ replace <impl Iterator for JsonlLines<R>>::next -> Option<Self::Item> with None
+@@ -109,29 +109,17 @@
+ 
+ impl<R> Iterator for JsonlLines<R>
+ where
+     R: BufRead,
+ {
+     type Item = io::Result<String>;
+ 
+     fn next(&mut self) -> Option<Self::Item> {
+-        self.buffer.clear();
+-
+-        match self.reader.read_line(&mut self.buffer) {
+-            Ok(0) => None,
+-            Ok(_) => {
+-                while self.buffer.ends_with('\n') || self.buffer.ends_with('\r') {
+-                    self.buffer.pop();
+-                }
+-
+-                Some(Ok(self.buffer.clone()))
+-            }
+-            Err(error) => Some(Err(error)),
+-        }
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug)]
+ pub struct JsonlChild {
+     child: Child,
+     lines: JsonlLines<BufReader<ChildStdout>>,
+ }

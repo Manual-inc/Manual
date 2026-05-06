@@ -1,0 +1,22 @@
+--- crates/agent/src/claude.rs
++++ replace ClaudeRequest::with_model -> Self with Default::default()
+@@ -22,18 +22,17 @@
+             workdir: None,
+             include_partial_messages: false,
+             include_hook_events: false,
+             extra_args: Vec::new(),
+         }
+     }
+ 
+     pub fn with_model(mut self, model: impl Into<String>) -> Self {
+-        self.model = Some(model.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_permission_mode(mut self, permission_mode: impl Into<String>) -> Self {
+         self.permission_mode = Some(permission_mode.into());
+         self
+     }
+ 
+     pub fn with_workdir(mut self, workdir: impl Into<PathBuf>) -> Self {

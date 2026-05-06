@@ -1,0 +1,27 @@
+--- crates/cli/src/lib.rs
++++ replace validate_skill -> Result<String, CliError> with Ok(String::new())
+@@ -49,23 +49,17 @@
+     format!(
+         "{} workspace packages: {}",
+         descriptor.name,
+         descriptor.packages.join(", ")
+     )
+ }
+ 
+ pub fn validate_skill(path: &Path) -> Result<String, CliError> {
+-    let skill_file = path.join("SKILL.md");
+-
+-    if !skill_file.is_file() {
+-        return Err(CliError::MissingSkillFile(path.display().to_string()));
+-    }
+-
+-    Ok(format!("validated skill template at {}", path.display()))
++    Ok(String::new()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::run;
+ 
+     #[test]
+     fn about_command_reports_workspace() {

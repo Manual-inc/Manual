@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace JobNode::node_id -> &NodeId with Box::leak(Box::new(Default::default()))
+@@ -141,17 +141,17 @@
+         Ok(Self {
+             node_id: NodeId::new(node_id)?,
+             status,
+             attempts,
+         })
+     }
+ 
+     pub fn node_id(&self) -> &NodeId {
+-        &self.node_id
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn status(&self) -> NodeRunStatus {
+         self.status
+     }
+ 
+     pub fn attempts(&self) -> u32 {
+         self.attempts

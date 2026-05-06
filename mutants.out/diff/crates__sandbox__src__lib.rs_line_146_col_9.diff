@@ -1,0 +1,30 @@
+--- crates/sandbox/src/lib.rs
++++ replace SandboxPolicy::danger_full_access -> Self with Default::default()
+@@ -138,26 +138,17 @@
+             },
+             network: NetworkPolicy {
+                 mode: NetworkMode::Restricted,
+             },
+         }
+     }
+ 
+     pub fn danger_full_access() -> Self {
+-        Self {
+-            preset: SandboxPreset::DangerFullAccess,
+-            filesystem: FilesystemPolicy {
+-                mode: FilesystemMode::Unrestricted,
+-                entries: Vec::new(),
+-            },
+-            network: NetworkPolicy {
+-                mode: NetworkMode::Enabled,
+-            },
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ fn workspace_entries(workspace_root: PathBuf, access: FilesystemAccess) -> Vec<FilesystemEntry> {
+     let mut entries = vec![FilesystemEntry::new(workspace_root.clone(), access)];
+ 
+     for protected in PROTECTED_METADATA_DIRS {
+         entries.push(FilesystemEntry::new(

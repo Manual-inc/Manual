@@ -1,0 +1,24 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeRunner::compile -> Result<RuntimePlan, RuntimeError> with Ok(Default::default())
+@@ -198,20 +198,17 @@
+     }
+ 
+     pub fn with_script_runner(mut self, script_runner: ScriptRunner) -> Self {
+         self.script_runner = script_runner;
+         self
+     }
+ 
+     pub fn compile(&self, request: &RuntimeRequest) -> Result<RuntimePlan, RuntimeError> {
+-        match &request.target {
+-            RuntimeTarget::Script { rust_source } => self.compile_script(request, rust_source),
+-            RuntimeTarget::Agent { command } => self.compile_agent(request, command),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn run(&self, request: &RuntimeRequest) -> Result<RuntimeOutput, RuntimeError> {
+         let plan = self.compile(request)?;
+         self.run_plan(plan)
+     }
+ 
+     fn compile_script(

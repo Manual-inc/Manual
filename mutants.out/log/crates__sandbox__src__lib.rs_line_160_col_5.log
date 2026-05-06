@@ -1,0 +1,199 @@
+
+*** crates/sandbox/src/lib.rs:160:5: replace workspace_entries -> Vec<FilesystemEntry> with vec![]
+
+*** mutation diff:
+--- crates/sandbox/src/lib.rs
++++ replace workspace_entries -> Vec<FilesystemEntry> with vec![]
+@@ -152,26 +152,17 @@
+             network: NetworkPolicy {
+                 mode: NetworkMode::Enabled,
+             },
+         }
+     }
+ }
+ 
+ fn workspace_entries(workspace_root: PathBuf, access: FilesystemAccess) -> Vec<FilesystemEntry> {
+-    let mut entries = vec![FilesystemEntry::new(workspace_root.clone(), access)];
+-
+-    for protected in PROTECTED_METADATA_DIRS {
+-        entries.push(FilesystemEntry::new(
+-            workspace_root.join(protected),
+-            FilesystemAccess::None,
+-        ));
+-    }
+-
+-    entries
++    vec![] /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct CommandSpec {
+     pub program: String,
+     pub args: Vec<String>,
+     pub current_dir: Option<PathBuf>,
+     pub env: BTreeMap<String, String>,
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=sandbox@0.1.0
+       Dirty sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/crates/sandbox): couldn't read metadata for file `target/debug/deps/libsandbox-3854b11f8daf2006.rlib`
+   Compiling sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/crates/sandbox)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name sandbox --edition=2024 crates/sandbox/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2b325062dbe2c508 -C extra-filename=-3854b11f8daf2006 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name sandbox --edition=2024 crates/sandbox/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a114b1d7655828cd -C extra-filename=-84da628582973993 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps`
+warning: unused variable: `workspace_root`
+   --> crates/sandbox/src/lib.rs:159:22
+    |
+159 | fn workspace_entries(workspace_root: PathBuf, access: FilesystemAccess) -> Vec<FilesystemEntry> {
+    |                      ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_workspace_root`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `access`
+   --> crates/sandbox/src/lib.rs:159:47
+    |
+159 | fn workspace_entries(workspace_root: PathBuf, access: FilesystemAccess) -> Vec<FilesystemEntry> {
+    |                                               ^^^^^^ help: if this is intentional, prefix it with an underscore: `_access`
+
+warning: constant `PROTECTED_METADATA_DIRS` is never used
+ --> crates/sandbox/src/lib.rs:9:7
+  |
+9 | const PROTECTED_METADATA_DIRS: &[&str] = &[".git", ".manual", ".codex", ".agents"];
+  |       ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: `sandbox` (lib) generated 3 warnings (3 duplicates)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name sandbox_policy --edition=2024 crates/sandbox/tests/sandbox_policy.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=5cf3bc4b28ed7565 -C extra-filename=-6e1dd2e0233bfee7 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name sandbox_enforcement --edition=2024 crates/sandbox/tests/sandbox_enforcement.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=266ba67aa72962ab -C extra-filename=-8ccab99c1c139135 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name manual_sandbox_probe --edition=2024 crates/sandbox/tests/fixtures/sandbox_probe.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=593a621cf12e4292 -C extra-filename=-3a87d45b4cc42e5b --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name manual_sandbox_probe --edition=2024 crates/sandbox/tests/fixtures/sandbox_probe.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=17347dead616fe47 -C extra-filename=-7adc9e864bcb359a --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rlib`
+warning: `sandbox` (lib test) generated 3 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.55s
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/sandbox-84da628582973993`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/manual_sandbox_probe-3a87d45b4cc42e5b`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/sandbox_enforcement-8ccab99c1c139135`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/sandbox_policy-6e1dd2e0233bfee7`
+
+*** result: Success
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --verbose --package=sandbox@0.1.0
+    Blocking waiting for file lock on package cache
+warning: unused variable: `workspace_root`
+   --> crates/sandbox/src/lib.rs:159:22
+    |
+159 | fn workspace_entries(workspace_root: PathBuf, access: FilesystemAccess) -> Vec<FilesystemEntry> {
+    |                      ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_workspace_root`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `access`
+   --> crates/sandbox/src/lib.rs:159:47
+    |
+159 | fn workspace_entries(workspace_root: PathBuf, access: FilesystemAccess) -> Vec<FilesystemEntry> {
+    |                                               ^^^^^^ help: if this is intentional, prefix it with an underscore: `_access`
+
+warning: constant `PROTECTED_METADATA_DIRS` is never used
+ --> crates/sandbox/src/lib.rs:9:7
+  |
+9 | const PROTECTED_METADATA_DIRS: &[&str] = &[".git", ".manual", ".codex", ".agents"];
+  |       ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: `sandbox` (lib) generated 3 warnings
+       Fresh sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/crates/sandbox)
+warning: `sandbox` (lib test) generated 3 warnings (3 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/sandbox-84da628582973993`
+
+running 2 tests
+test tests::linux_backend_availability_follows_path_lookup ... ok
+test tests::unavailable_backend_platforms_report_unavailable ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/manual_sandbox_probe-3a87d45b4cc42e5b`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/sandbox_enforcement-8ccab99c1c139135`
+
+running 8 tests
+test strict_read_only_rejects_workspace_writes ... ok
+test strict_danger_full_access_allows_local_tcp_probe ... ok
+test strict_read_only_allows_workspace_reads ... ok
+test strict_restricted_network_rejects_local_tcp_probe ... ok
+test strict_restricted_policy_rejects_reads_outside_workspace ... ok
+test strict_workspace_write_allows_workspace_writes ... ok
+test strict_workspace_write_rejects_protected_metadata_reads ... ok
+test strict_workspace_write_rejects_protected_metadata_writes ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-KKGn15.tmp/target/debug/deps/sandbox_policy-6e1dd2e0233bfee7`
+
+running 17 tests
+test compiles_danger_full_access_to_direct_process ... ok
+test compiles_linux_read_only_without_mounting_missing_denied_children ... ok
+test compiles_windows_network_policy_into_runner_flags ... ok
+test compiles_macos_network_enabled_policy_to_network_allow_rule ... ok
+test detects_host_platform ... ok
+test compiles_macos_read_only_to_fixed_sandbox_exec_plan ... FAILED
+test compiles_linux_workspace_write_to_bubblewrap_plan ... FAILED
+test compiles_windows_workspace_write_to_restricted_token_plan ... FAILED
+test enforced_policy_does_not_silently_fall_back_when_backend_is_missing ... ok
+test read_only_preset_is_restricted_and_protects_metadata ... FAILED
+test runner_detects_backend_for_current_platform ... ok
+test sandbox_errors_have_actionable_display_messages ... ok
+test sandbox_result_success_only_accepts_zero_exit_status ... ok
+test workspace_write_preset_allows_workspace_write_but_keeps_metadata_denied ... FAILED
+test enforced_policy_marked_available_attempts_the_backend_process ... ok
+test direct_process_run_captures_output_and_status ... ok
+test direct_process_run_passes_stdin_to_child_process ... ok
+
+failures:
+
+---- compiles_macos_read_only_to_fixed_sandbox_exec_plan stdout ----
+
+thread 'compiles_macos_read_only_to_fixed_sandbox_exec_plan' panicked at crates/sandbox/tests/sandbox_policy.rs:110:5:
+assertion failed: plan.args[1].contains("/workspace/.git")
+
+---- compiles_linux_workspace_write_to_bubblewrap_plan stdout ----
+
+thread 'compiles_linux_workspace_write_to_bubblewrap_plan' panicked at crates/sandbox/tests/sandbox_policy.rs:148:5:
+assertion failed: plan.args.windows(2).any(|pair| pair == ["--bind", "/workspace"])
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- compiles_windows_workspace_write_to_restricted_token_plan stdout ----
+
+thread 'compiles_windows_workspace_write_to_restricted_token_plan' panicked at crates/sandbox/tests/sandbox_policy.rs:193:5:
+assertion failed: plan.args.iter().any(|arg| arg == "--allow-write")
+
+---- read_only_preset_is_restricted_and_protects_metadata stdout ----
+
+thread 'read_only_preset_is_restricted_and_protects_metadata' panicked at crates/sandbox/tests/sandbox_policy.rs:29:5:
+assertion failed: policy.filesystem.entries.iter().any(|entry|
+        entry.path == Path::new("/workspace") &&
+            entry.access == FilesystemAccess::Read)
+
+---- workspace_write_preset_allows_workspace_write_but_keeps_metadata_denied stdout ----
+
+thread 'workspace_write_preset_allows_workspace_write_but_keeps_metadata_denied' panicked at crates/sandbox/tests/sandbox_policy.rs:50:5:
+assertion failed: policy.filesystem.entries.iter().any(|entry|
+        entry.path == Path::new("/workspace") &&
+            entry.access == FilesystemAccess::Write)
+
+
+failures:
+    compiles_linux_workspace_write_to_bubblewrap_plan
+    compiles_macos_read_only_to_fixed_sandbox_exec_plan
+    compiles_windows_workspace_write_to_restricted_token_plan
+    read_only_preset_is_restricted_and_protects_metadata
+    workspace_write_preset_allows_workspace_write_but_keeps_metadata_denied
+
+test result: FAILED. 12 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `-p sandbox --test sandbox_policy`
+
+*** result: Failure(101)

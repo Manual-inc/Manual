@@ -1,0 +1,25 @@
+--- crates/sandbox/src/lib.rs
++++ replace SandboxRunner::detect -> Self with Default::default()
+@@ -277,21 +277,17 @@
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct SandboxRunner {
+     platform: Platform,
+     backend_available: bool,
+ }
+ 
+ impl SandboxRunner {
+     pub fn detect() -> Self {
+-        let platform = Platform::current();
+-        Self {
+-            platform,
+-            backend_available: backend_available(platform),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn for_platform(platform: Platform) -> Self {
+         Self {
+             platform,
+             backend_available: true,
+         }
+     }

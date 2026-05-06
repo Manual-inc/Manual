@@ -1,0 +1,23 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeTarget::script -> Self with Default::default()
+@@ -58,19 +58,17 @@
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum RuntimeTarget {
+     Script { rust_source: String },
+     Agent { command: AgentCommand },
+ }
+ 
+ impl RuntimeTarget {
+     pub fn script(rust_source: impl Into<String>) -> Self {
+-        Self::Script {
+-            rust_source: rust_source.into(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn agent(command: AgentCommand) -> Self {
+         Self::Agent { command }
+     }
+ 
+     pub fn kind(&self) -> RuntimeTargetKind {
+         match self {

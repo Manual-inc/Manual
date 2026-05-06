@@ -1,0 +1,29 @@
+--- crates/graph-viewer/src/app.rs
++++ replace watch_graph_file -> notify::Result<RecommendedWatcher> with Ok(Default::default())
+@@ -131,25 +131,17 @@
+     }
+ }
+ 
+ fn watch_graph_file(
+     graph_path: &Path,
+     change_tx: Sender<()>,
+     egui_ctx: egui::Context,
+ ) -> notify::Result<RecommendedWatcher> {
+-    let watched_file = graph_path.to_path_buf();
+-    let watch_dir = watch_dir_for_graph_path(graph_path);
+-
+-    let mut watcher = notify::recommended_watcher(move |event: notify::Result<Event>| {
+-        handle_watch_event(event, &watched_file, &change_tx, &egui_ctx);
+-    })?;
+-
+-    watcher.watch(&watch_dir, RecursiveMode::NonRecursive)?;
+-    Ok(watcher)
++    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ fn watch_dir_for_graph_path(graph_path: &Path) -> PathBuf {
+     graph_path
+         .parent()
+         .filter(|path| !path.as_os_str().is_empty())
+         .unwrap_or_else(|| Path::new("."))
+         .to_path_buf()

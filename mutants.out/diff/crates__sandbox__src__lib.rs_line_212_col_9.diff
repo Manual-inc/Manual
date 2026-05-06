@@ -1,0 +1,22 @@
+--- crates/sandbox/src/lib.rs
++++ replace CommandSpec::env -> Self with Default::default()
+@@ -204,18 +204,17 @@
+     }
+ 
+     pub fn current_dir(mut self, current_dir: impl Into<PathBuf>) -> Self {
+         self.current_dir = Some(current_dir.into());
+         self
+     }
+ 
+     pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+-        self.env.insert(key.into(), value.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn stdin(mut self, stdin: impl Into<String>) -> Self {
+         self.stdin = Some(stdin.into());
+         self
+     }
+ }
+ 

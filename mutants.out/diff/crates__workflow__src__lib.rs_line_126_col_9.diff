@@ -1,0 +1,22 @@
+--- crates/workflow/src/lib.rs
++++ replace WorkflowEdge::with_label -> Self with Default::default()
+@@ -118,18 +118,17 @@
+         Self::new(WorkflowEdgeKind::Join, source, target)
+     }
+ 
+     pub fn error(source: impl Into<String>, target: impl Into<String>) -> Self {
+         Self::new(WorkflowEdgeKind::Error, source, target)
+     }
+ 
+     pub fn with_label(mut self, label: impl Into<String>) -> Self {
+-        self.label = Some(label.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn source(&self) -> &NodeId {
+         &self.source
+     }
+ 
+     pub fn target(&self) -> &NodeId {
+         &self.target

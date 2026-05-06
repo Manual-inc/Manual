@@ -1,0 +1,39 @@
+--- crates/graph-viewer/src/view.rs
++++ replace draw_canvas_grid with ()
+@@ -224,35 +224,17 @@
+ }
+ 
+ fn draw_canvas_background(painter: &Painter, rect: Rect) {
+     painter.rect_filled(rect, 0.0, Color32::from_rgb(15, 18, 22));
+     draw_canvas_grid(painter, rect);
+ }
+ 
+ fn draw_canvas_grid(painter: &Painter, rect: Rect) {
+-    let stroke = Stroke::new(1.0, Color32::from_rgb(25, 30, 36));
+-    let step = 48.0;
+-    let mut x = rect.left();
+-    while x <= rect.right() {
+-        painter.line_segment(
+-            [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
+-            stroke,
+-        );
+-        x += step;
+-    }
+-
+-    let mut y = rect.top();
+-    while y <= rect.bottom() {
+-        painter.line_segment(
+-            [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
+-            stroke,
+-        );
+-        y += step;
+-    }
++    () /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ fn draw_center_message(painter: &Painter, rect: Rect, message: &str) {
+     painter.text(
+         rect.center(),
+         Align2::CENTER_CENTER,
+         message,
+         FontId::proportional(18.0),

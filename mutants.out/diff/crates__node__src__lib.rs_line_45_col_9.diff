@@ -1,0 +1,26 @@
+--- crates/node/src/lib.rs
++++ replace <impl fmt::Display for NodeIdError>::fmt -> fmt::Result with Ok(Default::default())
+@@ -37,22 +37,17 @@
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum NodeIdError {
+     Empty,
+     ContainsWhitespace(String),
+ }
+ 
+ impl fmt::Display for NodeIdError {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        match self {
+-            Self::Empty => write!(f, "node id cannot be empty"),
+-            Self::ContainsWhitespace(value) => {
+-                write!(f, "node id cannot contain whitespace: {value}")
+-            }
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl std::error::Error for NodeIdError {}
+ 
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+ pub enum NodeKind {
+     Trigger,

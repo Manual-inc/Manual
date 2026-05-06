@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/lib.rs
++++ replace SmoothZoom::jump_to_target with ()
+@@ -294,17 +294,17 @@
+         self.target = self.target.scaled_by(factor);
+     }
+ 
+     pub fn reset(&mut self) {
+         self.target = ZoomLevel::default();
+     }
+ 
+     pub fn jump_to_target(&mut self) {
+-        self.displayed = self.target;
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn advance(&mut self, amount: f32) -> bool {
+         let next = self.displayed.lerp_toward(self.target, amount);
+ 
+         if (next.value() - self.target.value()).abs() <= Self::ANIMATION_EPSILON {
+             self.displayed = self.target;
+             false

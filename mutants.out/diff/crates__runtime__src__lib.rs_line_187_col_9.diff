@@ -1,0 +1,24 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeRunner::detect -> Self with Default::default()
+@@ -179,20 +179,17 @@
+ impl Default for RuntimeRunner {
+     fn default() -> Self {
+         Self::detect()
+     }
+ }
+ 
+ impl RuntimeRunner {
+     pub fn detect() -> Self {
+-        Self {
+-            sandbox_runner: SandboxRunner::detect(),
+-            script_runner: ScriptRunner::default(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn for_sandbox_runner(sandbox_runner: SandboxRunner) -> Self {
+         Self {
+             sandbox_runner,
+             script_runner: ScriptRunner::default(),
+         }
+     }

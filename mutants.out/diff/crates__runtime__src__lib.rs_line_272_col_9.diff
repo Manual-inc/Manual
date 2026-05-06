@@ -1,0 +1,23 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeRunner::run_plan -> Result<RuntimeOutput, RuntimeError> with Ok(Default::default())
+@@ -264,19 +264,17 @@
+             sandbox: plan.backend,
+             command: spec,
+             policy,
+             _compiled_script: None,
+         })
+     }
+ 
+     fn run_plan(&self, plan: RuntimePlan) -> Result<RuntimeOutput, RuntimeError> {
+-        let result = self.sandbox_runner.run(&plan.command, &plan.policy)?;
+-
+-        Ok(runtime_output(plan.target, plan.sandbox, result))
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ fn runtime_output(
+     target: RuntimeTargetKind,
+     sandbox: BackendReport,
+     result: SandboxResult,
+ ) -> RuntimeOutput {

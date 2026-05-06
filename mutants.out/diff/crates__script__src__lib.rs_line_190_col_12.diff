@@ -1,0 +1,21 @@
+--- crates/script/src/lib.rs
++++ delete ! in ScriptRunner::compile_with_rustc
+@@ -182,17 +182,17 @@
+             .arg("--edition")
+             .arg(&self.edition)
+             .arg(&wrapper_path)
+             .arg("-o")
+             .arg(&binary_path)
+             .output()
+             .map_err(to_io_error)?;
+ 
+-        if !compile_output.status.success() {
++        if  /* ~ changed by cargo-mutants ~ */compile_output.status.success() {
+             return Err(ScriptError::CompileFailed {
+                 stdout: String::from_utf8_lossy(&compile_output.stdout).into_owned(),
+                 stderr: String::from_utf8_lossy(&compile_output.stderr).into_owned(),
+                 exit_code: compile_output.status.code(),
+             });
+         }
+ 
+         Ok(CompiledScript {

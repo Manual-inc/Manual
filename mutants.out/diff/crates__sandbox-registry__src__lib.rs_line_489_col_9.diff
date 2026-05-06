@@ -1,0 +1,23 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredNetworkPolicy::into_policy -> NetworkPolicy with Default::default()
+@@ -481,19 +481,17 @@
+ impl StoredNetworkPolicy {
+     fn from_policy(policy: &NetworkPolicy) -> Self {
+         Self {
+             mode: policy.mode.into(),
+         }
+     }
+ 
+     fn into_policy(self) -> NetworkPolicy {
+-        NetworkPolicy {
+-            mode: self.mode.into(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+ #[serde(rename_all = "kebab-case")]
+ enum StoredNetworkMode {
+     Restricted,
+     Enabled,

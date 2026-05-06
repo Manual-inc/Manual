@@ -1,0 +1,22 @@
+--- crates/agent/src/codex.rs
++++ replace CodexRequest::with_sandbox -> Self with Default::default()
+@@ -23,18 +23,17 @@
+     }
+ 
+     pub fn with_model(mut self, model: impl Into<String>) -> Self {
+         self.model = Some(model.into());
+         self
+     }
+ 
+     pub fn with_sandbox(mut self, sandbox: impl Into<String>) -> Self {
+-        self.sandbox = Some(sandbox.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_workdir(mut self, workdir: impl Into<PathBuf>) -> Self {
+         self.workdir = Some(workdir.into());
+         self
+     }
+ 
+     pub fn with_arg(mut self, arg: impl Into<String>) -> Self {

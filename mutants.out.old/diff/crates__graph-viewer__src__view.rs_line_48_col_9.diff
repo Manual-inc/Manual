@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/view.rs
++++ replace GraphView::pan_mut -> &mut PanOffset with Box::leak(Box::new(Default::default()))
+@@ -40,17 +40,17 @@
+         self.zoom.reset();
+     }
+ 
+     pub fn pan(&self) -> PanOffset {
+         self.pan
+     }
+ 
+     pub fn pan_mut(&mut self) -> &mut PanOffset {
+-        &mut self.pan
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn reset_pan(&mut self) {
+         self.pan.reset();
+     }
+ 
+     pub fn zoom_controls(&mut self, ui: &mut Ui) {
+         let button_size = vec2(28.0, 24.0);

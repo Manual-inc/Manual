@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/lib.rs
++++ replace SmoothZoom::reset with ()
+@@ -290,17 +290,17 @@
+             return;
+         }
+ 
+         let factor = (scroll_delta_y * 0.0025).exp();
+         self.target = self.target.scaled_by(factor);
+     }
+ 
+     pub fn reset(&mut self) {
+-        self.target = ZoomLevel::default();
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn jump_to_target(&mut self) {
+         self.displayed = self.target;
+     }
+ 
+     pub fn advance(&mut self, amount: f32) -> bool {
+         let next = self.displayed.lerp_toward(self.target, amount);

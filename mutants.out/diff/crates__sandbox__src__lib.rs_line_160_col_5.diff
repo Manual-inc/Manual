@@ -1,0 +1,30 @@
+--- crates/sandbox/src/lib.rs
++++ replace workspace_entries -> Vec<FilesystemEntry> with vec![]
+@@ -152,26 +152,17 @@
+             network: NetworkPolicy {
+                 mode: NetworkMode::Enabled,
+             },
+         }
+     }
+ }
+ 
+ fn workspace_entries(workspace_root: PathBuf, access: FilesystemAccess) -> Vec<FilesystemEntry> {
+-    let mut entries = vec![FilesystemEntry::new(workspace_root.clone(), access)];
+-
+-    for protected in PROTECTED_METADATA_DIRS {
+-        entries.push(FilesystemEntry::new(
+-            workspace_root.join(protected),
+-            FilesystemAccess::None,
+-        ));
+-    }
+-
+-    entries
++    vec![] /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct CommandSpec {
+     pub program: String,
+     pub args: Vec<String>,
+     pub current_dir: Option<PathBuf>,
+     pub env: BTreeMap<String, String>,

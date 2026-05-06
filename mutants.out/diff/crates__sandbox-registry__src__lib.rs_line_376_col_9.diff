@@ -1,0 +1,28 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredFilesystemPolicy::from_policy -> Self with Default::default()
+@@ -368,24 +368,17 @@
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct StoredFilesystemPolicy {
+     mode: StoredFilesystemMode,
+     entries: Vec<StoredFilesystemEntry>,
+ }
+ 
+ impl StoredFilesystemPolicy {
+     fn from_policy(policy: &FilesystemPolicy) -> Self {
+-        Self {
+-            mode: policy.mode.into(),
+-            entries: policy
+-                .entries
+-                .iter()
+-                .map(StoredFilesystemEntry::from_entry)
+-                .collect(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn into_policy(self) -> FilesystemPolicy {
+         FilesystemPolicy {
+             mode: self.mode.into(),
+             entries: self
+                 .entries
+                 .into_iter()

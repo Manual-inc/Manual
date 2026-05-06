@@ -1,0 +1,21 @@
+--- crates/runtime/src/lib.rs
++++ replace <impl From<ScriptError> for RuntimeError>::from -> Self with Default::default()
+@@ -161,17 +161,17 @@
+ impl From<SandboxError> for RuntimeError {
+     fn from(error: SandboxError) -> Self {
+         Self::Sandbox(error)
+     }
+ }
+ 
+ impl From<ScriptError> for RuntimeError {
+     fn from(error: ScriptError) -> Self {
+-        Self::Script(error)
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct RuntimeRunner {
+     sandbox_runner: SandboxRunner,
+     script_runner: ScriptRunner,
+ }

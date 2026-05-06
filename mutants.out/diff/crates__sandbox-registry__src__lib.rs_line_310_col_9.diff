@@ -1,0 +1,22 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredSandboxDefinition::into_definition -> Result<SandboxDefinition, SandboxStoreError> with Ok(Default::default())
+@@ -302,18 +302,17 @@
+     fn from_definition(definition: &SandboxDefinition) -> Self {
+         Self {
+             id: definition.id().as_str().to_string(),
+             policy: StoredSandboxPolicy::from_policy(definition.policy()),
+         }
+     }
+ 
+     fn into_definition(self) -> Result<SandboxDefinition, SandboxStoreError> {
+-        SandboxDefinition::new(self.id, self.policy.into_policy())
+-            .map_err(SandboxStoreError::Registry)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct StoredSandboxPolicy {
+     preset: StoredSandboxPreset,
+     filesystem: StoredFilesystemPolicy,
+     network: StoredNetworkPolicy,

@@ -1,0 +1,28 @@
+--- crates/workflow/src/lib.rs
++++ replace WorkflowEdgeKind::as_str -> &'static str with ""
+@@ -160,24 +160,17 @@
+         Self::Branch,
+         Self::LoopBack,
+         Self::Parallel,
+         Self::Join,
+         Self::Error,
+     ];
+ 
+     pub fn as_str(self) -> &'static str {
+-        match self {
+-            Self::Sequence => "sequence",
+-            Self::Branch => "branch",
+-            Self::LoopBack => "loop_back",
+-            Self::Parallel => "parallel",
+-            Self::Join => "join",
+-            Self::Error => "error",
+-        }
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for WorkflowEdgeKind {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         f.write_str(self.as_str())
+     }
+ }

@@ -1,0 +1,22 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptDefinition::request -> ScriptRequest with Default::default()
+@@ -111,18 +111,17 @@
+     pub fn set_dependencies<I>(&mut self, dependencies: I)
+     where
+         I: IntoIterator<Item = ScriptDependency>,
+     {
+         self.dependencies = dependencies.into_iter().collect();
+     }
+ 
+     pub fn request(&self, input_json: impl Into<String>) -> ScriptRequest {
+-        ScriptRequest::new(&self.rust_source, input_json)
+-            .with_dependencies(self.dependencies.iter().cloned())
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Default, PartialEq, Eq)]
+ pub struct ScriptRegistry {
+     scripts: BTreeMap<ScriptId, ScriptDefinition>,
+ }
+ 

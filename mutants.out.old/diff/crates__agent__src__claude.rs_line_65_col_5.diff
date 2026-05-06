@@ -1,0 +1,41 @@
+--- crates/agent/src/claude.rs
++++ replace jsonl_command -> AgentCommand with Default::default()
+@@ -57,37 +57,10 @@
+     }
+ }
+ 
+ pub fn help_command() -> AgentCommand {
+     AgentCommand::new("claude").arg("-h")
+ }
+ 
+ pub fn jsonl_command(request: ClaudeRequest) -> AgentCommand {
+-    let mut command = AgentCommand::new("claude").with_args([
+-        "--print",
+-        "--output-format",
+-        "stream-json",
+-        "--verbose",
+-    ]);
+-
+-    if let Some(model) = request.model {
+-        command = command.arg("--model").arg(model);
+-    }
+-
+-    if let Some(permission_mode) = request.permission_mode {
+-        command = command.arg("--permission-mode").arg(permission_mode);
+-    }
+-
+-    if let Some(workdir) = request.workdir {
+-        command = command.with_current_dir(workdir);
+-    }
+-
+-    if request.include_partial_messages {
+-        command = command.arg("--include-partial-messages");
+-    }
+-
+-    if request.include_hook_events {
+-        command = command.arg("--include-hook-events");
+-    }
+-
+-    command.with_args(request.extra_args).arg(request.prompt)
++    Default::default() /* ~ changed by cargo-mutants ~ */
+ }

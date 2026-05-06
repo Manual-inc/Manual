@@ -1,0 +1,39 @@
+--- crates/sandbox/tests/fixtures/sandbox_probe.rs
++++ replace main with ()
+@@ -1,35 +1,8 @@
+ use std::fs;
+ use std::net::{SocketAddr, TcpStream};
+ use std::path::Path;
+ use std::time::Duration;
+ 
+ fn main() {
+-    let mut args = std::env::args().skip(1);
+-    let Some(command) = args.next() else {
+-        panic!("missing sandbox probe command");
+-    };
+-
+-    match command.as_str() {
+-        "read-file" => {
+-            let path = args.next().expect("missing read-file path");
+-            let expected = args.next().expect("missing read-file expected body");
+-            let actual = fs::read_to_string(Path::new(&path)).expect("probe should read file");
+-            assert_eq!(actual, expected);
+-        }
+-        "write-file" => {
+-            let path = args.next().expect("missing write-file path");
+-            let body = args.next().expect("missing write-file body");
+-            fs::write(Path::new(&path), body).expect("probe should write file");
+-        }
+-        "connect-tcp" => {
+-            let addr = args
+-                .next()
+-                .expect("missing connect-tcp address")
+-                .parse::<SocketAddr>()
+-                .expect("connect-tcp address should be valid");
+-            TcpStream::connect_timeout(&addr, Duration::from_millis(800))
+-                .expect("probe should connect to TCP listener");
+-        }
+-        other => panic!("unknown sandbox probe command: {other}"),
+-    }
++    () /* ~ changed by cargo-mutants ~ */
+ }

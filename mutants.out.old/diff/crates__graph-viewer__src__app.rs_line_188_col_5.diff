@@ -1,0 +1,28 @@
+--- crates/graph-viewer/src/app.rs
++++ replace abbreviate -> String with String::new()
+@@ -180,24 +180,17 @@
+     }
+ 
+     std::env::current_dir()
+         .map(|current_dir| current_dir.join(&path))
+         .unwrap_or(path)
+ }
+ 
+ fn abbreviate(value: &str, max_chars: usize) -> String {
+-    let mut chars = value.chars();
+-    let shortened: String = chars.by_ref().take(max_chars).collect();
+-
+-    if chars.next().is_some() {
+-        format!("{shortened}...")
+-    } else {
+-        shortened
+-    }
++    String::new() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use std::fs;
+     use std::time::{SystemTime, UNIX_EPOCH};
+ 

@@ -1,0 +1,29 @@
+--- crates/job/src/lib.rs
++++ replace NodeRunStatus::as_str -> &'static str with "xyzzy"
+@@ -90,25 +90,17 @@
+     Succeeded,
+     Failed,
+     Skipped,
+     WaitingForApproval,
+ }
+ 
+ impl NodeRunStatus {
+     pub fn as_str(self) -> &'static str {
+-        match self {
+-            Self::Pending => "pending",
+-            Self::Ready => "ready",
+-            Self::Running => "running",
+-            Self::Succeeded => "succeeded",
+-            Self::Failed => "failed",
+-            Self::Skipped => "skipped",
+-            Self::WaitingForApproval => "waiting_for_approval",
+-        }
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn is_success_terminal(self) -> bool {
+         matches!(self, Self::Succeeded | Self::Skipped)
+     }
+ }
+ 
+ impl fmt::Display for NodeRunStatus {

@@ -1,0 +1,21 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeRequest::script -> Self with Default::default()
+@@ -100,17 +100,17 @@
+         }
+     }
+ 
+     pub fn script(
+         input_json: impl Into<String>,
+         rust_source: impl Into<String>,
+         sandbox: RuntimeSandbox,
+     ) -> Self {
+-        Self::new(input_json, sandbox, RuntimeTarget::script(rust_source))
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn agent(
+         input_json: impl Into<String>,
+         command: AgentCommand,
+         sandbox: RuntimeSandbox,
+     ) -> Self {
+         Self::new(input_json, sandbox, RuntimeTarget::agent(command))

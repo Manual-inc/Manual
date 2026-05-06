@@ -1,0 +1,21 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace SandboxRegistry::get -> Option<&SandboxDefinition> with Some(Box::leak(Box::new(Default::default())))
+@@ -120,17 +120,17 @@
+         let id = SandboxId::new(id).map_err(SandboxRegistryError::InvalidId)?;
+ 
+         self.definitions
+             .get(&id)
+             .ok_or(SandboxRegistryError::UnknownId(id))
+     }
+ 
+     pub fn get(&self, id: &SandboxId) -> Option<&SandboxDefinition> {
+-        self.definitions.get(id)
++        Some(Box::leak(Box::new(Default::default()))) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn len(&self) -> usize {
+         self.definitions.len()
+     }
+ 
+     pub fn is_empty(&self) -> bool {
+         self.definitions.is_empty()

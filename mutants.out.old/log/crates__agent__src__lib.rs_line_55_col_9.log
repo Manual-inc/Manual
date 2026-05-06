@@ -1,0 +1,125 @@
+
+*** crates/agent/src/lib.rs:55:9: replace AgentCommand::args -> &[String] with Vec::leak(Vec::new())
+
+*** mutation diff:
+--- crates/agent/src/lib.rs
++++ replace AgentCommand::args -> &[String] with Vec::leak(Vec::new())
+@@ -47,17 +47,17 @@
+         self
+     }
+ 
+     pub fn program(&self) -> &str {
+         &self.program
+     }
+ 
+     pub fn args(&self) -> &[String] {
+-        &self.args
++        Vec::leak(Vec::new()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn current_dir(&self) -> Option<&Path> {
+         self.current_dir.as_deref()
+     }
+ 
+     pub fn to_std_command(&self) -> Command {
+         let mut command = Command::new(&self.program);
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=agent@0.1.0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling agent v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/crates/agent)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name agent --edition=2024 crates/agent/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=dc0147b0ea6aae95 -C extra-filename=-e3017da0d3ad1931 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name agent --edition=2024 crates/agent/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=760fce53901f7da6 -C extra-filename=-df1187056c019dff --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name adapters --edition=2024 crates/agent/tests/adapters.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=3de4049b5fde06fe -C extra-filename=-2025cf47c02239fa --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps --extern agent=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps/libagent-df1187056c019dff.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name live_adapters --edition=2024 crates/agent/tests/live_adapters.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=2ce17f6faaffce39 -C extra-filename=-13c0b0423ba047da --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps --extern agent=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps/libagent-df1187056c019dff.rlib`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.77s
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps/agent-e3017da0d3ad1931`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps/adapters-2025cf47c02239fa`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps/live_adapters-13c0b0423ba047da`
+
+*** result: Success
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --verbose --package=agent@0.1.0
+    Blocking waiting for file lock on package cache
+       Fresh agent v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/crates/agent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps/agent-e3017da0d3ad1931`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-dRv4at.tmp/target/debug/deps/adapters-2025cf47c02239fa`
+
+running 10 tests
+test codex_help_command_uses_cli_help ... FAILED
+test jsonl_lines_yield_newline_trimmed_events ... ok
+test codex_jsonl_command_uses_exec_json_stream ... FAILED
+test claude_help_command_uses_cli_help ... FAILED
+test claude_jsonl_command_uses_print_stream_json ... FAILED
+test claude_jsonl_command_accepts_execution_controls ... FAILED
+test codex_jsonl_command_accepts_execution_controls ... FAILED
+test spawned_jsonl_child_reads_next_line_from_stdout ... ok
+test spawned_jsonl_child_wait_reports_process_exit_status ... ok
+test spawned_jsonl_child_iterates_over_stdout_lines ... ok
+
+failures:
+
+---- codex_help_command_uses_cli_help stdout ----
+
+thread 'codex_help_command_uses_cli_help' panicked at crates/agent/tests/adapters.rs:21:5:
+assertion `left == right` failed
+  left: []
+ right: ["-h"]
+
+---- codex_jsonl_command_uses_exec_json_stream stdout ----
+
+thread 'codex_jsonl_command_uses_exec_json_stream' panicked at crates/agent/tests/adapters.rs:29:5:
+assertion `left == right` failed
+  left: []
+ right: ["exec", "--json", "summarize this repository"]
+
+---- claude_help_command_uses_cli_help stdout ----
+
+thread 'claude_help_command_uses_cli_help' panicked at crates/agent/tests/adapters.rs:67:5:
+assertion `left == right` failed
+  left: []
+ right: ["-h"]
+
+---- claude_jsonl_command_uses_print_stream_json stdout ----
+
+thread 'claude_jsonl_command_uses_print_stream_json' panicked at crates/agent/tests/adapters.rs:75:5:
+assertion `left == right` failed
+  left: []
+ right: ["--print", "--output-format", "stream-json", "--verbose", "summarize this repository"]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- claude_jsonl_command_accepts_execution_controls stdout ----
+
+thread 'claude_jsonl_command_accepts_execution_controls' panicked at crates/agent/tests/adapters.rs:98:5:
+assertion `left == right` failed
+  left: []
+ right: ["--print", "--output-format", "stream-json", "--verbose", "--model", "sonnet", "--permission-mode", "dontAsk", "--include-partial-messages", "--include-hook-events", "inspect the workspace"]
+
+---- codex_jsonl_command_accepts_execution_controls stdout ----
+
+thread 'codex_jsonl_command_accepts_execution_controls' panicked at crates/agent/tests/adapters.rs:45:5:
+assertion `left == right` failed
+  left: []
+ right: ["exec", "--json", "--model", "gpt-5.5", "--sandbox", "workspace-write", "--cd", "/tmp/manual", "--ephemeral", "inspect the workspace"]
+
+
+failures:
+    claude_help_command_uses_cli_help
+    claude_jsonl_command_accepts_execution_controls
+    claude_jsonl_command_uses_print_stream_json
+    codex_help_command_uses_cli_help
+    codex_jsonl_command_accepts_execution_controls
+    codex_jsonl_command_uses_exec_json_stream
+
+test result: FAILED. 4 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p agent --test adapters`
+
+*** result: Failure(101)

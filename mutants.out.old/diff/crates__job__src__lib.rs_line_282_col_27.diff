@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace += with -= in Job::transition_node
+@@ -274,17 +274,17 @@
+                 node_id: node_id.to_string(),
+                 from,
+                 to,
+             });
+         }
+ 
+         node.status = to;
+         if to == NodeRunStatus::Running {
+-            node.attempts += 1;
++            node.attempts -= /* ~ changed by cargo-mutants ~ */ 1;
+         }
+         self.refresh_status();
+ 
+         Ok(())
+     }
+ 
+     fn refresh_status(&mut self) {
+         if self

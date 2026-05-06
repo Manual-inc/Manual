@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/lib.rs
++++ replace PanOffset::x -> f32 with 1.0
+@@ -328,17 +328,17 @@
+ }
+ 
+ impl PanOffset {
+     pub fn new(x: f32, y: f32) -> Self {
+         Self { x, y }
+     }
+ 
+     pub fn x(self) -> f32 {
+-        self.x
++        1.0 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn y(self) -> f32 {
+         self.y
+     }
+ 
+     pub fn pan_by(&mut self, delta_x: f32, delta_y: f32) {
+         self.x += delta_x;

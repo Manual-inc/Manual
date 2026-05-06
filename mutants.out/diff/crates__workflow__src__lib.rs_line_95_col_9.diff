@@ -1,0 +1,21 @@
+--- crates/workflow/src/lib.rs
++++ replace WorkflowEdge::sequence -> Self with Default::default()
+@@ -87,17 +87,17 @@
+             source: NodeId::new(source)?,
+             target: NodeId::new(target)?,
+             kind,
+             label: None,
+         })
+     }
+ 
+     pub fn sequence(source: impl Into<String>, target: impl Into<String>) -> Self {
+-        Self::new(WorkflowEdgeKind::Sequence, source, target)
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn try_sequence(
+         source: impl Into<String>,
+         target: impl Into<String>,
+     ) -> Result<Self, NodeIdError> {
+         Self::try_new(WorkflowEdgeKind::Sequence, source, target)
+     }

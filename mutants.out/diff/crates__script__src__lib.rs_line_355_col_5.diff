@@ -1,0 +1,40 @@
+--- crates/script/src/lib.rs
++++ replace cargo_manifest -> String with String::new()
+@@ -347,36 +347,17 @@
+     print!("{{output}}");
+ }}
+ "#,
+         rust_string_literal(&user_source_path.display().to_string())
+     )
+ }
+ 
+ fn cargo_manifest(dependencies: &[ScriptDependency], edition: &str) -> String {
+-    let mut manifest = format!(
+-        r#"[package]
+-name = "manual-script-runner"
+-version = "0.1.0"
+-edition = {}
+-
+-[dependencies]
+-"#,
+-        toml_string_literal(edition)
+-    );
+-
+-    for dependency in dependencies {
+-        manifest.push_str(&dependency.name);
+-        manifest.push_str(" = ");
+-        manifest.push_str(&dependency_manifest_value(dependency));
+-        manifest.push('\n');
+-    }
+-
+-    manifest.push_str("\n[workspace]\n");
+-    manifest
++    String::new() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ fn dependency_manifest_value(dependency: &ScriptDependency) -> String {
+     match &dependency.source {
+         ScriptDependencySource::Version(version) => toml_string_literal(version),
+         ScriptDependencySource::Path(path) => {
+             format!(
+                 "{{ path = {} }}",

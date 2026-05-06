@@ -1,0 +1,21 @@
+--- crates/sandbox-registry/src/lib.rs
++++ delete ! in <impl SandboxStore for FileSandboxStore>::load
+@@ -187,17 +187,17 @@
+ 
+     pub fn path(&self) -> &Path {
+         &self.path
+     }
+ }
+ 
+ impl SandboxStore for FileSandboxStore {
+     fn load(&self) -> Result<SandboxRegistry, SandboxStoreError> {
+-        if !self.path.exists() {
++        if  /* ~ changed by cargo-mutants ~ */self.path.exists() {
+             return Ok(SandboxRegistry::new());
+         }
+ 
+         let contents = fs::read_to_string(&self.path)
+             .map_err(|error| SandboxStoreError::io(&self.path, error))?;
+         let document: StoredSandboxDocument =
+             toml::from_str(&contents).map_err(|error| SandboxStoreError::Decode {
+                 path: self.path.clone(),

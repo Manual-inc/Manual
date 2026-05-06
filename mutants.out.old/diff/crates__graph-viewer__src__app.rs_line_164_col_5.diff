@@ -1,0 +1,27 @@
+--- crates/graph-viewer/src/app.rs
++++ replace handle_watch_event with ()
+@@ -156,23 +156,17 @@
+ }
+ 
+ fn handle_watch_event(
+     event: notify::Result<Event>,
+     watched_file: &Path,
+     change_tx: &Sender<()>,
+     egui_ctx: &egui::Context,
+ ) {
+-    match event {
+-        Ok(event) if event_touches_path(&event, watched_file) => {
+-            let _ = change_tx.send(());
+-            egui_ctx.request_repaint();
+-        }
+-        _ => {}
+-    }
++    () /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ fn event_touches_path(event: &Event, graph_path: &Path) -> bool {
+     event.paths.iter().any(|path| path == graph_path)
+ }
+ 
+ fn absolute_path(path: PathBuf) -> PathBuf {
+     if path.is_absolute() {

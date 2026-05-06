@@ -1,0 +1,26 @@
+--- crates/cli/src/lib.rs
++++ replace <impl fmt::Display for CliError>::fmt -> fmt::Result with Ok(Default::default())
+@@ -8,22 +8,17 @@
+     MissingCommand,
+     MissingPath,
+     UnknownCommand(String),
+     MissingSkillFile(String),
+ }
+ 
+ impl fmt::Display for CliError {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        match self {
+-            Self::MissingCommand => write!(f, "no command provided"),
+-            Self::MissingPath => write!(f, "missing path argument"),
+-            Self::UnknownCommand(command) => write!(f, "unknown command: {command}"),
+-            Self::MissingSkillFile(path) => write!(f, "missing SKILL.md under {path}"),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl std::error::Error for CliError {}
+ 
+ pub fn run<I, S>(args: I) -> Result<String, CliError>
+ where
+     I: IntoIterator<Item = S>,

@@ -1,0 +1,21 @@
+--- crates/workflow/src/lib.rs
++++ delete ! in validate_graph
+@@ -264,17 +264,17 @@
+ ) -> Result<(), WorkflowError> {
+     if nodes.is_empty() {
+         return Err(WorkflowError::EmptyGraph);
+     }
+ 
+     let mut node_ids = BTreeSet::new();
+ 
+     for node in nodes {
+-        if !node_ids.insert(node.id.as_str().to_string()) {
++        if  /* ~ changed by cargo-mutants ~ */node_ids.insert(node.id.as_str().to_string()) {
+             return Err(WorkflowError::DuplicateNode(node.id.to_string()));
+         }
+     }
+ 
+     if !node_ids.contains(entry_node.as_str()) {
+         return Err(WorkflowError::MissingEntryNode(entry_node.to_string()));
+     }
+ 

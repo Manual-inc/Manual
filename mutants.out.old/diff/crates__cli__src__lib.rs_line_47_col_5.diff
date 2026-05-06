@@ -1,0 +1,27 @@
+--- crates/cli/src/lib.rs
++++ replace about -> String with String::new()
+@@ -39,23 +39,17 @@
+             let path = args.next().ok_or(CliError::MissingPath)?;
+             validate_skill(Path::new(path.as_ref()))
+         }
+         other => Err(CliError::UnknownCommand(other.to_string())),
+     }
+ }
+ 
+ pub fn about() -> String {
+-    let descriptor = workspace_descriptor();
+-
+-    format!(
+-        "{} workspace packages: {}",
+-        descriptor.name,
+-        descriptor.packages.join(", ")
+-    )
++    String::new() /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ pub fn validate_skill(path: &Path) -> Result<String, CliError> {
+     let skill_file = path.join("SKILL.md");
+ 
+     if !skill_file.is_file() {
+         return Err(CliError::MissingSkillFile(path.display().to_string()));
+     }

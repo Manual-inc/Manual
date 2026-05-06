@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace JobNode::status -> NodeRunStatus with Default::default()
+@@ -145,17 +145,17 @@
+         })
+     }
+ 
+     pub fn node_id(&self) -> &NodeId {
+         &self.node_id
+     }
+ 
+     pub fn status(&self) -> NodeRunStatus {
+-        self.status
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn attempts(&self) -> u32 {
+         self.attempts
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]

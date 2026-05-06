@@ -1,0 +1,21 @@
+--- crates/sandbox/src/lib.rs
++++ replace SandboxRunner::backend -> BackendReport with Default::default()
+@@ -299,17 +299,17 @@
+     pub fn for_backend_availability(platform: Platform, backend_available: bool) -> Self {
+         Self {
+             platform,
+             backend_available,
+         }
+     }
+ 
+     pub fn backend(&self) -> BackendReport {
+-        backend_report(self.platform, self.backend_available)
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn compile(
+         &self,
+         command: &CommandSpec,
+         policy: &SandboxPolicy,
+     ) -> Result<CompiledSandboxPlan, SandboxError> {
+         if policy.preset == SandboxPreset::DangerFullAccess {

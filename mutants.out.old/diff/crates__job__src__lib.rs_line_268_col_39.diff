@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace == with != in Job::transition_node
+@@ -260,17 +260,17 @@
+         &mut self,
+         node_id: impl Into<String>,
+         to: NodeRunStatus,
+     ) -> Result<(), JobError> {
+         let node_id = NodeId::new(node_id).map_err(JobError::InvalidNodeId)?;
+         let node = self
+             .nodes
+             .iter_mut()
+-            .find(|node| node.node_id == node_id)
++            .find(|node| node.node_id != /* ~ changed by cargo-mutants ~ */ node_id)
+             .ok_or_else(|| JobError::UnknownNode(node_id.to_string()))?;
+         let from = node.status;
+ 
+         if !valid_node_transition(from, to) {
+             return Err(JobError::InvalidNodeTransition {
+                 node_id: node_id.to_string(),
+                 from,
+                 to,

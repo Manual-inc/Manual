@@ -1,0 +1,24 @@
+--- crates/job/src/lib.rs
++++ replace Job::node_status -> Option<NodeRunStatus> with None
+@@ -229,20 +229,17 @@
+         self.status
+     }
+ 
+     pub fn nodes(&self) -> &[JobNode] {
+         &self.nodes
+     }
+ 
+     pub fn node_status(&self, node_id: &str) -> Option<NodeRunStatus> {
+-        self.nodes
+-            .iter()
+-            .find(|node| node.node_id.as_str() == node_id)
+-            .map(JobNode::status)
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn mark_node_ready(&mut self, node_id: impl Into<String>) -> Result<(), JobError> {
+         self.transition_node(node_id, NodeRunStatus::Ready)
+     }
+ 
+     pub fn start_node(&mut self, node_id: impl Into<String>) -> Result<(), JobError> {
+         self.transition_node(node_id, NodeRunStatus::Running)

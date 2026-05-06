@@ -1,0 +1,42 @@
+--- crates/script/src/lib.rs
++++ replace ScriptRunner::run -> Result<ScriptOutput, ScriptError> with Ok(Default::default())
+@@ -242,38 +242,17 @@
+         Ok(CompiledScript {
+             workspace,
+             binary_path,
+             input_json: request.input_json.clone(),
+         })
+     }
+ 
+     pub fn run(&self, request: &ScriptRequest) -> Result<ScriptOutput, ScriptError> {
+-        let compiled = self.compile(request)?;
+-
+-        let mut child = Command::new(compiled.binary_path())
+-            .stdin(Stdio::piped())
+-            .stdout(Stdio::piped())
+-            .stderr(Stdio::piped())
+-            .spawn()
+-            .map_err(to_io_error)?;
+-
+-        if let Some(stdin) = child.stdin.as_mut() {
+-            stdin
+-                .write_all(compiled.input_json().as_bytes())
+-                .map_err(to_io_error)?;
+-        }
+-
+-        let output = child.wait_with_output().map_err(to_io_error)?;
+-
+-        Ok(ScriptOutput {
+-            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+-            exit_code: output.status.code(),
+-        })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug)]
+ pub struct CompiledScript {
+     workspace: ScriptWorkspace,
+     binary_path: PathBuf,
+     input_json: String,

@@ -1,0 +1,27 @@
+--- crates/job-registry/src/lib.rs
++++ replace <impl From<StoredJobStatus> for JobStatus>::from -> Self with Default::default()
+@@ -290,23 +290,17 @@
+             JobStatus::Failed => Self::Failed,
+             JobStatus::Canceled => Self::Canceled,
+         }
+     }
+ }
+ 
+ impl From<StoredJobStatus> for JobStatus {
+     fn from(value: StoredJobStatus) -> Self {
+-        match value {
+-            StoredJobStatus::Created => Self::Created,
+-            StoredJobStatus::Running => Self::Running,
+-            StoredJobStatus::Succeeded => Self::Succeeded,
+-            StoredJobStatus::Failed => Self::Failed,
+-            StoredJobStatus::Canceled => Self::Canceled,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+ #[serde(rename_all = "snake_case")]
+ enum StoredNodeRunStatus {
+     Pending,
+     Ready,

@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/view.rs
++++ replace - with + in draw_arrow_head
+@@ -256,17 +256,17 @@
+         Align2::CENTER_CENTER,
+         message,
+         FontId::proportional(18.0),
+         Color32::from_rgb(184, 193, 205),
+     );
+ }
+ 
+ fn draw_arrow_head(painter: &Painter, source: Pos2, target: Pos2, color: Color32) {
+-    let direction = target - source;
++    let direction = target + /* ~ changed by cargo-mutants ~ */ source;
+     let length = direction.length();
+     if length <= NODE_RADIUS {
+         return;
+     }
+ 
+     let unit = direction / length;
+     let normal = vec2(-unit.y, unit.x);
+     let tip = target - unit * NODE_RADIUS;

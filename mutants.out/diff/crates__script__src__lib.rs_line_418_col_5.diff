@@ -1,0 +1,25 @@
+--- crates/script/src/lib.rs
++++ replace binary_name -> &'static str with ""
+@@ -410,21 +410,17 @@
+         }
+     }
+ 
+     escaped.push('"');
+     escaped
+ }
+ 
+ fn binary_name() -> &'static str {
+-    if cfg!(windows) {
+-        "script.exe"
+-    } else {
+-        "script"
+-    }
++    "" /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ fn cargo_binary_name() -> &'static str {
+     if cfg!(windows) {
+         "manual-script-runner.exe"
+     } else {
+         "manual-script-runner"
+     }

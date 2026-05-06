@@ -1,0 +1,21 @@
+--- crates/job-registry/src/lib.rs
++++ replace JobRegistry::is_empty -> bool with true
+@@ -45,17 +45,17 @@
+         self.jobs.remove(id)
+     }
+ 
+     pub fn len(&self) -> usize {
+         self.jobs.len()
+     }
+ 
+     pub fn is_empty(&self) -> bool {
+-        self.jobs.is_empty()
++        true /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn iter(&self) -> impl Iterator<Item = &Job> {
+         self.jobs.values()
+     }
+ 
+     pub fn jobs_for_workflow<'a>(
+         &'a self,

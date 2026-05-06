@@ -1,0 +1,21 @@
+--- crates/graph-viewer/src/lib.rs
++++ replace GraphLayout::position -> Option<Point> with None
+@@ -151,17 +151,17 @@
+ impl GraphLayout {
+     pub fn empty() -> Self {
+         Self {
+             positions: BTreeMap::new(),
+         }
+     }
+ 
+     pub fn position(&self, node_id: &str) -> Option<Point> {
+-        self.positions.get(node_id).copied()
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ pub fn circular_layout(graph: &Graph) -> GraphLayout {
+     let mut positions = BTreeMap::new();
+     let node_count = graph.nodes.len();
+ 
+     if node_count == 0 {

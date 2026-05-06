@@ -1,0 +1,21 @@
+--- crates/workflow/src/lib.rs
++++ replace Workflow::edges -> &[WorkflowEdge] with Vec::leak(Vec::new())
+@@ -52,17 +52,17 @@
+         &self.entry_node
+     }
+ 
+     pub fn nodes(&self) -> &[Node] {
+         &self.nodes
+     }
+ 
+     pub fn edges(&self) -> &[WorkflowEdge] {
+-        &self.edges
++        Vec::leak(Vec::new()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct WorkflowEdge {
+     source: NodeId,
+     target: NodeId,
+     kind: WorkflowEdgeKind,

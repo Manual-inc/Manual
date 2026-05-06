@@ -1,0 +1,21 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace SandboxRegistry::is_empty -> bool with false
+@@ -128,17 +128,17 @@
+         self.definitions.get(id)
+     }
+ 
+     pub fn len(&self) -> usize {
+         self.definitions.len()
+     }
+ 
+     pub fn is_empty(&self) -> bool {
+-        self.definitions.is_empty()
++        false /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn iter(&self) -> impl Iterator<Item = &SandboxDefinition> {
+         self.definitions.values()
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]

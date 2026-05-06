@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace Job::status -> JobStatus with Default::default()
+@@ -221,17 +221,17 @@
+         &self.workflow_id
+     }
+ 
+     pub fn input_json(&self) -> &str {
+         &self.input_json
+     }
+ 
+     pub fn status(&self) -> JobStatus {
+-        self.status
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn nodes(&self) -> &[JobNode] {
+         &self.nodes
+     }
+ 
+     pub fn node_status(&self, node_id: &str) -> Option<NodeRunStatus> {
+         self.nodes

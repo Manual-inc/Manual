@@ -1,0 +1,21 @@
+--- crates/runtime/src/lib.rs
++++ replace RuntimeRequest::agent -> Self with Default::default()
+@@ -108,17 +108,17 @@
+         Self::new(input_json, sandbox, RuntimeTarget::script(rust_source))
+     }
+ 
+     pub fn agent(
+         input_json: impl Into<String>,
+         command: AgentCommand,
+         sandbox: RuntimeSandbox,
+     ) -> Self {
+-        Self::new(input_json, sandbox, RuntimeTarget::agent(command))
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub struct RuntimeOutput {
+     pub target: RuntimeTargetKind,
+     pub sandbox: BackendReport,
+     pub stdout: String,

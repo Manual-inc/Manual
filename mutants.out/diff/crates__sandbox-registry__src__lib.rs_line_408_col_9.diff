@@ -1,0 +1,25 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace <impl From<FilesystemMode> for StoredFilesystemMode>::from -> Self with Default::default()
+@@ -400,21 +400,17 @@
+ enum StoredFilesystemMode {
+     Restricted,
+     Unrestricted,
+     External,
+ }
+ 
+ impl From<FilesystemMode> for StoredFilesystemMode {
+     fn from(value: FilesystemMode) -> Self {
+-        match value {
+-            FilesystemMode::Restricted => Self::Restricted,
+-            FilesystemMode::Unrestricted => Self::Unrestricted,
+-            FilesystemMode::External => Self::External,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl From<StoredFilesystemMode> for FilesystemMode {
+     fn from(value: StoredFilesystemMode) -> Self {
+         match value {
+             StoredFilesystemMode::Restricted => Self::Restricted,
+             StoredFilesystemMode::Unrestricted => Self::Unrestricted,

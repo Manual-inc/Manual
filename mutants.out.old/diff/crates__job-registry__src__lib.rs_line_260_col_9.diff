@@ -1,0 +1,25 @@
+--- crates/job-registry/src/lib.rs
++++ replace StoredJobNode::from_node -> Self with Default::default()
+@@ -252,21 +252,17 @@
+ struct StoredJobNode {
+     node_id: String,
+     status: StoredNodeRunStatus,
+     attempts: u32,
+ }
+ 
+ impl StoredJobNode {
+     fn from_node(node: &JobNode) -> Self {
+-        Self {
+-            node_id: node.node_id().as_str().to_string(),
+-            status: node.status().into(),
+-            attempts: node.attempts(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn into_node(self) -> Result<JobNode, JobStoreError> {
+         JobNode::restore(self.node_id, self.status.into(), self.attempts)
+             .map_err(JobError::InvalidNodeId)
+             .map_err(JobStoreError::Job)
+     }
+ }

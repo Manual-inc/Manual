@@ -1,0 +1,30 @@
+--- crates/script/src/lib.rs
++++ replace ScriptWorkspace::create -> Result<Self, ScriptError> with Ok(Default::default())
+@@ -295,26 +295,17 @@
+ 
+ #[derive(Debug)]
+ struct ScriptWorkspace {
+     path: PathBuf,
+ }
+ 
+ impl ScriptWorkspace {
+     fn create(temp_root: &Path) -> Result<Self, ScriptError> {
+-        let path = temp_root.join(format!(
+-            "manual-script-{}-{}-{}",
+-            std::process::id(),
+-            timestamp_nanos(),
+-            WORKSPACE_COUNTER.fetch_add(1, Ordering::Relaxed)
+-        ));
+-
+-        fs::create_dir(&path).map_err(to_io_error)?;
+-
+-        Ok(Self { path })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn path(&self) -> &Path {
+         &self.path
+     }
+ }
+ 
+ impl Drop for ScriptWorkspace {

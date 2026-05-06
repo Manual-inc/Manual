@@ -1,0 +1,21 @@
+--- crates/workflow/src/lib.rs
++++ replace WorkflowEdge::target -> &NodeId with Box::leak(Box::new(Default::default()))
+@@ -127,17 +127,17 @@
+         self
+     }
+ 
+     pub fn source(&self) -> &NodeId {
+         &self.source
+     }
+ 
+     pub fn target(&self) -> &NodeId {
+-        &self.target
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn kind(&self) -> WorkflowEdgeKind {
+         self.kind
+     }
+ 
+     pub fn label(&self) -> Option<&str> {
+         self.label.as_deref()

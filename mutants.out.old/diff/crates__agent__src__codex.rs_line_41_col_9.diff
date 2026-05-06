@@ -1,0 +1,22 @@
+--- crates/agent/src/codex.rs
++++ replace CodexRequest::with_arg -> Self with Default::default()
+@@ -33,18 +33,17 @@
+     }
+ 
+     pub fn with_workdir(mut self, workdir: impl Into<PathBuf>) -> Self {
+         self.workdir = Some(workdir.into());
+         self
+     }
+ 
+     pub fn with_arg(mut self, arg: impl Into<String>) -> Self {
+-        self.extra_args.push(arg.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ pub fn help_command() -> AgentCommand {
+     AgentCommand::new("codex").arg("-h")
+ }
+ 
+ pub fn exec_help_command() -> AgentCommand {

@@ -1,0 +1,25 @@
+--- crates/script-registry/src/lib.rs
++++ replace ScriptRegistry::resolve -> Result<&ScriptDefinition, ScriptRegistryError> with Ok(Box::leak(Box::new(Default::default())))
+@@ -136,21 +136,17 @@
+             return Err(ScriptRegistryError::DuplicateId(script.id().clone()));
+         }
+ 
+         self.scripts.insert(script.id().clone(), script);
+         Ok(())
+     }
+ 
+     pub fn resolve(&self, id: impl Into<String>) -> Result<&ScriptDefinition, ScriptRegistryError> {
+-        let id = ScriptId::new(id).map_err(ScriptRegistryError::InvalidId)?;
+-
+-        self.scripts
+-            .get(&id)
+-            .ok_or(ScriptRegistryError::UnknownId(id))
++        Ok(Box::leak(Box::new(Default::default()))) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn get(&self, id: &ScriptId) -> Option<&ScriptDefinition> {
+         self.scripts.get(id)
+     }
+ 
+     pub fn get_mut(&mut self, id: &ScriptId) -> Option<&mut ScriptDefinition> {
+         self.scripts.get_mut(id)

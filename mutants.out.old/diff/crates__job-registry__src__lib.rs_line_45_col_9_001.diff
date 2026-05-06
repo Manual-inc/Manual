@@ -1,0 +1,21 @@
+--- crates/job-registry/src/lib.rs
++++ replace JobRegistry::remove -> Option<Job> with Some(Default::default())
+@@ -37,17 +37,17 @@
+         self.jobs.get(id)
+     }
+ 
+     pub fn get_mut(&mut self, id: &JobId) -> Option<&mut Job> {
+         self.jobs.get_mut(id)
+     }
+ 
+     pub fn remove(&mut self, id: &JobId) -> Option<Job> {
+-        self.jobs.remove(id)
++        Some(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn len(&self) -> usize {
+         self.jobs.len()
+     }
+ 
+     pub fn is_empty(&self) -> bool {
+         self.jobs.is_empty()

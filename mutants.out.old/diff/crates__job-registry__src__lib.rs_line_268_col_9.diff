@@ -1,0 +1,23 @@
+--- crates/job-registry/src/lib.rs
++++ replace StoredJobNode::into_node -> Result<JobNode, JobStoreError> with Ok(Default::default())
+@@ -260,19 +260,17 @@
+         Self {
+             node_id: node.node_id().as_str().to_string(),
+             status: node.status().into(),
+             attempts: node.attempts(),
+         }
+     }
+ 
+     fn into_node(self) -> Result<JobNode, JobStoreError> {
+-        JobNode::restore(self.node_id, self.status.into(), self.attempts)
+-            .map_err(JobError::InvalidNodeId)
+-            .map_err(JobStoreError::Job)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+ #[serde(rename_all = "snake_case")]
+ enum StoredJobStatus {
+     Created,
+     Running,

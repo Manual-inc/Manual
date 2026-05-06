@@ -1,0 +1,21 @@
+--- crates/script/src/lib.rs
++++ replace CompiledScript::input_json -> &str with "xyzzy"
+@@ -284,17 +284,17 @@
+         &self.binary_path
+     }
+ 
+     pub fn workspace_path(&self) -> &Path {
+         self.workspace.path()
+     }
+ 
+     pub fn input_json(&self) -> &str {
+-        &self.input_json
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug)]
+ struct ScriptWorkspace {
+     path: PathBuf,
+ }
+ 

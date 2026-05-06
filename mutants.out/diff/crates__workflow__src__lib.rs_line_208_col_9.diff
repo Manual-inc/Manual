@@ -1,0 +1,23 @@
+--- crates/workflow/src/lib.rs
++++ replace <impl fmt::Display for WorkflowEdgeKindParseError>::fmt -> fmt::Result with Ok(Default::default())
+@@ -200,19 +200,17 @@
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum WorkflowEdgeKindParseError {
+     Unknown(String),
+ }
+ 
+ impl fmt::Display for WorkflowEdgeKindParseError {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        match self {
+-            Self::Unknown(value) => write!(f, "unknown workflow edge kind: {value}"),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl std::error::Error for WorkflowEdgeKindParseError {}
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum WorkflowError {
+     EmptyGraph,

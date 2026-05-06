@@ -1,0 +1,21 @@
+--- crates/sandbox/src/lib.rs
++++ delete ! in SandboxRunner::run
+@@ -338,17 +338,17 @@
+ 
+     pub fn run(
+         &self,
+         command: &CommandSpec,
+         policy: &SandboxPolicy,
+     ) -> Result<SandboxResult, SandboxError> {
+         let plan = self.compile(command, policy)?;
+ 
+-        if policy.preset != SandboxPreset::DangerFullAccess && !plan.backend.available {
++        if policy.preset != SandboxPreset::DangerFullAccess &&  /* ~ changed by cargo-mutants ~ */plan.backend.available {
+             return Err(SandboxError::BackendUnavailable {
+                 backend: plan.backend.kind,
+                 platform: plan.backend.platform,
+                 detail: plan.backend.detail,
+             });
+         }
+ 
+         let mut process = Command::new(&plan.program);

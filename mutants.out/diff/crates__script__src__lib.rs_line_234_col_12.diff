@@ -1,0 +1,21 @@
+--- crates/script/src/lib.rs
++++ delete ! in ScriptRunner::compile_with_cargo
+@@ -226,17 +226,17 @@
+         let compile_output = Command::new(&self.cargo)
+             .arg("build")
+             .arg("--quiet")
+             .arg("--manifest-path")
+             .arg(&manifest_path)
+             .output()
+             .map_err(to_io_error)?;
+ 
+-        if !compile_output.status.success() {
++        if  /* ~ changed by cargo-mutants ~ */compile_output.status.success() {
+             return Err(ScriptError::CompileFailed {
+                 stdout: String::from_utf8_lossy(&compile_output.stdout).into_owned(),
+                 stderr: String::from_utf8_lossy(&compile_output.stderr).into_owned(),
+                 exit_code: compile_output.status.code(),
+             });
+         }
+ 
+         Ok(CompiledScript {

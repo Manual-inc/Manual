@@ -1,0 +1,36 @@
+--- crates/graph-viewer/src/app.rs
++++ replace GraphViewerApp::reload_graph with ()
+@@ -37,32 +37,17 @@
+             _watcher: watcher.ok(),
+         };
+ 
+         app.reload_graph();
+         app
+     }
+ 
+     fn reload_graph(&mut self) {
+-        match load_graph_file(&self.graph_path) {
+-            Ok(graph) => {
+-                self.layout = circular_layout(&graph);
+-                self.status = format!(
+-                    "{} nodes, {} edges loaded",
+-                    graph.nodes().len(),
+-                    graph.edges().len()
+-                );
+-                self.graph = Some(graph);
+-                self.last_error = None;
+-            }
+-            Err(error) => {
+-                self.status = format!("Load error: {error}");
+-                self.last_error = Some(error.to_string());
+-            }
+-        }
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn apply_pending_file_changes(&mut self) {
+         let mut changed = false;
+         while self.change_rx.try_recv().is_ok() {
+             changed = true;
+         }
+ 

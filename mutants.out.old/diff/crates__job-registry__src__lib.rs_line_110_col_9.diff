@@ -1,0 +1,21 @@
+--- crates/job-registry/src/lib.rs
++++ replace FileJobStore::path -> &Path with Box::leak(Box::new(Default::default()))
+@@ -102,17 +102,17 @@
+         Self { path: path.into() }
+     }
+ 
+     pub fn for_repository(repository_root: impl AsRef<Path>) -> Self {
+         Self::new(repository_root.as_ref().join(".manual").join("jobs.toml"))
+     }
+ 
+     pub fn path(&self) -> &Path {
+-        &self.path
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl JobStore for FileJobStore {
+     fn load(&self) -> Result<JobRegistry, JobStoreError> {
+         if !self.path.exists() {
+             return Ok(JobRegistry::new());
+         }

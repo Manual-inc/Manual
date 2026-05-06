@@ -1,0 +1,31 @@
+--- crates/node/src/lib.rs
++++ replace NodeKind::as_str -> &'static str with "xyzzy"
+@@ -75,27 +75,17 @@
+         Self::Condition,
+         Self::Loop,
+         Self::Join,
+         Self::Approval,
+         Self::Artifact,
+     ];
+ 
+     pub fn as_str(self) -> &'static str {
+-        match self {
+-            Self::Trigger => "trigger",
+-            Self::LlmTask => "llm_task",
+-            Self::CodeTask => "code_task",
+-            Self::Integration => "integration",
+-            Self::Condition => "condition",
+-            Self::Loop => "loop",
+-            Self::Join => "join",
+-            Self::Approval => "approval",
+-            Self::Artifact => "artifact",
+-        }
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for NodeKind {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         f.write_str(self.as_str())
+     }
+ }

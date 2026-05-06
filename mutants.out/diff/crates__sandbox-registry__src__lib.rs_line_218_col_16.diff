@@ -1,0 +1,21 @@
+--- crates/sandbox-registry/src/lib.rs
++++ delete ! in <impl SandboxStore for FileSandboxStore>::save
+@@ -210,17 +210,17 @@
+     fn save(&self, registry: &SandboxRegistry) -> Result<(), SandboxStoreError> {
+         let document = StoredSandboxDocument::from_registry(registry);
+         let contents =
+             toml::to_string_pretty(&document).map_err(|error| SandboxStoreError::Encode {
+                 message: error.to_string(),
+             })?;
+ 
+         if let Some(parent) = self.path.parent() {
+-            if !parent.as_os_str().is_empty() {
++            if  /* ~ changed by cargo-mutants ~ */parent.as_os_str().is_empty() {
+                 fs::create_dir_all(parent).map_err(|error| SandboxStoreError::io(parent, error))?;
+             }
+         }
+ 
+         fs::write(&self.path, contents).map_err(|error| SandboxStoreError::io(&self.path, error))
+     }
+ }
+ 

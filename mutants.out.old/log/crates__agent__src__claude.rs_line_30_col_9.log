@@ -1,0 +1,57 @@
+
+*** crates/agent/src/claude.rs:30:9: replace ClaudeRequest::with_model -> Self with Default::default()
+
+*** mutation diff:
+--- crates/agent/src/claude.rs
++++ replace ClaudeRequest::with_model -> Self with Default::default()
+@@ -22,18 +22,17 @@
+             workdir: None,
+             include_partial_messages: false,
+             include_hook_events: false,
+             extra_args: Vec::new(),
+         }
+     }
+ 
+     pub fn with_model(mut self, model: impl Into<String>) -> Self {
+-        self.model = Some(model.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_permission_mode(mut self, permission_mode: impl Into<String>) -> Self {
+         self.permission_mode = Some(permission_mode.into());
+         self
+     }
+ 
+     pub fn with_workdir(mut self, workdir: impl Into<PathBuf>) -> Self {
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=agent@0.1.0
+       Dirty agent v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/crates/agent): couldn't read metadata for file `target/debug/deps/libagent-df1187056c019dff.rlib`
+   Compiling agent v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/crates/agent)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name agent --edition=2024 crates/agent/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=760fce53901f7da6 -C extra-filename=-df1187056c019dff --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/deps`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name agent --edition=2024 crates/agent/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=dc0147b0ea6aae95 -C extra-filename=-e3017da0d3ad1931 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/deps`
+error[E0277]: the trait bound `ClaudeRequest: Default` is not satisfied
+  --> crates/agent/src/claude.rs:30:9
+   |
+30 |         Default::default() /* ~ changed by cargo-mutants ~ */
+   |         ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `ClaudeRequest`
+   |
+help: consider annotating `ClaudeRequest` with `#[derive(Default)]`
+   |
+ 6 + #[derive(Default)]
+ 7 | pub struct ClaudeRequest {
+   |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `agent` (lib test) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name agent --edition=2024 crates/agent/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=dc0147b0ea6aae95 -C extra-filename=-e3017da0d3ad1931 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/deps` (exit status: 1)
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `agent` (lib) due to 1 previous error
+
+Caused by:
+  process didn't exit successfully: `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name agent --edition=2024 crates/agent/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=760fce53901f7da6 -C extra-filename=-df1187056c019dff --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-mYyGzN.tmp/target/debug/deps` (exit status: 1)
+
+*** result: Failure(101)

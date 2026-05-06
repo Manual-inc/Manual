@@ -1,0 +1,21 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace SandboxDefinition::policy -> &SandboxPolicy with Box::leak(Box::new(Default::default()))
+@@ -81,17 +81,17 @@
+         })
+     }
+ 
+     pub fn id(&self) -> &SandboxId {
+         &self.id
+     }
+ 
+     pub fn policy(&self) -> &SandboxPolicy {
+-        &self.policy
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn into_policy(self) -> SandboxPolicy {
+         self.policy
+     }
+ }
+ 
+ #[derive(Debug, Clone, Default, PartialEq, Eq)]

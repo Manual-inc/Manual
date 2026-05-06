@@ -1,0 +1,48 @@
+--- crates/graph-viewer/src/view.rs
++++ replace GraphView::zoom_controls with ()
+@@ -48,44 +48,17 @@
+         &mut self.pan
+     }
+ 
+     pub fn reset_pan(&mut self) {
+         self.pan.reset();
+     }
+ 
+     pub fn zoom_controls(&mut self, ui: &mut Ui) {
+-        let button_size = vec2(28.0, 24.0);
+-
+-        if ui
+-            .add(egui::Button::new("-").min_size(button_size))
+-            .on_hover_text("Zoom out")
+-            .clicked()
+-        {
+-            self.zoom.zoom_out();
+-        }
+-
+-        if ui
+-            .add(
+-                egui::Button::new(format!("{}%", self.zoom.displayed().percent()))
+-                    .min_size(vec2(56.0, 24.0)),
+-            )
+-            .on_hover_text("Reset zoom")
+-            .clicked()
+-        {
+-            self.reset_zoom();
+-        }
+-
+-        if ui
+-            .add(egui::Button::new("+").min_size(button_size))
+-            .on_hover_text("Zoom in")
+-            .clicked()
+-        {
+-            self.zoom.zoom_in();
+-        }
++        () /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn ui(&mut self, ui: &mut Ui, graph: &Graph, layout: &GraphLayout) -> Response {
+         let size = ui.available_size_before_wrap();
+         let (rect, response) = ui.allocate_exact_size(size, Sense::drag());
+ 
+         if response.hovered() {
+             let scroll_delta_y = ui.ctx().input(|input| input.raw_scroll_delta.y);

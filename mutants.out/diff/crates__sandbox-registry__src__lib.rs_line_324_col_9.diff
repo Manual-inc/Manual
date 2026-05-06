@@ -1,0 +1,25 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredSandboxPolicy::from_policy -> Self with Default::default()
+@@ -316,21 +316,17 @@
+ struct StoredSandboxPolicy {
+     preset: StoredSandboxPreset,
+     filesystem: StoredFilesystemPolicy,
+     network: StoredNetworkPolicy,
+ }
+ 
+ impl StoredSandboxPolicy {
+     fn from_policy(policy: &SandboxPolicy) -> Self {
+-        Self {
+-            preset: policy.preset.into(),
+-            filesystem: StoredFilesystemPolicy::from_policy(&policy.filesystem),
+-            network: StoredNetworkPolicy::from_policy(&policy.network),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn into_policy(self) -> SandboxPolicy {
+         SandboxPolicy {
+             preset: self.preset.into(),
+             filesystem: self.filesystem.into_policy(),
+             network: self.network.into_policy(),
+         }

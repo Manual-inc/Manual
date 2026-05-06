@@ -1,0 +1,21 @@
+--- crates/sandbox/src/lib.rs
++++ replace == with != in macos_sbpl
+@@ -487,17 +487,17 @@
+                 policy_lines.push(format!("(allow file-map-executable (subpath {quoted}))"));
+             }
+             FilesystemAccess::None => {
+                 policy_lines.push(format!("(deny file-read* file-write* (subpath {quoted}))"));
+             }
+         }
+     }
+ 
+-    if policy.network.mode == NetworkMode::Enabled {
++    if policy.network.mode != /* ~ changed by cargo-mutants ~ */ NetworkMode::Enabled {
+         policy_lines.push("(allow network*)".to_string());
+     }
+ 
+     policy_lines.join("\n")
+ }
+ 
+ fn sbpl_quote_path(path: &Path) -> String {
+     let normalized = path.display().to_string().replace('\\', "/");

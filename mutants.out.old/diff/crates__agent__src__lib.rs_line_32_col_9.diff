@@ -1,0 +1,22 @@
+--- crates/agent/src/lib.rs
++++ replace AgentCommand::arg -> Self with Default::default()
+@@ -24,18 +24,17 @@
+         Self {
+             program: program.into(),
+             args: Vec::new(),
+             current_dir: None,
+         }
+     }
+ 
+     pub fn arg(mut self, arg: impl Into<String>) -> Self {
+-        self.args.push(arg.into());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn with_args<I, S>(mut self, args: I) -> Self
+     where
+         I: IntoIterator<Item = S>,
+         S: Into<String>,
+     {
+         self.args.extend(args.into_iter().map(Into::into));

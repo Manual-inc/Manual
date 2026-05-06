@@ -1,0 +1,21 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace SandboxRegistry::len -> usize with 0
+@@ -124,17 +124,17 @@
+             .ok_or(SandboxRegistryError::UnknownId(id))
+     }
+ 
+     pub fn get(&self, id: &SandboxId) -> Option<&SandboxDefinition> {
+         self.definitions.get(id)
+     }
+ 
+     pub fn len(&self) -> usize {
+-        self.definitions.len()
++        0 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn is_empty(&self) -> bool {
+         self.definitions.is_empty()
+     }
+ 
+     pub fn iter(&self) -> impl Iterator<Item = &SandboxDefinition> {
+         self.definitions.values()

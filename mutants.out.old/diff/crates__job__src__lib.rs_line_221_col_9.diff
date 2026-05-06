@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace Job::workflow_id -> &str with ""
+@@ -213,17 +213,17 @@
+         })
+     }
+ 
+     pub fn id(&self) -> &JobId {
+         &self.id
+     }
+ 
+     pub fn workflow_id(&self) -> &str {
+-        &self.workflow_id
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn input_json(&self) -> &str {
+         &self.input_json
+     }
+ 
+     pub fn status(&self) -> JobStatus {
+         self.status

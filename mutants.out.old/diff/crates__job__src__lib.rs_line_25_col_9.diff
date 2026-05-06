@@ -1,0 +1,21 @@
+--- crates/job/src/lib.rs
++++ replace JobId::as_str -> &str with ""
+@@ -17,17 +17,17 @@
+         if value.chars().any(char::is_whitespace) {
+             return Err(JobIdError::ContainsWhitespace(value));
+         }
+ 
+         Ok(Self(value))
+     }
+ 
+     pub fn as_str(&self) -> &str {
+-        &self.0
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn into_string(self) -> String {
+         self.0
+     }
+ }
+ 
+ impl fmt::Display for JobId {

@@ -1,0 +1,24 @@
+--- crates/sandbox-registry/src/lib.rs
++++ replace StoredSandboxDefinition::from_definition -> Self with Default::default()
+@@ -295,20 +295,17 @@
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct StoredSandboxDefinition {
+     id: String,
+     policy: StoredSandboxPolicy,
+ }
+ 
+ impl StoredSandboxDefinition {
+     fn from_definition(definition: &SandboxDefinition) -> Self {
+-        Self {
+-            id: definition.id().as_str().to_string(),
+-            policy: StoredSandboxPolicy::from_policy(definition.policy()),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn into_definition(self) -> Result<SandboxDefinition, SandboxStoreError> {
+         SandboxDefinition::new(self.id, self.policy.into_policy())
+             .map_err(SandboxStoreError::Registry)
+     }
+ }
+ 

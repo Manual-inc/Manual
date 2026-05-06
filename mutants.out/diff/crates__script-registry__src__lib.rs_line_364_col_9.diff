@@ -1,0 +1,24 @@
+--- crates/script-registry/src/lib.rs
++++ replace StoredScriptDependency::from_dependency -> Self with Default::default()
+@@ -356,20 +356,17 @@
+ struct StoredScriptDependency {
+     name: String,
+     #[serde(flatten)]
+     source: StoredScriptDependencySource,
+ }
+ 
+ impl StoredScriptDependency {
+     fn from_dependency(dependency: &ScriptDependency) -> Self {
+-        Self {
+-            name: dependency.name.clone(),
+-            source: StoredScriptDependencySource::from_source(&dependency.source),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn into_dependency(self) -> ScriptDependency {
+         ScriptDependency {
+             name: self.name,
+             source: self.source.into_source(),
+         }
+     }

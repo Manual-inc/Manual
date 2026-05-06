@@ -1,0 +1,73 @@
+
+*** crates/runtime/src/lib.rs:187:9: replace RuntimeRunner::detect -> Self with Default::default()
+
+*** mutation diff:
+--- crates/runtime/src/lib.rs
++++ replace RuntimeRunner::detect -> Self with Default::default()
+@@ -179,20 +179,17 @@
+ impl Default for RuntimeRunner {
+     fn default() -> Self {
+         Self::detect()
+     }
+ }
+ 
+ impl RuntimeRunner {
+     pub fn detect() -> Self {
+-        Self {
+-            sandbox_runner: SandboxRunner::detect(),
+-            script_runner: ScriptRunner::default(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     pub fn for_sandbox_runner(sandbox_runner: SandboxRunner) -> Self {
+         Self {
+             sandbox_runner,
+             script_runner: ScriptRunner::default(),
+         }
+     }
+
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --no-run --verbose --package=runtime@0.1.0
+       Fresh script v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/script)
+       Fresh sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/sandbox)
+       Fresh agent v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/agent)
+       Dirty runtime v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/runtime): couldn't read metadata for file `target/debug/deps/libruntime-f6f0fa129a177682.rlib`
+   Compiling runtime v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/runtime)
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name runtime --edition=2024 crates/runtime/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a2b3775ea973f797 -C extra-filename=-f6f0fa129a177682 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps --extern agent=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libagent-df1187056c019dff.rmeta --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rmeta --extern script=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libscript-d02cc1a249e66324.rmeta`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name runtime --edition=2024 crates/runtime/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=edaf1587f9d3a3d6 -C extra-filename=-24731b632105dc02 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps --extern agent=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libagent-df1187056c019dff.rlib --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rlib --extern script=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libscript-d02cc1a249e66324.rlib`
+     Running `/Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name runtime_execution --edition=2024 crates/runtime/tests/runtime_execution.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 -C split-debuginfo=unpacked --test --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=0b418deda2ba9045 -C extra-filename=-5d7181e04c09c4a4 --out-dir /private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps -C incremental=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/incremental -L dependency=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps --extern agent=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libagent-df1187056c019dff.rlib --extern runtime=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libruntime-f6f0fa129a177682.rlib --extern sandbox=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libsandbox-3854b11f8daf2006.rlib --extern script=/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/libscript-d02cc1a249e66324.rlib`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.17s
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/runtime-24731b632105dc02`
+  Executable `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/runtime_execution-5d7181e04c09c4a4`
+
+*** result: Success
+
+*** /Users/leejs/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo test --verbose --package=runtime@0.1.0
+       Fresh script v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/script)
+       Fresh agent v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/agent)
+       Fresh sandbox v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/sandbox)
+       Fresh runtime v0.1.0 (/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/crates/runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/runtime-24731b632105dc02`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/runtime_execution-5d7181e04c09c4a4`
+
+running 20 tests
+test danger_full_access_runtime_sandbox_defines_unrestricted_policy ... ok
+test danger_full_access_plan_uses_direct_backend_and_unrestricted_policy ... ok
+test custom_policy_agent_plan_uses_exact_policy ... ok
+
+thread 'detected_runtime_uses_current_platform_for_direct_plan' has overflowed its stack
+fatal runtime error: stack overflow, aborting
+test custom_policy_runtime_sandbox_preserves_policy_and_clones_outputs ... ok
+error: test failed, to rerun pass `-p runtime --test runtime_execution`
+
+Caused by:
+  process didn't exit successfully: `/private/var/folders/j9/vyb9gbys5db86cwqm3mld1fw0000gn/T/cargo-mutants-Manual-jZ2pOT.tmp/target/debug/deps/runtime_execution-5d7181e04c09c4a4` (signal: 6, SIGABRT: process abort signal)
+
+*** result: Failure(101)

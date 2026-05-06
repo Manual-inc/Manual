@@ -1,0 +1,29 @@
+--- crates/workflow/src/lib.rs
++++ replace <impl FromStr for WorkflowEdgeKind>::from_str -> Result<Self, Self::Err> with Ok(Default::default())
+@@ -181,25 +181,17 @@
+         f.write_str(self.as_str())
+     }
+ }
+ 
+ impl FromStr for WorkflowEdgeKind {
+     type Err = WorkflowEdgeKindParseError;
+ 
+     fn from_str(value: &str) -> Result<Self, Self::Err> {
+-        match value {
+-            "sequence" => Ok(Self::Sequence),
+-            "branch" => Ok(Self::Branch),
+-            "loop_back" => Ok(Self::LoopBack),
+-            "parallel" => Ok(Self::Parallel),
+-            "join" => Ok(Self::Join),
+-            "error" => Ok(Self::Error),
+-            other => Err(WorkflowEdgeKindParseError::Unknown(other.to_string())),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum WorkflowEdgeKindParseError {
+     Unknown(String),
+ }
+ 
