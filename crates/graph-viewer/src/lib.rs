@@ -8,6 +8,9 @@ use std::path::Path;
 use serde::Deserialize;
 
 pub mod app;
+pub mod view;
+
+pub use view::GraphView;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GraphLoadError {
@@ -173,6 +176,169 @@ pub fn load_graph_file(path: impl AsRef<Path>) -> Result<Graph, GraphLoadError> 
     let source =
         fs::read_to_string(path.as_ref()).map_err(|error| GraphLoadError::Io(error.to_string()))?;
     Graph::from_json_str(&source)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ZoomLevel {
+    value: f32,
+}
+
+impl ZoomLevel {
+    pub const MIN: f32 = 0.25;
+    pub const MAX: f32 = 4.0;
+    const STEP: f32 = 1.25;
+
+    pub fn new(value: f32) -> Self {
+        Self {
+            value: value.clamp(Self::MIN, Self::MAX),
+        }
+    }
+
+    pub fn value(self) -> f32 {
+        self.value
+    }
+
+    pub fn percent(self) -> u32 {
+        (self.value * 100.0).round() as u32
+    }
+
+    pub fn zoom_in(&mut self) {
+        *self = Self::new(self.value * Self::STEP);
+    }
+
+    pub fn zoom_out(&mut self) {
+        *self = Self::new(self.value / Self::STEP);
+    }
+
+    pub fn zoom_by_scroll(&mut self, scroll_delta_y: f32) {
+        if scroll_delta_y > 0.0 {
+            self.zoom_in();
+        } else if scroll_delta_y < 0.0 {
+            self.zoom_out();
+        }
+    }
+
+    pub fn scaled_by(self, factor: f32) -> Self {
+        Self::new(self.value * factor)
+    }
+
+    pub fn lerp_toward(self, target: Self, amount: f32) -> Self {
+        let amount = amount.clamp(0.0, 1.0);
+        Self::new(self.value + (target.value - self.value) * amount)
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
+impl Default for ZoomLevel {
+    fn default() -> Self {
+        Self { value: 1.0 }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SmoothZoom {
+    displayed: ZoomLevel,
+    target: ZoomLevel,
+}
+
+impl SmoothZoom {
+    pub const ANIMATION_EPSILON: f32 = 0.002;
+
+    pub fn new(zoom: ZoomLevel) -> Self {
+        Self {
+            displayed: zoom,
+            target: zoom,
+        }
+    }
+
+    pub fn displayed(self) -> ZoomLevel {
+        self.displayed
+    }
+
+    pub fn target(self) -> ZoomLevel {
+        self.target
+    }
+
+    pub fn zoom_in(&mut self) {
+        self.target.zoom_in();
+    }
+
+    pub fn zoom_out(&mut self) {
+        self.target.zoom_out();
+    }
+
+    pub fn zoom_by_scroll(&mut self, scroll_delta_y: f32) {
+        if scroll_delta_y == 0.0 {
+            return;
+        }
+
+        let factor = (scroll_delta_y * 0.0025).exp();
+        self.target = self.target.scaled_by(factor);
+    }
+
+    pub fn reset(&mut self) {
+        self.target = ZoomLevel::default();
+    }
+
+    pub fn jump_to_target(&mut self) {
+        self.displayed = self.target;
+    }
+
+    pub fn advance(&mut self, amount: f32) -> bool {
+        let next = self.displayed.lerp_toward(self.target, amount);
+
+        if (next.value() - self.target.value()).abs() <= Self::ANIMATION_EPSILON {
+            self.displayed = self.target;
+            false
+        } else {
+            self.displayed = next;
+            true
+        }
+    }
+}
+
+impl Default for SmoothZoom {
+    fn default() -> Self {
+        Self::new(ZoomLevel::default())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PanOffset {
+    x: f32,
+    y: f32,
+}
+
+impl PanOffset {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+
+    pub fn x(self) -> f32 {
+        self.x
+    }
+
+    pub fn y(self) -> f32 {
+        self.y
+    }
+
+    pub fn pan_by(&mut self, delta_x: f32, delta_y: f32) {
+        self.x += delta_x;
+        self.y += delta_y;
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
+impl Default for PanOffset {
+    fn default() -> Self {
+        Self { x: 0.0, y: 0.0 }
+    }
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,7 +1,10 @@
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use manual_graph_viewer::{Graph, GraphLoadError, circular_layout, load_graph_file};
+use manual_graph_viewer::{
+    circular_layout, load_graph_file, Graph, GraphLayout, GraphLoadError, GraphView, PanOffset,
+    SmoothZoom, ZoomLevel,
+};
 
 #[test]
 fn parses_nodes_and_edges_with_aliases() {
@@ -152,4 +155,122 @@ fn load_graph_file_reads_latest_json_from_disk() {
     );
 
     let _ = fs::remove_file(path);
+}
+
+#[test]
+fn zoom_level_steps_clamps_and_resets() {
+    let mut zoom = ZoomLevel::default();
+
+    assert_eq!(zoom.value(), 1.0);
+    assert_eq!(zoom.percent(), 100);
+
+    zoom.zoom_in();
+    assert!(zoom.value() > 1.0);
+    assert_eq!(zoom.percent(), 125);
+
+    zoom.zoom_out();
+    assert_eq!(zoom.value(), 1.0);
+
+    for _ in 0..20 {
+        zoom.zoom_out();
+    }
+    assert_eq!(zoom.value(), ZoomLevel::MIN);
+    assert_eq!(zoom.percent(), 25);
+
+    for _ in 0..40 {
+        zoom.zoom_in();
+    }
+    assert_eq!(zoom.value(), ZoomLevel::MAX);
+    assert_eq!(zoom.percent(), 400);
+
+    zoom.reset();
+    assert_eq!(zoom.value(), 1.0);
+    assert_eq!(zoom.percent(), 100);
+}
+
+#[test]
+fn smooth_zoom_animates_displayed_zoom_toward_target() {
+    let mut zoom = SmoothZoom::default();
+
+    zoom.zoom_in();
+
+    assert_eq!(zoom.displayed().percent(), 100);
+    assert_eq!(zoom.target().percent(), 125);
+
+    assert!(zoom.advance(0.5));
+    assert!(zoom.displayed().value() > 1.0);
+    assert!(zoom.displayed().value() < zoom.target().value());
+
+    for _ in 0..24 {
+        zoom.advance(0.5);
+    }
+
+    assert_eq!(zoom.displayed(), zoom.target());
+}
+
+#[test]
+fn smooth_zoom_uses_continuous_scroll_targets() {
+    let mut zoom = SmoothZoom::default();
+
+    zoom.zoom_by_scroll(12.0);
+
+    assert!(zoom.target().value() > 1.0);
+    assert!(zoom.target().value() < 1.25);
+}
+
+#[test]
+fn pan_offset_accumulates_drag_delta_and_resets() {
+    let mut pan = PanOffset::default();
+
+    assert_eq!(pan.x(), 0.0);
+    assert_eq!(pan.y(), 0.0);
+
+    pan.pan_by(24.0, -12.0);
+    assert_eq!(pan.x(), 24.0);
+    assert_eq!(pan.y(), -12.0);
+
+    pan.pan_by(-4.0, 8.0);
+    assert_eq!(pan.x(), 20.0);
+    assert_eq!(pan.y(), -4.0);
+
+    pan.reset();
+    assert_eq!(pan, PanOffset::default());
+}
+
+#[test]
+fn graph_view_component_owns_zoom_without_file_watcher() {
+    let mut view = GraphView::default();
+
+    assert_eq!(view.zoom().percent(), 100);
+
+    view.zoom_mut().zoom_in();
+    assert_eq!(view.zoom().percent(), 100);
+    assert_eq!(view.target_zoom().percent(), 125);
+
+    view.reset_zoom();
+    assert_eq!(view.target_zoom(), ZoomLevel::default());
+}
+
+#[test]
+fn graph_view_component_owns_pan_without_file_watcher() {
+    let mut view = GraphView::default();
+
+    assert_eq!(view.pan(), PanOffset::default());
+
+    view.pan_mut().pan_by(32.0, 18.0);
+    assert_eq!(view.pan(), PanOffset::new(32.0, 18.0));
+
+    view.reset_pan();
+    assert_eq!(view.pan(), PanOffset::default());
+}
+
+#[allow(dead_code)]
+fn graph_view_can_be_embedded_in_any_egui_ui(
+    view: &mut GraphView,
+    ui: &mut eframe::egui::Ui,
+    graph: &Graph,
+    layout: &GraphLayout,
+) {
+    let response: eframe::egui::Response = view.ui(ui, graph, layout);
+    let _ = response;
 }

@@ -35,6 +35,25 @@ After running the build, publish the `docs/` directory with GitHub Pages.
 It reads graph data from JSON, draws nodes and directed edges, and reloads the
 visualization automatically whenever the JSON file is saved.
 
+Use the `-` and `+` toolbar buttons to zoom out and in. Click the percentage
+button to reset to `100%`, scroll over the graph canvas to adjust zoom, and drag
+the canvas to pan around the graph.
+
+The graph canvas is also reusable as an `egui` component:
+
+```rust
+use manual_graph_viewer::{GraphView, circular_layout};
+
+let graph = manual_graph_viewer::Graph::from_json_str(json_source)?;
+let layout = circular_layout(&graph);
+let mut view = GraphView::default();
+
+egui::CentralPanel::default().show(ctx, |ui| {
+    view.zoom_controls(ui);
+    view.ui(ui, &graph, &layout);
+});
+```
+
 Run it with the sample graph:
 
 ```sh

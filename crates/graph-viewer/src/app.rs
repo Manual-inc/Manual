@@ -1,14 +1,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 
-use eframe::egui::{
-    self, Align2, Color32, FontId, Painter, Pos2, Rect, Sense, Stroke, Ui, Vec2, vec2,
-};
+use eframe::egui::{self, Color32, Ui};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 
-use crate::{Edge, Graph, GraphLayout, Node, circular_layout, load_graph_file};
-
-const NODE_RADIUS: f32 = 18.0;
+use crate::{circular_layout, load_graph_file, Graph, GraphLayout, GraphView};
 
 pub struct GraphViewerApp {
     graph_path: PathBuf,
@@ -18,6 +14,7 @@ pub struct GraphViewerApp {
     last_error: Option<String>,
     watcher_problem: Option<String>,
     change_rx: Receiver<()>,
+    view: GraphView,
     _watcher: Option<RecommendedWatcher>,
 }
 
@@ -36,6 +33,7 @@ impl GraphViewerApp {
             last_error: None,
             watcher_problem,
             change_rx,
+            view: GraphView::default(),
             _watcher: watcher.ok(),
         };
 
@@ -81,6 +79,9 @@ impl GraphViewerApp {
                 .on_hover_text(self.graph_path.display().to_string());
             ui.separator();
 
+            self.view.zoom_controls(ui);
+            ui.separator();
+
             if ui.button("Reload").clicked() {
                 self.reload_graph();
             }
@@ -101,91 +102,13 @@ impl GraphViewerApp {
         });
     }
 
-    fn draw_graph(&self, ui: &mut Ui) {
-        let size = ui.available_size_before_wrap();
-        let (rect, _response) = ui.allocate_exact_size(size, Sense::hover());
-        let painter = ui.painter_at(rect);
-
-        painter.rect_filled(rect, 0.0, Color32::from_rgb(15, 18, 22));
-        draw_canvas_grid(&painter, rect);
-
+    fn draw_graph(&mut self, ui: &mut Ui) {
         let Some(graph) = &self.graph else {
-            draw_center_message(&painter, rect, "No graph loaded");
+            self.view.empty_ui(ui, "No graph loaded");
             return;
         };
 
-        if graph.nodes().is_empty() {
-            draw_center_message(&painter, rect, "Empty graph");
-            return;
-        }
-
-        let graph_rect = rect.shrink2(Vec2::new(64.0, 64.0));
-        let center = graph_rect.center();
-        let scale = graph_rect.width().min(graph_rect.height()) * 0.42;
-
-        for edge in graph.edges() {
-            self.draw_edge(&painter, center, scale, edge);
-        }
-
-        for node in graph.nodes() {
-            self.draw_node(&painter, center, scale, node);
-        }
-    }
-
-    fn screen_position(&self, center: Pos2, scale: f32, node_id: &str) -> Option<Pos2> {
-        self.layout
-            .position(node_id)
-            .map(|point| center + vec2(point.x * scale, point.y * scale))
-    }
-
-    fn draw_edge(&self, painter: &Painter, center: Pos2, scale: f32, edge: &Edge) {
-        let Some(source) = self.screen_position(center, scale, &edge.source) else {
-            return;
-        };
-        let Some(target) = self.screen_position(center, scale, &edge.target) else {
-            return;
-        };
-
-        let stroke = Stroke::new(1.5, Color32::from_rgb(116, 125, 136));
-        painter.line_segment([source, target], stroke);
-        draw_arrow_head(painter, source, target, stroke.color);
-
-        if let Some(label) = &edge.label {
-            let midpoint = source.lerp(target, 0.5);
-            painter.text(
-                midpoint + vec2(0.0, -10.0),
-                Align2::CENTER_BOTTOM,
-                abbreviate(label, 28),
-                FontId::proportional(12.0),
-                Color32::from_rgb(196, 203, 214),
-            );
-        }
-    }
-
-    fn draw_node(&self, painter: &Painter, center: Pos2, scale: f32, node: &Node) {
-        let Some(position) = self.screen_position(center, scale, &node.id) else {
-            return;
-        };
-
-        let fill = node
-            .color
-            .as_deref()
-            .and_then(parse_hex_color)
-            .unwrap_or_else(|| Color32::from_rgb(70, 124, 208));
-
-        painter.circle_filled(position, NODE_RADIUS, fill);
-        painter.circle_stroke(
-            position,
-            NODE_RADIUS,
-            Stroke::new(2.0, Color32::from_rgb(234, 238, 244)),
-        );
-        painter.text(
-            position + vec2(0.0, NODE_RADIUS + 8.0),
-            Align2::CENTER_TOP,
-            abbreviate(&node.label, 24),
-            FontId::proportional(13.0),
-            Color32::from_rgb(234, 238, 244),
-        );
+        self.view.ui(ui, graph, &self.layout);
     }
 }
 
@@ -245,68 +168,6 @@ fn absolute_path(path: PathBuf) -> PathBuf {
     std::env::current_dir()
         .map(|current_dir| current_dir.join(&path))
         .unwrap_or(path)
-}
-
-fn draw_canvas_grid(painter: &Painter, rect: Rect) {
-    let stroke = Stroke::new(1.0, Color32::from_rgb(25, 30, 36));
-    let step = 48.0;
-    let mut x = rect.left();
-    while x <= rect.right() {
-        painter.line_segment(
-            [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
-            stroke,
-        );
-        x += step;
-    }
-
-    let mut y = rect.top();
-    while y <= rect.bottom() {
-        painter.line_segment(
-            [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
-            stroke,
-        );
-        y += step;
-    }
-}
-
-fn draw_center_message(painter: &Painter, rect: Rect, message: &str) {
-    painter.text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        message,
-        FontId::proportional(18.0),
-        Color32::from_rgb(184, 193, 205),
-    );
-}
-
-fn draw_arrow_head(painter: &Painter, source: Pos2, target: Pos2, color: Color32) {
-    let direction = target - source;
-    let length = direction.length();
-    if length <= NODE_RADIUS {
-        return;
-    }
-
-    let unit = direction / length;
-    let normal = vec2(-unit.y, unit.x);
-    let tip = target - unit * NODE_RADIUS;
-    let left = tip - unit * 12.0 + normal * 6.0;
-    let right = tip - unit * 12.0 - normal * 6.0;
-    let stroke = Stroke::new(1.5, color);
-
-    painter.line_segment([left, tip], stroke);
-    painter.line_segment([right, tip], stroke);
-}
-
-fn parse_hex_color(value: &str) -> Option<Color32> {
-    let value = value.strip_prefix('#').unwrap_or(value);
-    if value.len() != 6 {
-        return None;
-    }
-
-    let red = u8::from_str_radix(&value[0..2], 16).ok()?;
-    let green = u8::from_str_radix(&value[2..4], 16).ok()?;
-    let blue = u8::from_str_radix(&value[4..6], 16).ok()?;
-    Some(Color32::from_rgb(red, green, blue))
 }
 
 fn abbreviate(value: &str, max_chars: usize) -> String {
