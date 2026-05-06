@@ -1,3 +1,0 @@
-crates/graph-viewer/src/view.rs:240:11: replace += with -= in draw_canvas_grid
-crates/graph-viewer/src/view.rs:240:11: replace += with *= in draw_canvas_grid
-crates/graph-viewer/src/view.rs:249:11: replace += with -= in draw_canvas_grid

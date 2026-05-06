@@ -1,2 +1,6 @@
 /target
 .omc/
+
+# Mutation testing outputs
+/mutants.out/
+/mutants.out.old/
