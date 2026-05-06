@@ -65,18 +65,19 @@ pub struct Graph {
 }
 
 impl Graph {
+    pub fn new(nodes: Vec<Node>, edges: Vec<Edge>) -> Result<Self, GraphLoadError> {
+        validate_graph(&nodes, &edges)?;
+
+        Ok(Self { nodes, edges })
+    }
+
     pub fn from_json_str(source: &str) -> Result<Self, GraphLoadError> {
         let document: GraphDocument = serde_json::from_str(source)
             .map_err(|error| GraphLoadError::InvalidJson(error.to_string()))?;
 
-        let mut ids = BTreeSet::new();
         let mut nodes = Vec::with_capacity(document.nodes.len());
 
         for node in document.nodes {
-            if !ids.insert(node.id.clone()) {
-                return Err(GraphLoadError::DuplicateNode(node.id));
-            }
-
             nodes.push(Node {
                 label: node.label.unwrap_or_else(|| node.id.clone()),
                 id: node.id,
@@ -86,23 +87,7 @@ impl Graph {
 
         let mut edges = Vec::with_capacity(document.edges.len());
 
-        for (edge_index, edge) in document.edges.into_iter().enumerate() {
-            if !ids.contains(&edge.source) {
-                return Err(GraphLoadError::MissingEndpoint {
-                    edge_index,
-                    endpoint: "source",
-                    node_id: edge.source,
-                });
-            }
-
-            if !ids.contains(&edge.target) {
-                return Err(GraphLoadError::MissingEndpoint {
-                    edge_index,
-                    endpoint: "target",
-                    node_id: edge.target,
-                });
-            }
-
+        for edge in document.edges {
             edges.push(Edge {
                 source: edge.source,
                 target: edge.target,
@@ -110,7 +95,7 @@ impl Graph {
             });
         }
 
-        Ok(Self { nodes, edges })
+        Self::new(nodes, edges)
     }
 
     pub fn nodes(&self) -> &[Node] {
@@ -120,6 +105,36 @@ impl Graph {
     pub fn edges(&self) -> &[Edge] {
         &self.edges
     }
+}
+
+fn validate_graph(nodes: &[Node], edges: &[Edge]) -> Result<(), GraphLoadError> {
+    let mut ids = BTreeSet::new();
+
+    for node in nodes {
+        if !ids.insert(node.id.clone()) {
+            return Err(GraphLoadError::DuplicateNode(node.id.clone()));
+        }
+    }
+
+    for (edge_index, edge) in edges.iter().enumerate() {
+        if !ids.contains(&edge.source) {
+            return Err(GraphLoadError::MissingEndpoint {
+                edge_index,
+                endpoint: "source",
+                node_id: edge.source.clone(),
+            });
+        }
+
+        if !ids.contains(&edge.target) {
+            return Err(GraphLoadError::MissingEndpoint {
+                edge_index,
+                endpoint: "target",
+                node_id: edge.target.clone(),
+            });
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -1,6 +1,13 @@
+use std::fs;
+use std::path::PathBuf;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
+
 use node::{Node, NodeKind};
 use workflow::{Workflow, WorkflowEdge};
-use workflow_registry::{WorkflowId, WorkflowRegistry, WorkflowRegistryError};
+use workflow_registry::{
+    FileWorkflowStore, WorkflowId, WorkflowRegistry, WorkflowRegistryError, WorkflowStore,
+};
 
 #[test]
 fn registry_resolves_workflow_by_id() {
@@ -82,11 +89,62 @@ fn registry_iterates_workflows_by_id_order() {
     assert_eq!(ids, ["debug-voc", "release-notes"]);
 }
 
+#[test]
+fn file_store_reloads_saved_registry_from_disk() {
+    let temp_dir = unique_temp_dir("reloads-saved-registry");
+    let store_path = temp_dir.join(".manual").join("workflows.toml");
+    let store = FileWorkflowStore::new(&store_path);
+    let mut registry = WorkflowRegistry::new();
+    let debug = sample_workflow("debug-voc", "Debug VOC");
+    let release = sample_workflow("release-notes", "Release Notes");
+
+    registry.insert(debug.clone()).unwrap();
+    registry.insert(release.clone()).unwrap();
+
+    store.save(&registry).unwrap();
+
+    let reloaded_store = FileWorkflowStore::new(&store_path);
+    let reloaded = reloaded_store.load().unwrap();
+
+    assert_eq!(reloaded.resolve("debug-voc").unwrap(), &debug);
+    assert_eq!(reloaded.resolve("release-notes").unwrap(), &release);
+
+    fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
+fn file_store_loads_missing_file_as_empty_registry() {
+    let temp_dir = unique_temp_dir("loads-missing-file");
+    let store = FileWorkflowStore::new(temp_dir.join(".manual").join("workflows.toml"));
+
+    let registry = store.load().unwrap();
+
+    assert!(registry.is_empty());
+
+    fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
+fn file_store_for_repository_uses_manual_workflows_file() {
+    let store = FileWorkflowStore::for_repository("/workspace/manual");
+
+    assert_eq!(
+        store.path(),
+        PathBuf::from("/workspace/manual/.manual/workflows.toml")
+    );
+}
+
 fn sample_workflow(id: &str, name: &str) -> Workflow {
     let trigger = Node::new("trigger", NodeKind::Trigger, "Receive the request.")
         .expect("trigger node should be valid");
     let inspect = Node::new("inspect", NodeKind::LlmTask, "Inspect the repository.")
-        .expect("inspect node should be valid");
+        .expect("inspect node should be valid")
+        .with_input("repository")
+        .with_output("findings")
+        .with_sandbox("read-only")
+        .with_runtime("codex")
+        .with_artifact("analysis.md")
+        .with_acceptance("Root cause is supported by evidence.");
     let report = Node::new("report", NodeKind::Artifact, "Write the final report.")
         .expect("report node should be valid");
 
@@ -98,8 +156,21 @@ fn sample_workflow(id: &str, name: &str) -> Workflow {
         vec![trigger, inspect, report],
         vec![
             WorkflowEdge::sequence("trigger", "inspect"),
-            WorkflowEdge::sequence("inspect", "report"),
+            WorkflowEdge::sequence("inspect", "report").with_label("summarize"),
         ],
     )
     .expect("workflow graph should be valid")
+}
+
+fn unique_temp_dir(name: &str) -> PathBuf {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock is before UNIX_EPOCH")
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!(
+        "manual-workflow-registry-{name}-{timestamp}-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+    dir
 }

@@ -2,8 +2,8 @@ use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use manual_graph_viewer::{
-    circular_layout, load_graph_file, Graph, GraphLayout, GraphLoadError, GraphView, PanOffset,
-    SmoothZoom, ZoomLevel,
+    Edge, Graph, GraphLayout, GraphLoadError, GraphView, Node, PanOffset, SmoothZoom, ZoomLevel,
+    circular_layout, load_graph_file,
 };
 
 fn assert_approx_eq(actual: f32, expected: f32) {
@@ -59,6 +59,65 @@ fn parses_graph_when_edges_are_omitted() {
     assert_eq!(graph.edges().len(), 0);
     assert_eq!(graph.nodes()[0].id, "only");
     assert_eq!(graph.nodes()[0].label, "Only Node");
+}
+
+#[test]
+fn constructs_graph_from_nodes_and_edges_directly() {
+    let graph = Graph::new(
+        vec![
+            Node {
+                id: "root".to_string(),
+                label: "Root".to_string(),
+                color: Some("#4f8cff".to_string()),
+            },
+            Node {
+                id: "leaf".to_string(),
+                label: "Leaf".to_string(),
+                color: None,
+            },
+        ],
+        vec![Edge {
+            source: "root".to_string(),
+            target: "leaf".to_string(),
+            label: Some("feeds".to_string()),
+        }],
+    )
+    .expect("direct graph construction should validate and preserve graph data");
+
+    assert_eq!(graph.nodes().len(), 2);
+    assert_eq!(graph.nodes()[0].id, "root");
+    assert_eq!(graph.nodes()[0].label, "Root");
+    assert_eq!(graph.nodes()[0].color.as_deref(), Some("#4f8cff"));
+    assert_eq!(graph.edges().len(), 1);
+    assert_eq!(graph.edges()[0].source, "root");
+    assert_eq!(graph.edges()[0].target, "leaf");
+    assert_eq!(graph.edges()[0].label.as_deref(), Some("feeds"));
+}
+
+#[test]
+fn direct_graph_construction_reuses_endpoint_validation() {
+    let err = Graph::new(
+        vec![Node {
+            id: "known".to_string(),
+            label: "Known".to_string(),
+            color: None,
+        }],
+        vec![Edge {
+            source: "known".to_string(),
+            target: "missing".to_string(),
+            label: None,
+        }],
+    )
+    .expect_err("missing direct graph endpoints should be rejected");
+
+    assert_eq!(
+        err,
+        GraphLoadError::MissingEndpoint {
+            edge_index: 0,
+            endpoint: "target",
+            node_id: "missing".to_string()
+        }
+    );
 }
 
 #[test]

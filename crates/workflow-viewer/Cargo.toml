@@ -1,14 +1,14 @@
 [package]
-name = "workflow-registry"
+name = "workflow-viewer"
 version.workspace = true
 edition.workspace = true
 
 [lib]
-name = "workflow_registry"
+name = "workflow_viewer"
 path = "src/lib.rs"
 
 [dependencies]
+eframe = "=0.33.3"
+manual_graph_viewer.workspace = true
 node.workspace = true
-serde = { version = "1", features = ["derive"] }
-toml = "0.8"
 workflow.workspace = true

@@ -15,7 +15,7 @@ This repository currently starts as a compact Rust workspace:
 - `crates/core`: shared Manual domain language and workspace metadata.
 - `crates/node`: workflow node types and node contract metadata.
 - `crates/workflow`: workflow graph types that combine nodes with directed edges and validation.
-- `crates/workflow-registry`: workflow template registration and lookup logic backed by the `workflow` graph model.
+- `crates/workflow-registry`: workflow template registration, lookup, and file-backed storage for the `workflow` graph model.
 - `crates/cli`: a thin command entrypoint for inspecting and validating Manual assets.
 - `crates/skill`: a bundled agent skill template plus validation entrypoints.
 - `crates/agent`: adapters for controlling external agent CLIs as JSONL streams.
@@ -24,6 +24,8 @@ This repository currently starts as a compact Rust workspace:
 - `crates/sandbox-registry`: named sandbox definitions and lookup logic backed by the `sandbox` policy model.
 - `crates/runtime`: the execution layer that turns input, sandbox policy, and a script or agent target into a captured run.
 - `crates/app`: an early application shell that depends on the shared core.
+- `crates/graph-viewer`: reusable native graph visualization primitives and a JSON graph viewer.
+- `crates/workflow-viewer`: a workflow visualization layer that converts `workflow` graphs into `graph-viewer` graphs.
 
 The product direction is broader than the first implementation: Manual is intended to become a local-first automation control plane for workflow graphs, agent routing, sandbox policies, run history, cost tracking, artifacts, and a localhost visualization surface.
 
@@ -92,4 +94,16 @@ Edges also accept `from` and `to` aliases:
 
 ```json
 { "from": "a", "to": "b" }
+```
+
+## Workflow Viewer
+
+`workflow-viewer` adapts validated `workflow::Workflow` values into the
+`manual-graph-viewer` graph model, preserving workflow node kinds, entry node
+labels, edge labels, and edge kinds for native visualization.
+
+Run the bundled sample workflow viewer:
+
+```sh
+cargo run -p workflow-viewer
 ```

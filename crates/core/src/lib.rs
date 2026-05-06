@@ -25,6 +25,7 @@ pub fn workspace_descriptor() -> WorkspaceDescriptor {
             "sandbox-registry",
             "runtime",
             "graph-viewer",
+            "workflow-viewer",
         ],
     }
 }
@@ -55,7 +56,8 @@ mod tests {
                 "sandbox",
                 "sandbox-registry",
                 "runtime",
-                "graph-viewer"
+                "graph-viewer",
+                "workflow-viewer"
             ]
         );
     }

@@ -13,7 +13,7 @@ The repository contains these workspace members:
 | `core` | Shared workspace descriptor and domain foundation. | Own domain language, validation rules, workflow types, job types, and cost records. |
 | `node` | Workflow node identifiers, kinds, and contract metadata. | Define the typed graph node surface shared by import, validation, execution, and visualization. |
 | `workflow` | Workflow graph types that combine nodes with directed edges and validation. | Become the graph import/export and orchestration planning surface. |
-| `workflow-registry` | Workflow template registration and lookup logic. | Let jobs and orchestration layers resolve workflow references without coupling registry concerns into the workflow graph crate. |
+| `workflow-registry` | Workflow template registration, lookup, and file-backed storage. | Let jobs and orchestration layers resolve workflow references without coupling registry concerns into the workflow graph crate. |
 | `cli` | Thin command entrypoint with `about` and skill validation behavior. | Become the user and agent entrypoint for workflow, job, run, cost, artifact, sandbox, and serve commands. |
 | `skill` | Bundled skill template and delegation into the CLI validator. | Package Manual instructions so agents can create, validate, and run workflows through the CLI. |
 | `agent` | JSONL-oriented adapters for Codex and Claude Code. | Route workflow nodes into agent runtimes while keeping process handling uniform. |

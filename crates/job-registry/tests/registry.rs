@@ -129,6 +129,42 @@ fn file_store_reloads_saved_registry_from_disk() {
 }
 
 #[test]
+fn file_store_loads_predefined_jobs_toml_fixture() {
+    let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("jobs.toml");
+
+    let registry = FileJobStore::new(&fixture_path)
+        .load()
+        .expect("fixture should load");
+
+    assert_eq!(registry.len(), 2);
+
+    let running = registry
+        .resolve("job-fixture-running")
+        .expect("running fixture job should resolve");
+    assert_eq!(running.workflow_id(), "debug-voc");
+    assert_eq!(running.input_json(), r#"{"ticket":"VOC-42"}"#);
+    assert_eq!(running.status(), JobStatus::Running);
+    assert_eq!(
+        running.node_status("trigger"),
+        Some(NodeRunStatus::Succeeded)
+    );
+    assert_eq!(running.node_status("inspect"), Some(NodeRunStatus::Running));
+    assert_eq!(running.node_status("report"), Some(NodeRunStatus::Pending));
+    assert_eq!(running.nodes()[0].attempts(), 1);
+    assert_eq!(running.nodes()[1].attempts(), 2);
+
+    let created = registry
+        .resolve("job-fixture-created")
+        .expect("created fixture job should resolve");
+    assert_eq!(created.workflow_id(), "release-notes");
+    assert_eq!(created.status(), JobStatus::Created);
+    assert_eq!(created.node_status("trigger"), Some(NodeRunStatus::Ready));
+}
+
+#[test]
 fn file_store_loads_missing_file_as_empty_registry() {
     let temp_dir = unique_temp_dir("loads-missing-file");
     let store = FileJobStore::new(temp_dir.join(".manual").join("jobs.toml"));

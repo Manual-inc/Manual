@@ -4233,6 +4233,18 @@ name = "workflow-registry"
 version = "0.1.0"
 dependencies = [
  "node",
+ "serde",
+ "toml",
+ "workflow",
+]
+
+[[package]]
+name = "workflow-viewer"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "manual-graph-viewer",
+ "node",
  "workflow",
 ]
 

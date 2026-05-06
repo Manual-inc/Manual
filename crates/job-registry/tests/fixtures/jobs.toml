@@ -1,0 +1,31 @@
+[[jobs]]
+id = "job-fixture-running"
+workflow_id = "debug-voc"
+input_json = '{"ticket":"VOC-42"}'
+status = "running"
+
+[[jobs.nodes]]
+node_id = "trigger"
+status = "succeeded"
+attempts = 1
+
+[[jobs.nodes]]
+node_id = "inspect"
+status = "running"
+attempts = 2
+
+[[jobs.nodes]]
+node_id = "report"
+status = "pending"
+attempts = 0
+
+[[jobs]]
+id = "job-fixture-created"
+workflow_id = "release-notes"
+input_json = '{"release":"1.0"}'
+status = "created"
+
+[[jobs.nodes]]
+node_id = "trigger"
+status = "ready"
+attempts = 0
