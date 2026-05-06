@@ -300,3 +300,449 @@ fn abbreviate(value: &str, max_chars: usize) -> String {
         shortened
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eframe::egui::{pos2, CentralPanel, Context, RawInput, Shape};
+
+    fn sample_graph() -> Graph {
+        Graph::from_json_str(
+            r##"
+            {
+              "nodes": [
+                { "id": "source", "label": "Source", "color": "#4f8cff" },
+                { "id": "target", "label": "Target", "color": "#41b883" }
+              ],
+              "edges": [
+                { "source": "source", "target": "target", "label": "connects" }
+              ]
+            }
+            "##,
+        )
+        .expect("sample graph should parse")
+    }
+
+    fn run_view_frame(
+        view: &mut GraphView,
+        graph: &Graph,
+        layout: &GraphLayout,
+    ) -> (Rect, Vec<Shape>) {
+        let ctx = Context::default();
+        ctx.begin_pass(RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(640.0, 480.0))),
+            ..Default::default()
+        });
+
+        let mut response_rect = Rect::NOTHING;
+        CentralPanel::default().show(&ctx, |ui| {
+            response_rect = view.ui(ui, graph, layout).rect;
+        });
+
+        let output = ctx.end_pass();
+        let shapes = output
+            .shapes
+            .into_iter()
+            .map(|clipped| clipped.shape)
+            .collect();
+
+        (response_rect, shapes)
+    }
+
+    fn run_empty_frame(view: &GraphView) -> (Rect, Vec<Shape>) {
+        let ctx = Context::default();
+        ctx.begin_pass(RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(320.0, 240.0))),
+            ..Default::default()
+        });
+
+        let mut response_rect = Rect::NOTHING;
+        CentralPanel::default().show(&ctx, |ui| {
+            response_rect = view.empty_ui(ui, "No graph loaded").rect;
+        });
+
+        let output = ctx.end_pass();
+        let shapes = output
+            .shapes
+            .into_iter()
+            .map(|clipped| clipped.shape)
+            .collect();
+
+        (response_rect, shapes)
+    }
+
+    fn run_zoom_controls_frame(view: &mut GraphView) -> Vec<Shape> {
+        let ctx = Context::default();
+        ctx.begin_pass(RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(240.0, 80.0))),
+            ..Default::default()
+        });
+
+        CentralPanel::default().show(&ctx, |ui| {
+            view.zoom_controls(ui);
+        });
+
+        ctx.end_pass()
+            .shapes
+            .into_iter()
+            .map(|clipped| clipped.shape)
+            .collect()
+    }
+
+    fn run_arrow_head_frame(source: Pos2, target: Pos2) -> Vec<Shape> {
+        let ctx = Context::default();
+        ctx.begin_pass(RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(160.0, 120.0))),
+            ..Default::default()
+        });
+
+        CentralPanel::default().show(&ctx, |ui| {
+            draw_arrow_head(
+                ui.painter(),
+                source,
+                target,
+                Color32::from_rgb(200, 120, 40),
+            );
+        });
+
+        ctx.end_pass()
+            .shapes
+            .into_iter()
+            .map(|clipped| clipped.shape)
+            .collect()
+    }
+
+    fn assert_pos_approx(actual: Pos2, expected: Pos2) {
+        assert!(
+            (actual.x - expected.x).abs() < 0.0001 && (actual.y - expected.y).abs() < 0.0001,
+            "expected position {actual:?} to be approximately {expected:?}"
+        );
+    }
+
+    fn line_length(points: [Pos2; 2]) -> f32 {
+        (points[1] - points[0]).length()
+    }
+
+    fn find_circle_center(shapes: &[Shape], fill: Color32) -> Pos2 {
+        shapes
+            .iter()
+            .find_map(|shape| match shape {
+                Shape::Circle(circle) if circle.fill == fill => Some(circle.center),
+                _ => None,
+            })
+            .expect("expected circle with requested fill color")
+    }
+
+    fn edge_lines(shapes: &[Shape]) -> Vec<[Pos2; 2]> {
+        shapes
+            .iter()
+            .filter_map(|shape| match shape {
+                Shape::LineSegment { points, stroke }
+                    if stroke.color == Color32::from_rgb(116, 125, 136) =>
+                {
+                    Some(*points)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn text_rect(shapes: &[Shape], value: &str) -> Rect {
+        shapes
+            .iter()
+            .find_map(|shape| match shape {
+                Shape::Text(text) if text.galley.text() == value => {
+                    Some(Rect::from_min_size(text.pos, text.galley.size()))
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("expected text shape containing {value:?}"))
+    }
+
+    fn assert_contains_text(shapes: &[Shape], value: &str) {
+        let _ = text_rect(shapes, value);
+    }
+
+    fn colored_lines(shapes: &[Shape], color: Color32) -> Vec<[Pos2; 2]> {
+        shapes
+            .iter()
+            .filter_map(|shape| match shape {
+                Shape::LineSegment { points, stroke } if stroke.color == color => Some(*points),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn assert_line_segments_match(actual: &[[Pos2; 2]], expected: &[[Pos2; 2]]) {
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "unexpected number of line segments"
+        );
+
+        let mut matched = vec![false; expected.len()];
+        for actual_points in actual {
+            let Some((index, _)) = expected
+                .iter()
+                .enumerate()
+                .find(|(index, expected_points)| {
+                    !matched[*index]
+                        && actual_points.iter().zip(expected_points.iter()).all(
+                            |(actual, expected)| {
+                                (actual.x - expected.x).abs() < 0.001
+                                    && (actual.y - expected.y).abs() < 0.001
+                            },
+                        )
+                })
+            else {
+                panic!("unexpected line segment: {actual_points:?}");
+            };
+
+            matched[index] = true;
+        }
+    }
+
+    #[test]
+    fn ui_allocates_canvas_and_paints_graph_shapes() {
+        let graph = sample_graph();
+        let layout = crate::circular_layout(&graph);
+        let mut view = GraphView::default();
+
+        let (response_rect, shapes) = run_view_frame(&mut view, &graph, &layout);
+
+        assert!(response_rect.width() > 600.0);
+        assert!(response_rect.height() > 400.0);
+        assert!(
+            shapes.iter().any(
+                |shape| matches!(shape, Shape::Rect(rect) if rect.fill == Color32::from_rgb(15, 18, 22))
+            ),
+            "canvas background should be painted"
+        );
+        assert!(
+            shapes
+                .iter()
+                .filter(|shape| matches!(shape, Shape::LineSegment { stroke, .. } if stroke.color == Color32::from_rgb(25, 30, 36)))
+                .count()
+                > 20,
+            "canvas grid should paint many guide lines"
+        );
+        assert!(
+            shapes
+                .iter()
+                .any(|shape| matches!(shape, Shape::Circle(circle) if circle.fill == Color32::from_rgb(79, 140, 255)))
+        );
+        assert!(
+            shapes
+                .iter()
+                .any(|shape| matches!(shape, Shape::Circle(circle) if circle.fill == Color32::from_rgb(65, 184, 131)))
+        );
+        assert!(
+            shapes
+                .iter()
+                .any(|shape| matches!(shape, Shape::LineSegment { stroke, .. } if stroke.color == Color32::from_rgb(116, 125, 136)))
+        );
+        assert!(shapes.iter().any(|shape| matches!(shape, Shape::Text(_))));
+    }
+
+    #[test]
+    fn ui_places_nodes_edges_and_arrow_head_at_expected_positions() {
+        let graph = sample_graph();
+        let layout = crate::circular_layout(&graph);
+        let mut view = GraphView::default();
+        view.pan_mut().pan_by(12.0, -8.0);
+
+        let (response_rect, shapes) = run_view_frame(&mut view, &graph, &layout);
+        let graph_rect = response_rect.shrink2(Vec2::new(64.0, 64.0));
+        let center = graph_rect.center() + vec2(12.0, -8.0);
+        let scale = graph_rect.width().min(graph_rect.height()) * 0.42;
+        let source = center + vec2(scale, 0.0);
+        let target = center + vec2(-scale, 0.0);
+
+        assert_pos_approx(
+            find_circle_center(&shapes, Color32::from_rgb(79, 140, 255)),
+            source,
+        );
+        assert_pos_approx(
+            find_circle_center(&shapes, Color32::from_rgb(65, 184, 131)),
+            target,
+        );
+
+        let edge_lines = edge_lines(&shapes);
+        assert_eq!(edge_lines.len(), 3, "edge plus two arrow-head strokes");
+
+        let main_edge = edge_lines
+            .iter()
+            .copied()
+            .max_by(|left, right| {
+                line_length(*left)
+                    .partial_cmp(&line_length(*right))
+                    .expect("line lengths should be comparable")
+            })
+            .expect("main edge line should be present");
+        assert_pos_approx(main_edge[0], source);
+        assert_pos_approx(main_edge[1], target);
+
+        let tip = target + vec2(18.0, 0.0);
+        let arrow_lines = edge_lines
+            .into_iter()
+            .filter(|points| line_length(*points) < 20.0)
+            .collect::<Vec<_>>();
+        assert_eq!(arrow_lines.len(), 2);
+        for points in arrow_lines {
+            assert_pos_approx(points[1], tip);
+            assert!((line_length(points) - 13.4164).abs() < 0.001);
+        }
+    }
+
+    #[test]
+    fn zoom_controls_render_expected_buttons_and_current_percent() {
+        let mut view = GraphView::with_zoom(ZoomLevel::new(1.25));
+
+        let shapes = run_zoom_controls_frame(&mut view);
+
+        assert_contains_text(&shapes, "-");
+        assert_contains_text(&shapes, "125%");
+        assert_contains_text(&shapes, "+");
+    }
+
+    #[test]
+    fn empty_ui_allocates_canvas_and_paints_message() {
+        let view = GraphView::default();
+
+        let (response_rect, shapes) = run_empty_frame(&view);
+
+        assert!(response_rect.width() > 300.0);
+        assert!(response_rect.height() > 200.0);
+        assert!(shapes.iter().any(|shape| matches!(shape, Shape::Text(_))));
+    }
+
+    #[test]
+    fn ui_scales_node_positions_by_displayed_zoom() {
+        let graph = sample_graph();
+        let layout = crate::circular_layout(&graph);
+        let mut view = GraphView::with_zoom(ZoomLevel::new(2.0));
+
+        let (response_rect, shapes) = run_view_frame(&mut view, &graph, &layout);
+        let graph_rect = response_rect.shrink2(Vec2::new(64.0, 64.0));
+        let center = graph_rect.center();
+        let scale = graph_rect.width().min(graph_rect.height()) * 0.42 * 2.0;
+
+        assert_pos_approx(
+            find_circle_center(&shapes, Color32::from_rgb(79, 140, 255)),
+            center + vec2(scale, 0.0),
+        );
+        assert_pos_approx(
+            find_circle_center(&shapes, Color32::from_rgb(65, 184, 131)),
+            center + vec2(-scale, 0.0),
+        );
+    }
+
+    #[test]
+    fn ui_places_node_and_edge_labels_at_expected_anchors() {
+        let graph = sample_graph();
+        let layout = crate::circular_layout(&graph);
+        let mut view = GraphView::default();
+
+        let (response_rect, shapes) = run_view_frame(&mut view, &graph, &layout);
+        let graph_rect = response_rect.shrink2(Vec2::new(64.0, 64.0));
+        let center = graph_rect.center();
+        let scale = graph_rect.width().min(graph_rect.height()) * 0.42;
+        let source = center + vec2(scale, 0.0);
+        let target = center + vec2(-scale, 0.0);
+
+        let source_label = text_rect(&shapes, "Source");
+        assert_pos_approx(
+            source_label.center_top(),
+            source + vec2(0.0, NODE_RADIUS + 8.0),
+        );
+
+        let target_label = text_rect(&shapes, "Target");
+        assert_pos_approx(
+            target_label.center_top(),
+            target + vec2(0.0, NODE_RADIUS + 8.0),
+        );
+
+        let edge_label = text_rect(&shapes, "connects");
+        assert_pos_approx(
+            edge_label.center_bottom(),
+            source.lerp(target, 0.5) + vec2(0.0, -10.0),
+        );
+    }
+
+    #[test]
+    fn arrow_head_uses_perpendicular_offsets_for_diagonal_edges() {
+        let source = pos2(10.0, 20.0);
+        let target = pos2(110.0, 70.0);
+
+        let shapes = run_arrow_head_frame(source, target);
+
+        let direction = target - source;
+        let unit = direction / direction.length();
+        let normal = vec2(-unit.y, unit.x);
+        let tip = target - unit * NODE_RADIUS;
+        let expected = [
+            [tip - unit * 12.0 + normal * 6.0, tip],
+            [tip - unit * 12.0 - normal * 6.0, tip],
+        ];
+        assert_line_segments_match(
+            &colored_lines(&shapes, Color32::from_rgb(200, 120, 40)),
+            &expected,
+        );
+    }
+
+    #[test]
+    fn screen_position_applies_layout_scale_and_pan_center() {
+        let graph = Graph::from_json_str(
+            r#"
+            {
+              "nodes": [
+                { "id": "east" },
+                { "id": "north" },
+                { "id": "west" },
+                { "id": "south" }
+              ],
+              "edges": []
+            }
+            "#,
+        )
+        .expect("graph should parse");
+        let layout = crate::circular_layout(&graph);
+        let view = GraphView::default();
+
+        let east = view
+            .screen_position(pos2(10.0, 20.0), 5.0, "east", &layout)
+            .expect("east should map to a screen position");
+        assert_eq!(east, pos2(15.0, 20.0));
+
+        let north = view
+            .screen_position(pos2(10.0, 20.0), 5.0, "north", &layout)
+            .expect("north should map to a screen position");
+        assert!((north.x - 10.0).abs() < 0.0001);
+        assert!((north.y - 25.0).abs() < 0.0001);
+
+        assert!(view
+            .screen_position(pos2(10.0, 20.0), 5.0, "missing", &layout)
+            .is_none());
+    }
+
+    #[test]
+    fn parse_hex_color_accepts_hash_or_plain_rgb_and_rejects_bad_values() {
+        assert_eq!(
+            parse_hex_color("#4f8cff"),
+            Some(Color32::from_rgb(79, 140, 255))
+        );
+        assert_eq!(
+            parse_hex_color("41b883"),
+            Some(Color32::from_rgb(65, 184, 131))
+        );
+        assert_eq!(parse_hex_color("#12345"), None);
+        assert_eq!(parse_hex_color("#nothex"), None);
+    }
+
+    #[test]
+    fn abbreviate_preserves_short_labels_and_shortens_long_labels() {
+        assert_eq!(abbreviate("short", 12), "short");
+        assert_eq!(abbreviate("abcdefghijklmnop", 8), "abcdefgh...");
+        assert_eq!(abbreviate("가나다라마바사", 3), "가나다...");
+    }
+}
