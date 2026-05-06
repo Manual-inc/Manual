@@ -22,6 +22,7 @@ Manual should eventually support:
 
 - Codex as an initial coding-agent adapter.
 - Claude Code as a second coding-agent adapter.
+- Rust scripts for deterministic JSON-in, text-out transforms, including dependency-backed scripts compiled through Cargo.
 - Python scripts for deterministic or semi-deterministic work.
 - Shell commands for tests, checks, transforms, and local automation.
 - Future OpenCode or Agent SDK adapters.

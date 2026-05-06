@@ -1,0 +1,10 @@
+[package]
+name = "script"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "script"
+path = "src/lib.rs"
+
+[dependencies]

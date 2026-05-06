@@ -1,0 +1,11 @@
+[package]
+name = "workflow"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "workflow"
+path = "src/lib.rs"
+
+[dependencies]
+node.workspace = true

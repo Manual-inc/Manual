@@ -19,7 +19,7 @@ Manual's sandbox feature should answer these questions:
 
 ## OS-Native Direction
 
-The wiki research points toward an independent Rust sandbox package that can be used by Manual and by other projects.
+The wiki research points toward an independent Rust sandbox package that can be used by Manual and by other projects. The first workspace version lives in `crates/sandbox`.
 
 | OS | Likely Backend | Notes |
 | --- | --- | --- |
@@ -27,7 +27,7 @@ The wiki research points toward an independent Rust sandbox package that can be 
 | Linux | bubblewrap, seccomp, `no_new_privs`, and possibly Landlock | Build a filesystem namespace, then reduce network and process syscall surface. |
 | Windows | restricted token, capability SID, ACLs, setup helper, and `CreateProcessAsUserW` | Requires setup and refresh behavior, not only one spawn call. |
 
-The common API should hide platform details while refusing to silently weaken a requested policy.
+The common API hides platform details while refusing to silently weaken a requested policy. In the current crate, `danger-full-access` can run directly, while enforced policies compile to OS-specific execution plans and report a clear backend-unavailable error when the required backend is missing.
 
 ## Policy Presets
 
@@ -39,7 +39,7 @@ Manual should start with a small preset surface:
 | `workspace-write` | Allow writes inside declared workspace roots while protecting sensitive metadata. |
 | `danger-full-access` | Run without sandbox restrictions. The name should remain intentionally loud. |
 
-These presets can compile into richer filesystem and network policies internally.
+These presets compile into richer filesystem and network policies internally.
 
 ## Policy Model
 
@@ -94,3 +94,12 @@ The strongest design direction from the Codex sandbox research is to avoid a sin
 - a sandboxed process interface for stdout, stderr, exit code, timeout, and cancellation
 
 That separation matches how real OS sandboxes differ.
+
+The initial `sandbox` crate follows that split with:
+
+- `SandboxPolicy`, `FilesystemPolicy`, and `NetworkPolicy` as OS-neutral policy types.
+- `SandboxRunner::detect()` for local OS detection.
+- `CompiledSandboxPlan` for macOS Seatbelt, Linux bubblewrap, Windows restricted-token, or explicit direct execution.
+- `CommandSpec` and `SandboxResult` for stdin, captured stdout, stderr, and exit code.
+
+The `runtime` crate builds on this surface: it receives JSON input, derives a `SandboxPolicy`, and runs either a compiled Rust script or an agent command through `SandboxRunner`.

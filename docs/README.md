@@ -6,7 +6,7 @@ Manual turns repeatable operational knowledge into workflows that agents can ins
 
 Manual is not a prompt library. It is a Rust-based execution layer for turning "the way this work should be done" into a reusable workflow graph. A workflow connects agent nodes, sandbox boundaries, integrations, cost records, and artifacts into something that can be run again with different inputs.
 
-The current repository is intentionally small. It provides a Rust workspace with shared core metadata, a CLI shell, an app shell, and a skill packaging path. The docs describe both the implemented foundation and the product direction gathered from the local Manual wiki.
+The current repository is intentionally small. It provides a Rust workspace with shared core metadata, node contracts, workflow graph validation, sandboxed runtime execution, a CLI shell, an app shell, and a skill packaging path. The docs describe both the implemented foundation and the product direction gathered from the local Manual wiki.
 
 ## Core Concepts
 
@@ -15,6 +15,7 @@ The current repository is intentionally small. It provides a Rust workspace with
 | Workflow | The graph that defines repeatable work, including nodes, edges, branches, loops, inputs, outputs, and artifacts. |
 | Agent | The executable unit inside a node. An agent can be Codex, Claude Code, a script, a Python program, or a future runtime adapter. |
 | Sandbox | The execution boundary around an agent or node. It decides what can be read, written, reached over the network, or spawned. |
+| Runtime | The layer that receives node input, applies a sandbox policy, and executes a script or agent target. |
 
 The key product equation is:
 

@@ -59,7 +59,7 @@ The wiki notes define a useful set of graph validation rules:
 - Direct self-loops should be rejected.
 - General cycles may be allowed when they represent intentional bounded loops.
 
-The current repository does not yet contain the full graph model. These rules should guide the next domain expansion in `core`.
+The `workflow` crate starts with these graph validation rules and can expand toward import/export, branch conditions, loop bounds, and orchestration planning.
 
 ## Example Workflow Spec
 

@@ -1,0 +1,13 @@
+[package]
+name = "runtime"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "runtime"
+path = "src/lib.rs"
+
+[dependencies]
+agent.workspace = true
+sandbox.workspace = true
+script.workspace = true

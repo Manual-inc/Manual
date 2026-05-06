@@ -90,7 +90,7 @@
 <li>Direct self-loops should be rejected.</li>
 <li>General cycles may be allowed when they represent intentional bounded loops.</li>
 </ul>
-<p>The current repository does not yet contain the full graph model. These rules should guide the next domain expansion in <code>core</code>.</p>
+<p>The <code>workflow</code> crate starts with these graph validation rules and can expand toward import/export, branch conditions, loop bounds, and orchestration planning.</p>
 <h2 id="example-workflow-spec">Example Workflow Spec <a class="heading-anchor" href="#example-workflow-spec" aria-label="Link to this section">#</a></h2>
 <div class="code-block"><div class="code-block-meta"><span class="lang">YAML</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-yaml">name: payment-voc-debugging
 goal: Find why paid orders remain PENDING and produce a tested fix.

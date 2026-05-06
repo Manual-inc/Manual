@@ -1,11 +1,17 @@
 [workspace]
 members = [
     "crates/core",
+    "crates/node",
+    "crates/workflow",
+    "crates/job",
     "crates/app",
     "crates/cli",
     "crates/skill",
     "crates/agent",
+    "crates/script",
     "crates/sandbox",
+    "crates/sandbox-registry",
+    "crates/runtime",
     "crates/graph-viewer",
 ]
 resolver = "3"
@@ -16,5 +22,12 @@ version = "0.1.0"
 
 [workspace.dependencies]
 manual_core = { package = "manual-core", path = "crates/core" }
+node = { path = "crates/node" }
+workflow = { path = "crates/workflow" }
+job = { path = "crates/job" }
+agent = { path = "crates/agent" }
+script = { path = "crates/script" }
 sandbox = { path = "crates/sandbox" }
+sandbox_registry = { package = "sandbox-registry", path = "crates/sandbox-registry" }
+runtime = { path = "crates/runtime" }
 cli = { path = "crates/cli" }

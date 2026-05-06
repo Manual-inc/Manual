@@ -74,13 +74,13 @@
 <li>What stdout, stderr, exit code, and timeout result came back?</li>
 </ul>
 <h2 id="os-native-direction">OS-Native Direction <a class="heading-anchor" href="#os-native-direction" aria-label="Link to this section">#</a></h2>
-<p>The wiki research points toward an independent Rust sandbox package that can be used by Manual and by other projects.</p>
+<p>The wiki research points toward an independent Rust sandbox package that can be used by Manual and by other projects. The first workspace version lives in <code>crates/sandbox</code>.</p>
 <div class="table-wrap"><table><thead><tr><th>OS</th><th>Likely Backend</th><th>Notes</th></tr></thead><tbody><tr><td>macOS</td><td>Seatbelt through <code>sandbox-exec</code></td><td>Compile a policy into SBPL and wrap the command.</td></tr><tr><td>Linux</td><td>bubblewrap, seccomp, <code>no_new_privs</code>, and possibly Landlock</td><td>Build a filesystem namespace, then reduce network and process syscall surface.</td></tr><tr><td>Windows</td><td>restricted token, capability SID, ACLs, setup helper, and <code>CreateProcessAsUserW</code></td><td>Requires setup and refresh behavior, not only one spawn call.</td></tr></tbody></table></div>
-<p>The common API should hide platform details while refusing to silently weaken a requested policy.</p>
+<p>The common API hides platform details while refusing to silently weaken a requested policy. In the current crate, <code>danger-full-access</code> can run directly, while enforced policies compile to OS-specific execution plans and report a clear backend-unavailable error when the required backend is missing.</p>
 <h2 id="policy-presets">Policy Presets <a class="heading-anchor" href="#policy-presets" aria-label="Link to this section">#</a></h2>
 <p>Manual should start with a small preset surface:</p>
 <div class="table-wrap"><table><thead><tr><th>Preset</th><th>Meaning</th></tr></thead><tbody><tr><td><code>read-only</code></td><td>Read the workspace or declared inputs, write nothing durable, restrict network by default.</td></tr><tr><td><code>workspace-write</code></td><td>Allow writes inside declared workspace roots while protecting sensitive metadata.</td></tr><tr><td><code>danger-full-access</code></td><td>Run without sandbox restrictions. The name should remain intentionally loud.</td></tr></tbody></table></div>
-<p>These presets can compile into richer filesystem and network policies internally.</p>
+<p>These presets compile into richer filesystem and network policies internally.</p>
 <h2 id="policy-model">Policy Model <a class="heading-anchor" href="#policy-model" aria-label="Link to this section">#</a></h2>
 <p>A useful v0 policy can look like this:</p>
 <div class="code-block"><div class="code-block-meta"><span class="lang">TEXT</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-text">SandboxPolicy
@@ -119,6 +119,14 @@ manual-sandbox doctor</code></pre></div>
 <li>a sandboxed process interface for stdout, stderr, exit code, timeout, and cancellation</li>
 </ul>
 <p>That separation matches how real OS sandboxes differ.</p>
+<p>The initial <code>sandbox</code> crate follows that split with:</p>
+<ul>
+<li><code>SandboxPolicy</code>, <code>FilesystemPolicy</code>, and <code>NetworkPolicy</code> as OS-neutral policy types.</li>
+<li><code>SandboxRunner::detect()</code> for local OS detection.</li>
+<li><code>CompiledSandboxPlan</code> for macOS Seatbelt, Linux bubblewrap, Windows restricted-token, or explicit direct execution.</li>
+<li><code>CommandSpec</code> and <code>SandboxResult</code> for stdin, captured stdout, stderr, and exit code.</li>
+</ul>
+<p>The <code>runtime</code> crate builds on this surface: it receives JSON input, derives a <code>SandboxPolicy</code>, and runs either a compiled Rust script or an agent command through <code>SandboxRunner</code>.</p>
         <nav class="pagination" aria-label="Page navigation"><a class="prev" href="agents.html"><span class="label">← Previous</span><span class="title">Agents</span></a><a class="next" href="cli-and-skill.html"><span class="label">Next →</span><span class="title">CLI and Skill</span></a></nav>
         <footer class="footer">
           <span>Generated from Markdown by <code>docs/build.mjs</code>.</span>

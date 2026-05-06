@@ -61,7 +61,7 @@ manual sandbox run --policy <policy> -- <command>
 manual serve
 ```
 
-The current crate names are still simple (`cli`, `skill`, `app`, `core`). A later productization step can rename binaries and packages when the command surface is ready.
+The current crate names are still simple (`core`, `node`, `cli`, `skill`, `agent`, `script`, `sandbox`, `app`). A later productization step can rename binaries and packages when the command surface is ready.
 
 ## Skill Responsibility
 

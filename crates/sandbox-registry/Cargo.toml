@@ -1,0 +1,13 @@
+[package]
+name = "sandbox-registry"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "sandbox_registry"
+path = "src/lib.rs"
+
+[dependencies]
+sandbox.workspace = true
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"

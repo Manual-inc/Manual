@@ -9,7 +9,21 @@ pub struct WorkspaceDescriptor {
 pub fn workspace_descriptor() -> WorkspaceDescriptor {
     WorkspaceDescriptor {
         name: WORKSPACE_NAME,
-        packages: &["core", "app", "cli", "skill", "agent"],
+        packages: &[
+            "core",
+            "node",
+            "workflow",
+            "job",
+            "app",
+            "cli",
+            "skill",
+            "agent",
+            "script",
+            "sandbox",
+            "sandbox-registry",
+            "runtime",
+            "graph-viewer",
+        ],
     }
 }
 
@@ -24,7 +38,21 @@ mod tests {
         assert_eq!(descriptor.name, "manual");
         assert_eq!(
             descriptor.packages,
-            ["core", "app", "cli", "skill", "agent"]
+            [
+                "core",
+                "node",
+                "workflow",
+                "job",
+                "app",
+                "cli",
+                "skill",
+                "agent",
+                "script",
+                "sandbox",
+                "sandbox-registry",
+                "runtime",
+                "graph-viewer"
+            ]
         );
     }
 }
