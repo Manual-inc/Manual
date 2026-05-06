@@ -1,0 +1,10 @@
+[package]
+name = "agent"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "agent"
+path = "src/lib.rs"
+
+[dependencies]

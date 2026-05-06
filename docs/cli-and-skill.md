@@ -10,7 +10,7 @@ The current `cli` crate supports a small command surface:
 
 ```bash
 cargo run -p cli -- about
-cargo run -p cli -- validate-skill skill/templates/default-skill
+cargo run -p cli -- validate-skill crates/skill/templates/default-skill
 ```
 
 The `about` command reports the workspace name and package list. The `validate-skill` command checks that a skill directory contains a `SKILL.md` file.
@@ -31,7 +31,7 @@ It can report the bundled template path and validate that the built-in skill tem
 The default template lives at:
 
 ```text
-skill/templates/default-skill/SKILL.md
+crates/skill/templates/default-skill/SKILL.md
 ```
 
 It defines the minimum structure for a Codex or Claude-style agent skill package:

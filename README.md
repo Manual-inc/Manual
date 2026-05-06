@@ -12,10 +12,11 @@ Manual is a Rust-based, fast, lightweight runtime for turning repeatable work in
 
 This repository currently starts as a compact Rust workspace:
 
-- `core`: shared Manual domain language and workspace metadata.
-- `cli`: a thin command entrypoint for inspecting and validating Manual assets.
-- `skill`: a bundled agent skill template plus validation entrypoints.
-- `app`: an early application shell that depends on the shared core.
+- `crates/core`: shared Manual domain language and workspace metadata.
+- `crates/cli`: a thin command entrypoint for inspecting and validating Manual assets.
+- `crates/skill`: a bundled agent skill template plus validation entrypoints.
+- `crates/agent`: adapters for controlling external agent CLIs as JSONL streams.
+- `crates/app`: an early application shell that depends on the shared core.
 
 The product direction is broader than the first implementation: Manual is intended to become a local-first automation control plane for workflow graphs, agent routing, sandbox policies, run history, cost tracking, artifacts, and a localhost visualization surface.
 

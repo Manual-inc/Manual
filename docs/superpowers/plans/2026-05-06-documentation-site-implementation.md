@@ -18,9 +18,9 @@
 - Read: `/Users/leejs/Documents/wiki/wiki/analyses/manual-prd-2026-05-01.md`
 - Read: `/Users/leejs/Documents/wiki/wiki/analyses/manual-sandbox-package-design-2026-05-04.md`
 - Read: `/Users/leejs/github/Manual/Cargo.toml`
-- Read: `/Users/leejs/github/Manual/core/src/lib.rs`
-- Read: `/Users/leejs/github/Manual/cli/src/lib.rs`
-- Read: `/Users/leejs/github/Manual/skill/src/lib.rs`
+- Read: `/Users/leejs/github/Manual/crates/core/src/lib.rs`
+- Read: `/Users/leejs/github/Manual/crates/cli/src/lib.rs`
+- Read: `/Users/leejs/github/Manual/crates/skill/src/lib.rs`
 
 - [x] **Step 1: Identify product direction**
 

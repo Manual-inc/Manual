@@ -65,7 +65,7 @@
 <h2 id="current-cli">Current CLI <a class="heading-anchor" href="#current-cli" aria-label="Link to this section">#</a></h2>
 <p>The current <code>cli</code> crate supports a small command surface:</p>
 <div class="code-block"><div class="code-block-meta"><span class="lang">BASH</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-bash">cargo run -p cli -- about
-cargo run -p cli -- validate-skill skill/templates/default-skill</code></pre></div>
+cargo run -p cli -- validate-skill crates/skill/templates/default-skill</code></pre></div>
 <p>The <code>about</code> command reports the workspace name and package list. The <code>validate-skill</code> command checks that a skill directory contains a <code>SKILL.md</code> file.</p>
 <h2 id="current-skill-binary">Current Skill Binary <a class="heading-anchor" href="#current-skill-binary" aria-label="Link to this section">#</a></h2>
 <p>The <code>skill</code> crate provides the <code>manual-skill</code> binary:</p>
@@ -74,7 +74,7 @@ cargo run -p skill -- validate-bundled</code></pre></div>
 <p>It can report the bundled template path and validate that the built-in skill template has the required entrypoint.</p>
 <h2 id="bundled-skill-template">Bundled Skill Template <a class="heading-anchor" href="#bundled-skill-template" aria-label="Link to this section">#</a></h2>
 <p>The default template lives at:</p>
-<div class="code-block"><div class="code-block-meta"><span class="lang">TEXT</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-text">skill/templates/default-skill/SKILL.md</code></pre></div>
+<div class="code-block"><div class="code-block-meta"><span class="lang">TEXT</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-text">crates/skill/templates/default-skill/SKILL.md</code></pre></div>
 <p>It defines the minimum structure for a Codex or Claude-style agent skill package:</p>
 <ul>
 <li><code>SKILL.md</code> as the required instruction entrypoint.</li>

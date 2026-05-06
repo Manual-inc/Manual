@@ -9,7 +9,7 @@ pub struct WorkspaceDescriptor {
 pub fn workspace_descriptor() -> WorkspaceDescriptor {
     WorkspaceDescriptor {
         name: WORKSPACE_NAME,
-        packages: &["core", "app", "cli", "skill"],
+        packages: &["core", "app", "cli", "skill", "agent"],
     }
 }
 
@@ -22,6 +22,9 @@ mod tests {
         let descriptor = workspace_descriptor();
 
         assert_eq!(descriptor.name, "manual");
-        assert_eq!(descriptor.packages, ["core", "app", "cli", "skill"]);
+        assert_eq!(
+            descriptor.packages,
+            ["core", "app", "cli", "skill", "agent"]
+        );
     }
 }
