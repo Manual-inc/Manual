@@ -17,6 +17,7 @@ members = [
     "crates/runtime",
     "crates/graph-viewer",
     "crates/workflow-viewer",
+    "crates/node-gui",
 ]
 resolver = "3"
 
@@ -40,3 +41,4 @@ runtime = { path = "crates/runtime" }
 cli = { path = "crates/cli" }
 manual_graph_viewer = { package = "manual-graph-viewer", path = "crates/graph-viewer" }
 workflow_viewer = { package = "workflow-viewer", path = "crates/workflow-viewer" }
+node_gui = { package = "node-gui", path = "crates/node-gui" }

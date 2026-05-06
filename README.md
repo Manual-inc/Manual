@@ -26,6 +26,7 @@ This repository currently starts as a compact Rust workspace:
 - `crates/app`: an early application shell that depends on the shared core.
 - `crates/graph-viewer`: reusable native graph visualization primitives and a JSON graph viewer.
 - `crates/workflow-viewer`: a workflow visualization layer that converts `workflow` graphs into `graph-viewer` graphs.
+- `crates/node-gui`: a reusable `egui` node details component for inspecting node identity, description, and contract metadata.
 
 The product direction is broader than the first implementation: Manual is intended to become a local-first automation control plane for workflow graphs, agent routing, sandbox policies, run history, cost tracking, artifacts, and a localhost visualization surface.
 
@@ -106,4 +107,25 @@ Run the bundled sample workflow viewer:
 
 ```sh
 cargo run -p workflow-viewer
+```
+
+## Node GUI
+
+`node-gui` provides a portable `egui` component for showing detailed
+`node::Node` metadata without owning application state or file loading.
+
+Run the sample node details window:
+
+```sh
+cargo run -p node-gui --example node_details
+```
+
+```rust
+use node_gui::NodeDetailsView;
+
+let details = NodeDetailsView::default();
+
+egui::SidePanel::right("node_details").show(ctx, |ui| {
+    details.ui(ui, selected_node);
+});
 ```

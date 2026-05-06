@@ -21,6 +21,7 @@ The repository contains these workspace members:
 | `sandbox` | Cross-platform sandbox policy model, backend detection, and execution plan compiler. | Enforce node boundaries with macOS Seatbelt, Linux bubblewrap/seccomp, and Windows restricted-token backends. |
 | `sandbox-registry` | Named sandbox definitions and lookup logic. | Let workflows and runners resolve sandbox references without coupling registry concerns into the sandbox runtime crate. |
 | `runtime` | Composes input, sandbox policy, and a script or agent target into an executed run. | Become the node execution layer used by jobs, cost capture, artifacts, and higher-level workflow orchestration. |
+| `node-gui` | Reusable `egui` node detail component. | Keep node inspection portable across native app shells and future localhost visualization surfaces. |
 | `app` | Minimal app shell that proves the core can be shared. | Become the local visualization or application surface, likely served by `manual serve`. |
 
 ## Product Architecture

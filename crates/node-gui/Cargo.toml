@@ -1,0 +1,12 @@
+[package]
+name = "node-gui"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "node_gui"
+path = "src/lib.rs"
+
+[dependencies]
+eframe = "=0.33.3"
+node.workspace = true

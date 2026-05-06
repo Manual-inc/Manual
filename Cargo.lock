@@ -1926,6 +1926,14 @@ name = "node"
 version = "0.1.0"
 
 [[package]]
+name = "node-gui"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "node",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
