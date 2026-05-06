@@ -541,23 +541,24 @@ fn compile_linux(
     }
 
     for entry in &policy.filesystem.entries {
+        let sandbox_path = unix_path_arg(&entry.path);
         match entry.access {
             FilesystemAccess::Read => {
                 args.push("--ro-bind".to_string());
-                args.push(entry.path.display().to_string());
-                args.push(entry.path.display().to_string());
+                args.push(sandbox_path.clone());
+                args.push(sandbox_path);
             }
             FilesystemAccess::Write => {
                 args.push("--bind".to_string());
-                args.push(entry.path.display().to_string());
-                args.push(entry.path.display().to_string());
+                args.push(sandbox_path.clone());
+                args.push(sandbox_path);
             }
             FilesystemAccess::None => {
                 if entry.path.exists() || path_is_under_writable_entry(policy, &entry.path) {
                     args.push("--tmpfs".to_string());
-                    args.push(entry.path.display().to_string());
+                    args.push(sandbox_path.clone());
                     args.push("--remount-ro".to_string());
-                    args.push(entry.path.display().to_string());
+                    args.push(sandbox_path);
                 }
             }
         }
@@ -612,11 +613,20 @@ fn compile_windows(
 }
 
 fn path_is_under_writable_entry(policy: &SandboxPolicy, path: &Path) -> bool {
+    let path = unix_path_arg(path);
+
     policy.filesystem.entries.iter().any(|entry| {
+        let entry_path = unix_path_arg(&entry.path);
         entry.access == FilesystemAccess::Write
-            && path != entry.path
-            && path.starts_with(&entry.path)
+            && path != entry_path
+            && path
+                .strip_prefix(&entry_path)
+                .is_some_and(|suffix| suffix.starts_with('/'))
     })
+}
+
+fn unix_path_arg(path: &Path) -> String {
+    path.display().to_string().replace('\\', "/")
 }
 
 #[cfg(test)]
