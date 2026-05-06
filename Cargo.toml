@@ -3,6 +3,7 @@ members = [
     "crates/core",
     "crates/node",
     "crates/workflow",
+    "crates/workflow-registry",
     "crates/job",
     "crates/job-registry",
     "crates/app",
@@ -25,6 +26,7 @@ version = "0.1.0"
 manual_core = { package = "manual-core", path = "crates/core" }
 node = { path = "crates/node" }
 workflow = { path = "crates/workflow" }
+workflow_registry = { package = "workflow-registry", path = "crates/workflow-registry" }
 job = { path = "crates/job" }
 job_registry = { package = "job-registry", path = "crates/job-registry" }
 agent = { path = "crates/agent" }

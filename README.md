@@ -15,6 +15,7 @@ This repository currently starts as a compact Rust workspace:
 - `crates/core`: shared Manual domain language and workspace metadata.
 - `crates/node`: workflow node types and node contract metadata.
 - `crates/workflow`: workflow graph types that combine nodes with directed edges and validation.
+- `crates/workflow-registry`: workflow template registration and lookup logic backed by the `workflow` graph model.
 - `crates/cli`: a thin command entrypoint for inspecting and validating Manual assets.
 - `crates/skill`: a bundled agent skill template plus validation entrypoints.
 - `crates/agent`: adapters for controlling external agent CLIs as JSONL streams.

@@ -133,6 +133,18 @@ impl JobNode {
         }
     }
 
+    pub fn restore(
+        node_id: impl Into<String>,
+        status: NodeRunStatus,
+        attempts: u32,
+    ) -> Result<Self, NodeIdError> {
+        Ok(Self {
+            node_id: NodeId::new(node_id)?,
+            status,
+            attempts,
+        })
+    }
+
     pub fn node_id(&self) -> &NodeId {
         &self.node_id
     }
@@ -181,6 +193,22 @@ impl Job {
             workflow_id: workflow.id().to_string(),
             input_json: input_json.into(),
             status: JobStatus::Created,
+            nodes,
+        })
+    }
+
+    pub fn restore(
+        id: impl Into<String>,
+        workflow_id: impl Into<String>,
+        input_json: impl Into<String>,
+        status: JobStatus,
+        nodes: Vec<JobNode>,
+    ) -> Result<Self, JobError> {
+        Ok(Self {
+            id: JobId::new(id).map_err(JobError::InvalidJobId)?,
+            workflow_id: workflow_id.into(),
+            input_json: input_json.into(),
+            status,
             nodes,
         })
     }

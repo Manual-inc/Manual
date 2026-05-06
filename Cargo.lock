@@ -1628,6 +1628,8 @@ version = "0.1.0"
 dependencies = [
  "job",
  "node",
+ "serde",
+ "toml",
  "workflow",
 ]
 
@@ -4224,6 +4226,14 @@ name = "workflow"
 version = "0.1.0"
 dependencies = [
  "node",
+]
+
+[[package]]
+name = "workflow-registry"
+version = "0.1.0"
+dependencies = [
+ "node",
+ "workflow",
 ]
 
 [[package]]

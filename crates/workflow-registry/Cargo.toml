@@ -1,0 +1,14 @@
+[package]
+name = "workflow-registry"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "workflow_registry"
+path = "src/lib.rs"
+
+[dependencies]
+workflow.workspace = true
+
+[dev-dependencies]
+node.workspace = true
