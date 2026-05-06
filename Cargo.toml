@@ -5,6 +5,7 @@ members = [
     "crates/cli",
     "crates/skill",
     "crates/agent",
+    "crates/sandbox",
     "crates/graph-viewer",
 ]
 resolver = "3"
@@ -15,4 +16,5 @@ version = "0.1.0"
 
 [workspace.dependencies]
 manual_core = { package = "manual-core", path = "crates/core" }
+sandbox = { path = "crates/sandbox" }
 cli = { path = "crates/cli" }

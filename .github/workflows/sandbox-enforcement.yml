@@ -1,0 +1,66 @@
+name: Sandbox Enforcement
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/sandbox/**"
+      - ".github/workflows/sandbox-enforcement.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/sandbox/**"
+      - ".github/workflows/sandbox-enforcement.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strict-sandbox:
+    name: Strict sandbox (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    env:
+      CARGO_TERM_COLOR: always
+      MANUAL_SANDBOX_STRICT: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux sandbox backend
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          bwrap --version
+
+      - name: Verify macOS sandbox backend
+        if: runner.os == 'macOS'
+        run: |
+          test -x /usr/bin/sandbox-exec
+          /usr/bin/sandbox-exec -p '(version 1) (allow default)' /bin/echo sandbox-exec-ready
+
+      - name: Verify Windows strict backend expectation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "Windows strict tests require the sandbox crate to expose a real restricted-token backend."
+          Write-Host "The test suite intentionally fails if the backend is unavailable or falls back to direct execution."
+
+      - name: Run strict sandbox tests
+        run: cargo test -p sandbox
