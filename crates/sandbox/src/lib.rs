@@ -500,12 +500,11 @@ fn macos_sbpl(policy: &SandboxPolicy) -> String {
 }
 
 fn sbpl_quote_path(path: &Path) -> String {
+    let normalized = path.display().to_string().replace('\\', "/");
+
     format!(
         "\"{}\"",
-        path.display()
-            .to_string()
-            .replace('\\', "\\\\")
-            .replace('"', "\\\"")
+        normalized.replace('\\', "\\\\").replace('"', "\\\"")
     )
 }
 
