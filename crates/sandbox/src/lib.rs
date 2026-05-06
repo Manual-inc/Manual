@@ -553,8 +553,12 @@ fn compile_linux(
                 args.push(entry.path.display().to_string());
             }
             FilesystemAccess::None => {
-                args.push("--tmpfs".to_string());
-                args.push(entry.path.display().to_string());
+                if entry.path.exists() || path_is_under_writable_entry(policy, &entry.path) {
+                    args.push("--tmpfs".to_string());
+                    args.push(entry.path.display().to_string());
+                    args.push("--remount-ro".to_string());
+                    args.push(entry.path.display().to_string());
+                }
             }
         }
     }
@@ -605,6 +609,14 @@ fn compile_windows(
         env: command.env.clone(),
         stdin: command.stdin.clone(),
     }
+}
+
+fn path_is_under_writable_entry(policy: &SandboxPolicy, path: &Path) -> bool {
+    policy.filesystem.entries.iter().any(|entry| {
+        entry.access == FilesystemAccess::Write
+            && path != entry.path
+            && path.starts_with(&entry.path)
+    })
 }
 
 #[cfg(test)]

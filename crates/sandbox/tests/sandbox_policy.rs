@@ -150,7 +150,33 @@ fn compiles_linux_workspace_write_to_bubblewrap_plan() {
             .windows(2)
             .any(|pair| pair == ["--bind", "/workspace"])
     );
+    assert!(
+        plan.args
+            .windows(2)
+            .any(|pair| pair == ["--tmpfs", "/workspace/.git"])
+    );
+    assert!(
+        plan.args
+            .windows(2)
+            .any(|pair| pair == ["--remount-ro", "/workspace/.git"])
+    );
     assert!(plan.args.iter().any(|arg| arg == "pwd"));
+}
+
+#[test]
+fn compiles_linux_read_only_without_mounting_missing_denied_children() {
+    let command = CommandSpec::new("pwd");
+    let policy = SandboxPolicy::read_only("/definitely/missing/manual-workspace");
+    let plan = SandboxRunner::for_platform(Platform::Linux)
+        .compile(&command, &policy)
+        .expect("Linux read-only policy should compile");
+
+    assert!(
+        !plan
+            .args
+            .windows(2)
+            .any(|pair| pair == ["--tmpfs", "/definitely/missing/manual-workspace/.manual"])
+    );
 }
 
 #[test]
