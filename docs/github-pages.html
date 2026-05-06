@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Manual Docs — GitHub Pages</title>
+  <meta name="description" content="The docs/ directory is ready to serve as a GitHub Pages source.">
+  <meta property="og:title" content="Manual Docs — GitHub Pages">
+  <meta property="og:description" content="The docs/ directory is ready to serve as a GitHub Pages source.">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="assets/site.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("manual-docs-theme");
+        if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <div class="brand-mark">M</div>
+        <div class="brand-name">Manual</div>
+      </a>
+      <p class="tagline">Rust-based, fast, lightweight workflow automation for agents.</p>
+      <button type="button" class="menu-toggle" data-menu-toggle aria-label="Toggle navigation">☰ Menu</button>
+      <div class="sidebar-nav-wrap">
+        <div class="nav-title">Documentation</div>
+        <nav class="nav" aria-label="Documentation navigation">
+        <a href="index.html">Overview</a>
+        <a href="product.html">Product Direction</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="workflow.html">Workflow</a>
+        <a href="agents.html">Agents</a>
+        <a href="sandbox.html">Sandbox</a>
+        <a href="cli-and-skill.html">CLI and Skill</a>
+        <a href="roadmap.html">Roadmap</a>
+        <a class="active" href="github-pages.html">GitHub Pages</a>
+        </nav>
+        <div class="sidebar-footer">
+          <button type="button" class="theme-toggle" data-theme-toggle aria-label="Toggle color theme">
+            <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+            <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            <span>Theme</span>
+          </button>
+          <a class="repo-link" href="https://github.com/BEOKS/Manual" rel="noopener noreferrer" target="_blank" aria-label="GitHub repository">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.31-.54-1.55.11-3.23 0 0 1-.32 3.3 1.23a11.46 11.46 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.68.24 2.92.11 3.23.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg>
+            GitHub
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <article>
+        <div class="eyebrow">Publishing</div>
+        <h1 id="github-pages">GitHub Pages <a class="heading-anchor" href="#github-pages" aria-label="Link to this section">#</a></h1>
+<p class="lead">The <code>docs/</code> directory is ready to serve as a GitHub Pages source.</p>
+<p>The Markdown files are the source of truth. Static HTML files are generated from those Markdown files by <code>docs/build.mjs</code>.</p>
+<h2 id="build-locally">Build Locally <a class="heading-anchor" href="#build-locally" aria-label="Link to this section">#</a></h2>
+<p>From the repository root:</p>
+<div class="code-block"><div class="code-block-meta"><span class="lang">BASH</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-bash">node docs/build.mjs</code></pre></div>
+<p>The generator writes HTML files next to the Markdown source:</p>
+<ul>
+<li><code>docs/index.html</code></li>
+<li><code>docs/product.html</code></li>
+<li><code>docs/architecture.html</code></li>
+<li><code>docs/workflow.html</code></li>
+<li><code>docs/agents.html</code></li>
+<li><code>docs/sandbox.html</code></li>
+<li><code>docs/cli-and-skill.html</code></li>
+<li><code>docs/roadmap.html</code></li>
+<li><code>docs/github-pages.html</code></li>
+</ul>
+<p>It also uses:</p>
+<ul>
+<li><code>docs/assets/site.css</code></li>
+<li><code>docs/assets/manual-map.svg</code></li>
+<li><code>docs/.nojekyll</code></li>
+</ul>
+<h2 id="publish-with-github-pages">Publish With GitHub Pages <a class="heading-anchor" href="#publish-with-github-pages" aria-label="Link to this section">#</a></h2>
+<p>In the repository settings:</p>
+<ol>
+<li>Open <strong>Settings</strong>.</li>
+<li>Open <strong>Pages</strong>.</li>
+<li>Set the source to <strong>Deploy from a branch</strong>.</li>
+<li>Choose the branch to publish.</li>
+<li>Choose the <code>/docs</code> folder.</li>
+<li>Save the settings.</li>
+</ol>
+<p>GitHub Pages will serve <code>docs/index.html</code> as the documentation home page.</p>
+<h2 id="editing-docs">Editing Docs <a class="heading-anchor" href="#editing-docs" aria-label="Link to this section">#</a></h2>
+<p>Edit the Markdown files first. Then run:</p>
+<div class="code-block"><div class="code-block-meta"><span class="lang">BASH</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-bash">node docs/build.mjs</code></pre></div>
+<p>Commit both the Markdown source and generated HTML so the published site updates without a separate build system.</p>
+        <nav class="pagination" aria-label="Page navigation"><a class="prev" href="roadmap.html"><span class="label">← Previous</span><span class="title">Roadmap</span></a></nav>
+        <footer class="footer">
+          <span>Generated from Markdown by <code>docs/build.mjs</code>.</span>
+          <span>Manual Docs</span>
+        </footer>
+      </article>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div><ul class="toc-list"><li class="toc-h2"><a href="#build-locally" data-toc-id="build-locally">Build Locally</a></li><li class="toc-h2"><a href="#publish-with-github-pages" data-toc-id="publish-with-github-pages">Publish With GitHub Pages</a></li><li class="toc-h2"><a href="#editing-docs" data-toc-id="editing-docs">Editing Docs</a></li></ul>
+    </aside>
+  </div>
+  <script>(function () {
+  // ----- Theme -----
+  var STORAGE_KEY = "manual-docs-theme";
+  var root = document.documentElement;
+  try {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "dark" || saved === "light") root.setAttribute("data-theme", saved);
+  } catch (e) {}
+  function setTheme(t) {
+    root.setAttribute("data-theme", t);
+    try { localStorage.setItem(STORAGE_KEY, t); } catch (e) {}
+  }
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-theme-toggle]");
+    if (!btn) return;
+    var current = root.getAttribute("data-theme");
+    if (!current) {
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      current = prefersDark ? "dark" : "light";
+    }
+    setTheme(current === "dark" ? "light" : "dark");
+  });
+
+  // ----- Mobile menu -----
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-menu-toggle]");
+    if (!btn) return;
+    var sidebar = document.querySelector(".sidebar");
+    if (sidebar) sidebar.classList.toggle("open");
+  });
+
+  // ----- Copy buttons -----
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".copy-btn");
+    if (!btn) return;
+    var block = btn.closest(".code-block");
+    if (!block) return;
+    var code = block.querySelector("pre code");
+    if (!code) return;
+    var text = code.innerText;
+    var done = function () {
+      var prev = btn.textContent;
+      btn.textContent = "Copied";
+      btn.classList.add("copied");
+      setTimeout(function () {
+        btn.textContent = prev;
+        btn.classList.remove("copied");
+      }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        // Fallback
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); done(); } catch (err) {}
+        document.body.removeChild(ta);
+      });
+    } else {
+      var ta2 = document.createElement("textarea");
+      ta2.value = text;
+      document.body.appendChild(ta2);
+      ta2.select();
+      try { document.execCommand("copy"); done(); } catch (err) {}
+      document.body.removeChild(ta2);
+    }
+  });
+
+  // ----- TOC active highlighting -----
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll(".toc-list a[data-toc-id]"));
+  if (tocLinks.length > 0 && "IntersectionObserver" in window) {
+    var byId = {};
+    tocLinks.forEach(function (a) { byId[a.getAttribute("data-toc-id")] = a; });
+    var visible = new Set();
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) visible.add(entry.target.id);
+        else visible.delete(entry.target.id);
+      });
+      var firstVisible = null;
+      Object.keys(byId).some(function (id) {
+        if (visible.has(id)) { firstVisible = id; return true; }
+        return false;
+      });
+      if (!firstVisible && tocLinks.length > 0) {
+        // Pick the last heading scrolled past
+        var passed = null;
+        Object.keys(byId).forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el && el.getBoundingClientRect().top < 120) passed = id;
+        });
+        firstVisible = passed;
+      }
+      tocLinks.forEach(function (a) { a.classList.remove("active"); });
+      if (firstVisible && byId[firstVisible]) byId[firstVisible].classList.add("active");
+    }, { rootMargin: "-80px 0px -65% 0px", threshold: 0 });
+    Object.keys(byId).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+  }
+})();</script>
+</body>
+</html>

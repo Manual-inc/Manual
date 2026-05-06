@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Manual Docs — Overview</title>
+  <meta name="description" content="Manual turns repeatable operational knowledge into workflows that agents can install, execute, measure, and improve.">
+  <meta property="og:title" content="Manual Docs — Overview">
+  <meta property="og:description" content="Manual turns repeatable operational knowledge into workflows that agents can install, execute, measure, and improve.">
+  <meta property="og:type" content="article">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="assets/site.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("manual-docs-theme");
+        if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="index.html">
+        <div class="brand-mark">M</div>
+        <div class="brand-name">Manual</div>
+      </a>
+      <p class="tagline">Rust-based, fast, lightweight workflow automation for agents.</p>
+      <button type="button" class="menu-toggle" data-menu-toggle aria-label="Toggle navigation">☰ Menu</button>
+      <div class="sidebar-nav-wrap">
+        <div class="nav-title">Documentation</div>
+        <nav class="nav" aria-label="Documentation navigation">
+        <a class="active" href="index.html">Overview</a>
+        <a href="product.html">Product Direction</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="workflow.html">Workflow</a>
+        <a href="agents.html">Agents</a>
+        <a href="sandbox.html">Sandbox</a>
+        <a href="cli-and-skill.html">CLI and Skill</a>
+        <a href="roadmap.html">Roadmap</a>
+        <a href="github-pages.html">GitHub Pages</a>
+        </nav>
+        <div class="sidebar-footer">
+          <button type="button" class="theme-toggle" data-theme-toggle aria-label="Toggle color theme">
+            <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+            <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            <span>Theme</span>
+          </button>
+          <a class="repo-link" href="https://github.com/BEOKS/Manual" rel="noopener noreferrer" target="_blank" aria-label="GitHub repository">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.31-.54-1.55.11-3.23 0 0 1-.32 3.3 1.23a11.46 11.46 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.68.24 2.92.11 3.23.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg>
+            GitHub
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <article>
+        <div class="eyebrow">Documentation</div>
+        <h1 id="manual-documentation">Manual Documentation <a class="heading-anchor" href="#manual-documentation" aria-label="Link to this section">#</a></h1>
+<p class="lead">Manual turns repeatable operational knowledge into workflows that agents can install, execute, measure, and improve.</p>
+<h2 id="the-short-version">The Short Version <a class="heading-anchor" href="#the-short-version" aria-label="Link to this section">#</a></h2>
+<p>Manual is not a prompt library. It is a Rust-based execution layer for turning &quot;the way this work should be done&quot; into a reusable workflow graph. A workflow connects agent nodes, sandbox boundaries, integrations, cost records, and artifacts into something that can be run again with different inputs.</p>
+<p>The current repository is intentionally small. It provides a Rust workspace with shared core metadata, a CLI shell, an app shell, and a skill packaging path. The docs describe both the implemented foundation and the product direction gathered from the local Manual wiki.</p>
+<h2 id="core-concepts">Core Concepts <a class="heading-anchor" href="#core-concepts" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Concept</th><th>Meaning</th></tr></thead><tbody><tr><td>Workflow</td><td>The graph that defines repeatable work, including nodes, edges, branches, loops, inputs, outputs, and artifacts.</td></tr><tr><td>Agent</td><td>The executable unit inside a node. An agent can be Codex, Claude Code, a script, a Python program, or a future runtime adapter.</td></tr><tr><td>Sandbox</td><td>The execution boundary around an agent or node. It decides what can be read, written, reached over the network, or spawned.</td></tr></tbody></table></div>
+<p>The key product equation is:</p>
+<div class="code-block"><div class="code-block-meta"><span class="lang">TEXT</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-text">agent + sandbox = executable node
+nodes + edges = workflow
+workflow + run history = optimization loop</code></pre></div>
+<h2 id="documentation-map">Documentation Map <a class="heading-anchor" href="#documentation-map" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><a href="product.html">Product Direction</a>: what Manual is, who it serves, and why cost-aware workflow automation matters.</li>
+<li><a href="architecture.html">Architecture</a>: how the Rust workspace maps to the larger Manual architecture.</li>
+<li><a href="workflow.html">Workflow</a>: workflow graph concepts, node types, edge types, validation, and an example spec.</li>
+<li><a href="agents.html">Agents</a>: what counts as an agent, how adapters fit, and how agent nodes should behave.</li>
+<li><a href="sandbox.html">Sandbox</a>: the OS-native sandbox direction and the policy model Manual should expose.</li>
+<li><a href="cli-and-skill.html">CLI and Skill</a>: current commands, planned command surface, and the bundled skill path.</li>
+<li><a href="roadmap.html">Roadmap</a>: current implementation status and recommended next steps.</li>
+<li><a href="github-pages.html">GitHub Pages</a>: how the Markdown docs become a static docs site.</li>
+</ul>
+<h2 id="static-site">Static Site <a class="heading-anchor" href="#static-site" aria-label="Link to this section">#</a></h2>
+<p>Run the generator from the repository root:</p>
+<div class="code-block"><div class="code-block-meta"><span class="lang">BASH</span><button type="button" class="copy-btn" aria-label="Copy code">Copy</button></div><pre><code class="language-bash">node docs/build.mjs</code></pre></div>
+<p>It reads the Markdown files in <code>docs/</code> and writes static HTML pages into the same directory. GitHub Pages can then serve the <code>docs/</code> directory directly.</p>
+        <nav class="pagination" aria-label="Page navigation"><a class="next" href="product.html"><span class="label">Next →</span><span class="title">Product Direction</span></a></nav>
+        <footer class="footer">
+          <span>Generated from Markdown by <code>docs/build.mjs</code>.</span>
+          <span>Manual Docs</span>
+        </footer>
+      </article>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div><ul class="toc-list"><li class="toc-h2"><a href="#the-short-version" data-toc-id="the-short-version">The Short Version</a></li><li class="toc-h2"><a href="#core-concepts" data-toc-id="core-concepts">Core Concepts</a></li><li class="toc-h2"><a href="#documentation-map" data-toc-id="documentation-map">Documentation Map</a></li><li class="toc-h2"><a href="#static-site" data-toc-id="static-site">Static Site</a></li></ul>
+    </aside>
+  </div>
+  <script>(function () {
+  // ----- Theme -----
+  var STORAGE_KEY = "manual-docs-theme";
+  var root = document.documentElement;
+  try {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "dark" || saved === "light") root.setAttribute("data-theme", saved);
+  } catch (e) {}
+  function setTheme(t) {
+    root.setAttribute("data-theme", t);
+    try { localStorage.setItem(STORAGE_KEY, t); } catch (e) {}
+  }
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-theme-toggle]");
+    if (!btn) return;
+    var current = root.getAttribute("data-theme");
+    if (!current) {
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      current = prefersDark ? "dark" : "light";
+    }
+    setTheme(current === "dark" ? "light" : "dark");
+  });
+
+  // ----- Mobile menu -----
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-menu-toggle]");
+    if (!btn) return;
+    var sidebar = document.querySelector(".sidebar");
+    if (sidebar) sidebar.classList.toggle("open");
+  });
+
+  // ----- Copy buttons -----
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".copy-btn");
+    if (!btn) return;
+    var block = btn.closest(".code-block");
+    if (!block) return;
+    var code = block.querySelector("pre code");
+    if (!code) return;
+    var text = code.innerText;
+    var done = function () {
+      var prev = btn.textContent;
+      btn.textContent = "Copied";
+      btn.classList.add("copied");
+      setTimeout(function () {
+        btn.textContent = prev;
+        btn.classList.remove("copied");
+      }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        // Fallback
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); done(); } catch (err) {}
+        document.body.removeChild(ta);
+      });
+    } else {
+      var ta2 = document.createElement("textarea");
+      ta2.value = text;
+      document.body.appendChild(ta2);
+      ta2.select();
+      try { document.execCommand("copy"); done(); } catch (err) {}
+      document.body.removeChild(ta2);
+    }
+  });
+
+  // ----- TOC active highlighting -----
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll(".toc-list a[data-toc-id]"));
+  if (tocLinks.length > 0 && "IntersectionObserver" in window) {
+    var byId = {};
+    tocLinks.forEach(function (a) { byId[a.getAttribute("data-toc-id")] = a; });
+    var visible = new Set();
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) visible.add(entry.target.id);
+        else visible.delete(entry.target.id);
+      });
+      var firstVisible = null;
+      Object.keys(byId).some(function (id) {
+        if (visible.has(id)) { firstVisible = id; return true; }
+        return false;
+      });
+      if (!firstVisible && tocLinks.length > 0) {
+        // Pick the last heading scrolled past
+        var passed = null;
+        Object.keys(byId).forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el && el.getBoundingClientRect().top < 120) passed = id;
+        });
+        firstVisible = passed;
+      }
+      tocLinks.forEach(function (a) { a.classList.remove("active"); });
+      if (firstVisible && byId[firstVisible]) byId[firstVisible].classList.add("active");
+    }, { rootMargin: "-80px 0px -65% 0px", threshold: 0 });
+    Object.keys(byId).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+  }
+})();</script>
+</body>
+</html>
