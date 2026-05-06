@@ -4,6 +4,7 @@ members = [
     "crates/node",
     "crates/workflow",
     "crates/job",
+    "crates/job-registry",
     "crates/app",
     "crates/cli",
     "crates/skill",
@@ -25,6 +26,7 @@ manual_core = { package = "manual-core", path = "crates/core" }
 node = { path = "crates/node" }
 workflow = { path = "crates/workflow" }
 job = { path = "crates/job" }
+job_registry = { package = "job-registry", path = "crates/job-registry" }
 agent = { path = "crates/agent" }
 script = { path = "crates/script" }
 sandbox = { path = "crates/sandbox" }

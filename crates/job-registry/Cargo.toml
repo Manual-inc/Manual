@@ -1,0 +1,15 @@
+[package]
+name = "job-registry"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "job_registry"
+path = "src/lib.rs"
+
+[dependencies]
+job.workspace = true
+
+[dev-dependencies]
+node.workspace = true
+workflow.workspace = true
