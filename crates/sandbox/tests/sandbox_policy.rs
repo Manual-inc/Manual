@@ -141,6 +141,8 @@ fn compiles_linux_workspace_write_to_bubblewrap_plan() {
     assert_eq!(plan.backend.kind, BackendKind::LinuxBubblewrap);
     assert_eq!(plan.program, "bwrap");
     assert!(plan.args.iter().any(|arg| arg == "--unshare-user"));
+    assert!(plan.args.windows(2).any(|pair| pair == ["--uid", "0"]));
+    assert!(plan.args.windows(2).any(|pair| pair == ["--gid", "0"]));
     assert!(plan.args.iter().any(|arg| arg == "--unshare-pid"));
     assert!(plan.args.iter().any(|arg| arg == "--unshare-net"));
     assert!(

@@ -516,6 +516,10 @@ fn compile_linux(
 ) -> CompiledSandboxPlan {
     let mut args = vec![
         "--unshare-user".to_string(),
+        "--uid".to_string(),
+        "0".to_string(),
+        "--gid".to_string(),
+        "0".to_string(),
         "--unshare-pid".to_string(),
         "--die-with-parent".to_string(),
         "--proc".to_string(),
