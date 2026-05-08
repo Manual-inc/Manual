@@ -52,6 +52,8 @@ struct WorkflowEventModel: Identifiable, Equatable {
 }
 
 struct BusinessWorkflowExample {
+    static let workflowID = "business-pipeline-health"
+
     static let nodes: [WorkflowNodeModel] = [
         WorkflowNodeModel(
             id: "weekly_context",
@@ -107,4 +109,63 @@ struct BusinessWorkflowExample {
         ["pi_recommendation"],
         ["operator_digest"]
     ]
+
+    static var jsonDefinition: [String: Any] {
+        [
+            "id": workflowID,
+            "nodes": [
+                [
+                    "id": "weekly_context",
+                    "kind": "constant",
+                    "value": [
+                        "week": "2026-W19",
+                        "business": "B2B SaaS",
+                        "goal": "Decide one light intervention for next week"
+                    ]
+                ],
+                [
+                    "id": "sales_health",
+                    "kind": "constant",
+                    "value": [
+                        "leads": 128,
+                        "qualified": 42,
+                        "demos": 18,
+                        "conversion_rate": 32.8,
+                        "demo_rate": 42.9,
+                        "signal": "lead quality is acceptable but demo booking needs attention"
+                    ]
+                ],
+                [
+                    "id": "support_health",
+                    "kind": "constant",
+                    "value": [
+                        "open_tickets": 37,
+                        "stale_tickets": 9,
+                        "stale_rate": 24.3,
+                        "signal": "stale tickets are the clearest retention risk"
+                    ]
+                ],
+                [
+                    "id": "pi_recommendation",
+                    "kind": "template",
+                    "template": "Risk: {{support_health.signal}}. Next: reduce {{support_health.stale_tickets}} stale tickets before tuning demo booking."
+                ],
+                [
+                    "id": "operator_digest",
+                    "kind": "template",
+                    "template": "Weekly digest for {{weekly_context.business}}: {{sales_health.qualified}} qualified leads, {{support_health.open_tickets}} open tickets. Recommendation: {{pi_recommendation}}"
+                ]
+            ],
+            "dependencies": [
+                ["node": "sales_health", "depends_on": "weekly_context"],
+                ["node": "support_health", "depends_on": "weekly_context"],
+                ["node": "pi_recommendation", "depends_on": "sales_health"],
+                ["node": "pi_recommendation", "depends_on": "support_health"],
+                ["node": "operator_digest", "depends_on": "weekly_context"],
+                ["node": "operator_digest", "depends_on": "sales_health"],
+                ["node": "operator_digest", "depends_on": "support_health"],
+                ["node": "operator_digest", "depends_on": "pi_recommendation"]
+            ]
+        ]
+    }
 }

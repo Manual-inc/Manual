@@ -303,6 +303,8 @@ fn render_template(template: &str, outputs: &BTreeMap<String, Value>) -> String 
     let mut rendered = template.to_owned();
 
     for (node_id, value) in outputs {
+        rendered = rendered.replace(&format!("{{{{{node_id}}}}}"), &json_scalar_to_string(value));
+
         if let Value::Object(fields) = value {
             for (field, value) in fields {
                 rendered = rendered.replace(

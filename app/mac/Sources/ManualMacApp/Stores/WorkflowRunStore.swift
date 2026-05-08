@@ -9,6 +9,12 @@ final class WorkflowRunStore: ObservableObject {
     @Published private(set) var selectedNodeID: String? = BusinessWorkflowExample.nodes.first?.id
     @Published private(set) var runID: String?
 
+    private let client: AppServerClient
+
+    init(client: AppServerClient = AppServerClient()) {
+        self.client = client
+    }
+
     var selectedNode: WorkflowNodeModel? {
         guard let selectedNodeID else { return nil }
         return nodes.first { $0.id == selectedNodeID }
@@ -30,35 +36,73 @@ final class WorkflowRunStore: ObservableObject {
         guard !isRunning else { return }
 
         isRunning = true
-        runID = "run-\(Int(Date().timeIntervalSince1970))"
+        runID = nil
         events.removeAll()
         resetNodes()
-        appendEvent(nodeID: nil, title: "Workflow started", detail: "Business pipeline health check")
 
         Task { [weak self] in
             guard let self else { return }
-            await self.executeStages()
+            await self.startViaJSONRPC()
         }
     }
 
-    private func executeStages() async {
-        for stage in BusinessWorkflowExample.stages {
-            for nodeID in stage {
-                mark(nodeID, as: .running)
-                appendEvent(nodeID: nodeID, title: "Node started", detail: nodeTitle(nodeID))
+    private func startViaJSONRPC() async {
+        do {
+            try await client.createWorkflow(BusinessWorkflowExample.jsonDefinition)
+            let runID = try await client.startWorkflow(id: BusinessWorkflowExample.workflowID)
+            self.runID = runID
+            try await streamEvents(runID: runID)
+        } catch {
+            appendEvent(nodeID: nil, title: "Workflow failed", detail: error.localizedDescription)
+            isRunning = false
+        }
+    }
+
+    private func streamEvents(runID: String) async throws {
+        var cursor = 0
+        var completed = false
+
+        while !completed {
+            let page = try await client.events(runID: runID, cursor: cursor)
+            cursor = page.nextCursor
+            completed = page.completed
+
+            for event in page.events {
+                applyServerEvent(event)
+                try? await Task.sleep(for: .milliseconds(320))
             }
 
-            try? await Task.sleep(for: .milliseconds(stage.count == 1 ? 650 : 900))
-
-            for nodeID in stage {
-                let result = resultForNode(nodeID)
-                complete(nodeID, result: result)
-                appendEvent(nodeID: nodeID, title: "Node completed", detail: result)
+            if !completed {
+                try? await Task.sleep(for: .milliseconds(350))
             }
         }
 
-        appendEvent(nodeID: nil, title: "Workflow completed", detail: "Operator digest is ready")
         isRunning = false
+    }
+
+    private func applyServerEvent(_ event: [String: Any]) {
+        let type = event["type"] as? String ?? "event"
+        let nodeID = event["node_id"] as? String
+
+        switch type {
+        case "workflow_started":
+            appendEvent(nodeID: nil, title: "Workflow started", detail: BusinessWorkflowExample.workflowID)
+        case "workflow_completed":
+            appendEvent(nodeID: nil, title: "Workflow completed", detail: "Operator digest is ready")
+        case "node_started":
+            if let nodeID {
+                mark(nodeID, as: .running)
+                appendEvent(nodeID: nodeID, title: "Node started", detail: nodeTitle(nodeID))
+            }
+        case "node_completed":
+            if let nodeID {
+                let result = displayString(for: event["result"])
+                complete(nodeID, result: result)
+                appendEvent(nodeID: nodeID, title: "Node completed", detail: result)
+            }
+        default:
+            appendEvent(nodeID: nodeID, title: type, detail: displayString(for: event))
+        }
     }
 
     private func resetNodes() {
@@ -92,20 +136,27 @@ final class WorkflowRunStore: ObservableObject {
         nodes.first { $0.id == nodeID }?.title ?? nodeID
     }
 
-    private func resultForNode(_ nodeID: String) -> String {
-        switch nodeID {
-        case "weekly_context":
-            "week=2026-W19, business=B2B SaaS"
-        case "sales_health":
-            "128 leads, 42 qualified, demo rate 42.9%"
-        case "support_health":
-            "37 open tickets, 9 stale, stale rate 24.3%"
-        case "pi_recommendation":
-            "Risk: stale support tickets. Next: clear aged queue before improving demos."
-        case "operator_digest":
-            "Weekly digest assembled from context, metrics, support scan, and Pi recommendation."
+    private func displayString(for value: Any?) -> String {
+        switch value {
+        case let value as String:
+            value
+        case let value as NSNumber:
+            value.stringValue
+        case let value as [String: Any]:
+            value
+                .keys
+                .sorted()
+                .compactMap { key in
+                    guard let nested = value[key] else { return nil }
+                    return "\(key)=\(displayString(for: nested))"
+                }
+                .joined(separator: ", ")
+        case let value as [Any]:
+            value.map { displayString(for: $0) }.joined(separator: ", ")
+        case .none:
+            "null"
         default:
-            "Completed"
+            String(describing: value!)
         }
     }
 }

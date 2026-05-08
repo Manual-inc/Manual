@@ -214,3 +214,77 @@ fn run_events_can_be_observed_as_a_stream() {
         ]
     );
 }
+
+#[test]
+fn template_nodes_can_reference_scalar_upstream_results() {
+    let server = AppServer::new();
+
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "workflow.create",
+            "params": {
+                "workflow": {
+                    "id": "scalar-template",
+                    "nodes": [
+                        {
+                            "id": "recommendation",
+                            "kind": "template",
+                            "template": "clear stale tickets"
+                        },
+                        {
+                            "id": "digest",
+                            "kind": "template",
+                            "template": "next action: {{recommendation}}"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "node": "digest",
+                            "depends_on": "recommendation"
+                        }
+                    ]
+                }
+            }
+        })
+        .to_string(),
+    );
+
+    let start: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "workflow.start",
+                "params": {
+                    "workflow_id": "scalar-template"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    let run_id = start["result"]["run_id"].as_str().unwrap();
+
+    let events: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "workflow.events",
+                "params": {
+                    "run_id": run_id,
+                    "cursor": 0
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(
+        events["result"]["events"][4]["result"],
+        "next action: clear stale tickets"
+    );
+}

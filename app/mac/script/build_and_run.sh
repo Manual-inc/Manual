@@ -7,6 +7,8 @@ BUNDLE_ID="com.manual.mac"
 MIN_SYSTEM_VERSION="26.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
+APP_SERVER_BIN="$REPO_ROOT/manual-rs/target/debug/app-server"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
@@ -19,6 +21,8 @@ cd "$ROOT_DIR"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 swift build
+cargo build --manifest-path "$REPO_ROOT/manual-rs/Cargo.toml" -p app-server
+export MANUAL_APP_SERVER_BIN="$APP_SERVER_BIN"
 BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
