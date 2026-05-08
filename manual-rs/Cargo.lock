@@ -30,6 +30,8 @@ name = "manual-worflow"
 version = "0.1.0"
 dependencies = [
  "manual-agent",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

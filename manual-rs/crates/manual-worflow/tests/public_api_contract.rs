@@ -1,7 +1,8 @@
 use manual_agent::{Agent, AgentCommand, CommandRequest};
 use manual_worflow::{
-    MAX_NODE_ID_LEN, ManualAgentNode, NodeId, NodeInput, RustScript, ScriptModule, ScriptNode,
-    ScriptRunner, Workflow, WorkflowError, WorkflowNode, WorkflowValue,
+    MAX_NODE_ID_LEN, ManualAgentNode, NodeId, NodeInput, NodeKind, RustScript, ScriptModule,
+    ScriptNode, ScriptRunner, Workflow, WorkflowDefinition, WorkflowError, WorkflowNode,
+    WorkflowValue,
 };
 use std::process::Command;
 
@@ -70,6 +71,46 @@ fn execution_plan_groups_independent_nodes_into_stages() {
             ],
             vec![NodeId::new("merge").unwrap()],
             vec![NodeId::new("publish").unwrap()],
+        ]
+    );
+}
+
+#[test]
+fn workflow_definition_deserializes_api_shape_and_produces_execution_plan() {
+    let definition: WorkflowDefinition = serde_json::from_value(serde_json::json!({
+        "id": "lead-review",
+        "nodes": [
+            {
+                "id": "lead_payload",
+                "kind": "constant",
+                "value": {
+                    "lead_count": 128,
+                    "qualified_count": 42
+                }
+            },
+            {
+                "id": "score",
+                "kind": "template",
+                "template": "qualified leads: {{lead_payload.qualified_count}} / {{lead_payload.lead_count}}"
+            }
+        ],
+        "dependencies": [
+            {
+                "node": "score",
+                "depends_on": "lead_payload"
+            }
+        ]
+    }))
+    .unwrap();
+
+    assert_eq!(definition.id, "lead-review");
+    assert_eq!(definition.nodes.len(), 2);
+    assert_eq!(definition.nodes[0].kind, NodeKind::Constant);
+    assert_eq!(
+        definition.execution_plan().unwrap().stages(),
+        &[
+            vec![NodeId::new("lead_payload").unwrap()],
+            vec![NodeId::new("score").unwrap()]
         ]
     );
 }

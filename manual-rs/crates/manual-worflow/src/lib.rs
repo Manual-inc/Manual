@@ -2,6 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use manual_agent::{AgentCommand, CommandRequest};
+use serde::Deserialize;
+use serde_json::Value;
 
 pub const MAX_NODE_ID_LEN: usize = 128;
 
@@ -89,6 +91,53 @@ pub enum WorkflowValue {
     String(String),
     List(Vec<WorkflowValue>),
     Object(BTreeMap<String, WorkflowValue>),
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct WorkflowDefinition {
+    pub id: String,
+    pub nodes: Vec<NodeDefinition>,
+    #[serde(default)]
+    pub dependencies: Vec<DependencyDefinition>,
+}
+
+impl WorkflowDefinition {
+    pub fn execution_plan(&self) -> Result<ExecutionPlan, WorkflowError> {
+        let mut workflow = Workflow::new();
+
+        for node in &self.nodes {
+            workflow.add_node(node.id.clone())?;
+        }
+
+        for dependency in &self.dependencies {
+            workflow.add_dependency(dependency.node.clone(), dependency.depends_on.clone())?;
+        }
+
+        workflow.execution_plan()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct NodeDefinition {
+    pub id: String,
+    pub kind: NodeKind,
+    #[serde(default)]
+    pub value: Value,
+    #[serde(default)]
+    pub template: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum NodeKind {
+    Constant,
+    Template,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub struct DependencyDefinition {
+    pub node: String,
+    pub depends_on: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

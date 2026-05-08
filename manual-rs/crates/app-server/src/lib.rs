@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 use std::sync::mpsc::{self, Receiver};
 
-use manual_worflow::Workflow;
+use manual_worflow::{NodeDefinition, NodeKind, WorkflowDefinition};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -153,37 +153,6 @@ struct RpcRequest {
     params: Value,
 }
 
-#[derive(Clone, Deserialize)]
-struct WorkflowDefinition {
-    id: String,
-    nodes: Vec<NodeDefinition>,
-    #[serde(default)]
-    dependencies: Vec<DependencyDefinition>,
-}
-
-#[derive(Clone, Deserialize)]
-struct NodeDefinition {
-    id: String,
-    kind: NodeKind,
-    #[serde(default)]
-    value: Value,
-    #[serde(default)]
-    template: String,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum NodeKind {
-    Constant,
-    Template,
-}
-
-#[derive(Clone, Deserialize)]
-struct DependencyDefinition {
-    node: String,
-    depends_on: String,
-}
-
 #[derive(Deserialize)]
 struct CreateWorkflowParams {
     workflow: WorkflowDefinition,
@@ -269,21 +238,7 @@ fn execute_workflow(run_id: &str, definition: &WorkflowDefinition) -> WorkflowRu
 }
 
 fn execution_plan(definition: &WorkflowDefinition) -> Vec<Vec<String>> {
-    let mut workflow = Workflow::new();
-
-    for node in &definition.nodes {
-        workflow
-            .add_node(node.id.clone())
-            .expect("workflow definitions should contain valid node ids");
-    }
-
-    for dependency in &definition.dependencies {
-        workflow
-            .add_dependency(dependency.node.clone(), dependency.depends_on.clone())
-            .expect("workflow definitions should contain valid dependencies");
-    }
-
-    workflow
+    definition
         .execution_plan()
         .expect("workflow definition should be acyclic")
         .stages()
