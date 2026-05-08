@@ -1,0 +1,45 @@
+# OS and editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Rust
+target/
+**/target/
+
+# Swift Package Manager / Xcode
+.build/
+**/.build/
+DerivedData/
+*.xcuserdata/
+*.xcuserstate
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Android / Gradle
+.gradle/
+**/.gradle/
+build/
+**/build/
+local.properties
+captures/
+*.apk
+*.aab
+*.ap_
+
+# Windows / .NET
+bin/
+obj/
+**/bin/
+**/obj/
+*.user
+*.suo
+*.rsuser
+
+# Logs and environment
+*.log
+.env
+.env.*
+!.env.example
