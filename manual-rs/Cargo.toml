@@ -4,4 +4,5 @@ members = [
     "crates/manual-agent",
     "crates/manual-worflow",
     "crates/manual-sandbox",
+    "crates/app-server",
 ]
