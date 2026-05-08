@@ -1,4 +1,5 @@
 # OS and editor
+.zed
 .DS_Store
 .idea/
 .vscode/
