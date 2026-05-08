@@ -115,6 +115,85 @@ fn workflow_definition_deserializes_api_shape_and_produces_execution_plan() {
     );
 }
 
+#[test]
+fn workflow_definition_executes_api_nodes_and_emits_run_events() {
+    let definition: WorkflowDefinition = serde_json::from_value(serde_json::json!({
+        "id": "lead-review",
+        "nodes": [
+            {
+                "id": "lead_payload",
+                "kind": "constant",
+                "value": {
+                    "lead_count": 128,
+                    "qualified_count": 42
+                }
+            },
+            {
+                "id": "score",
+                "kind": "template",
+                "template": "qualified leads: {{lead_payload.qualified_count}} / {{lead_payload.lead_count}}"
+            }
+        ],
+        "dependencies": [
+            {
+                "node": "score",
+                "depends_on": "lead_payload"
+            }
+        ]
+    }))
+    .unwrap();
+
+    let run = definition.execute("run-1").unwrap();
+
+    assert!(run.completed());
+    assert_eq!(
+        run.events(),
+        &[
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 0,
+                "type": "workflow_started",
+                "workflow_id": "lead-review"
+            }),
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 1,
+                "type": "node_started",
+                "node_id": "lead_payload"
+            }),
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 2,
+                "type": "node_completed",
+                "node_id": "lead_payload",
+                "result": {
+                    "lead_count": 128,
+                    "qualified_count": 42
+                }
+            }),
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 3,
+                "type": "node_started",
+                "node_id": "score"
+            }),
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 4,
+                "type": "node_completed",
+                "node_id": "score",
+                "result": "qualified leads: 42 / 128"
+            }),
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 5,
+                "type": "workflow_completed",
+                "workflow_id": "lead-review"
+            })
+        ]
+    );
+}
+
 struct ConstantNode {
     value: WorkflowValue,
 }

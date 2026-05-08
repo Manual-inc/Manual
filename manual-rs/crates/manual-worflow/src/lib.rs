@@ -3,7 +3,7 @@ use std::fmt;
 
 use manual_agent::{AgentCommand, CommandRequest};
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 pub const MAX_NODE_ID_LEN: usize = 128;
 
@@ -115,6 +115,68 @@ impl WorkflowDefinition {
 
         workflow.execution_plan()
     }
+
+    pub fn execute(&self, run_id: &str) -> Result<WorkflowRun, WorkflowError> {
+        let mut events = Vec::new();
+        let mut outputs = BTreeMap::new();
+
+        push_event(
+            &mut events,
+            json!({
+                "run_id": run_id,
+                "type": "workflow_started",
+                "workflow_id": self.id,
+            }),
+        );
+
+        let plan = self.execution_plan()?;
+
+        for stage in plan.stages() {
+            for node_id in stage {
+                let node = self
+                    .nodes
+                    .iter()
+                    .find(|node| node.id == node_id.as_str())
+                    .expect("execution plan should only include defined nodes");
+
+                push_event(
+                    &mut events,
+                    json!({
+                        "run_id": run_id,
+                        "type": "node_started",
+                        "node_id": node.id,
+                    }),
+                );
+
+                let result = execute_definition_node(node, &outputs);
+                outputs.insert(node.id.clone(), result.clone());
+
+                push_event(
+                    &mut events,
+                    json!({
+                        "run_id": run_id,
+                        "type": "node_completed",
+                        "node_id": node.id,
+                        "result": result,
+                    }),
+                );
+            }
+        }
+
+        push_event(
+            &mut events,
+            json!({
+                "run_id": run_id,
+                "type": "workflow_completed",
+                "workflow_id": self.id,
+            }),
+        );
+
+        Ok(WorkflowRun {
+            events,
+            completed: true,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -138,6 +200,64 @@ pub enum NodeKind {
 pub struct DependencyDefinition {
     pub node: String,
     pub depends_on: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct WorkflowRun {
+    events: Vec<Value>,
+    completed: bool,
+}
+
+impl WorkflowRun {
+    pub fn events(&self) -> &[Value] {
+        &self.events
+    }
+
+    pub fn completed(&self) -> bool {
+        self.completed
+    }
+}
+
+fn execute_definition_node(node: &NodeDefinition, outputs: &BTreeMap<String, Value>) -> Value {
+    match node.kind {
+        NodeKind::Constant => node.value.clone(),
+        NodeKind::Template => render_template(&node.template, outputs).into(),
+    }
+}
+
+fn render_template(template: &str, outputs: &BTreeMap<String, Value>) -> String {
+    let mut rendered = template.to_owned();
+
+    for (node_id, value) in outputs {
+        rendered = rendered.replace(&format!("{{{{{node_id}}}}}"), &json_scalar_to_string(value));
+
+        if let Value::Object(fields) = value {
+            for (field, value) in fields {
+                rendered = rendered.replace(
+                    &format!("{{{{{node_id}.{field}}}}}"),
+                    &json_scalar_to_string(value),
+                );
+            }
+        }
+    }
+
+    rendered
+}
+
+fn json_scalar_to_string(value: &Value) -> String {
+    match value {
+        Value::String(value) => value.clone(),
+        Value::Number(value) => value.to_string(),
+        Value::Bool(value) => value.to_string(),
+        Value::Null => "null".to_owned(),
+        other => other.to_string(),
+    }
+}
+
+fn push_event(events: &mut Vec<Value>, mut event: Value) {
+    let sequence = events.len();
+    event["sequence"] = sequence.into();
+    events.push(event);
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

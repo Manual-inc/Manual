@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 use std::sync::mpsc::{self, Receiver};
 
-use manual_worflow::{NodeDefinition, NodeKind, WorkflowDefinition};
+use manual_worflow::{WorkflowDefinition, WorkflowRun};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -33,7 +33,7 @@ impl AppServer {
         let run = state.runs.get(run_id)?;
         let (sender, receiver) = mpsc::channel();
 
-        for event in &run.events {
+        for event in run.events() {
             sender
                 .send(event.clone())
                 .expect("receiver should stay alive while replaying events");
@@ -97,7 +97,9 @@ impl AppServer {
 
         state.next_run_number += 1;
         let run_id = format!("run-{}", state.next_run_number);
-        let run = execute_workflow(&run_id, &workflow);
+        let run = workflow
+            .execute(&run_id)
+            .expect("workflow definitions should be executable");
         state.runs.insert(run_id.clone(), run);
 
         rpc_result(id, json!({ "run_id": run_id }))
@@ -119,7 +121,7 @@ impl AppServer {
         };
 
         let events = run
-            .events
+            .events()
             .iter()
             .skip(params.cursor)
             .cloned()
@@ -129,8 +131,8 @@ impl AppServer {
             id,
             json!({
                 "events": events,
-                "next_cursor": run.events.len(),
-                "completed": run.completed,
+                "next_cursor": run.events().len(),
+                "completed": run.completed(),
             }),
         )
     }
@@ -168,125 +170,6 @@ struct WorkflowEventsParams {
     run_id: String,
     #[serde(default)]
     cursor: usize,
-}
-
-struct WorkflowRun {
-    events: Vec<Value>,
-    completed: bool,
-}
-
-fn execute_workflow(run_id: &str, definition: &WorkflowDefinition) -> WorkflowRun {
-    let mut events = Vec::new();
-    let mut outputs = BTreeMap::new();
-
-    push_event(
-        &mut events,
-        json!({
-            "run_id": run_id,
-            "type": "workflow_started",
-            "workflow_id": definition.id,
-        }),
-    );
-
-    let plan = execution_plan(definition);
-
-    for stage in plan {
-        for node_id in stage {
-            let node = definition
-                .nodes
-                .iter()
-                .find(|node| node.id == node_id)
-                .expect("execution plan should only include defined nodes");
-
-            push_event(
-                &mut events,
-                json!({
-                    "run_id": run_id,
-                    "type": "node_started",
-                    "node_id": node.id,
-                }),
-            );
-
-            let result = execute_node(node, &outputs);
-            outputs.insert(node.id.clone(), result.clone());
-
-            push_event(
-                &mut events,
-                json!({
-                    "run_id": run_id,
-                    "type": "node_completed",
-                    "node_id": node.id,
-                    "result": result,
-                }),
-            );
-        }
-    }
-
-    push_event(
-        &mut events,
-        json!({
-            "run_id": run_id,
-            "type": "workflow_completed",
-            "workflow_id": definition.id,
-        }),
-    );
-
-    WorkflowRun {
-        events,
-        completed: true,
-    }
-}
-
-fn execution_plan(definition: &WorkflowDefinition) -> Vec<Vec<String>> {
-    definition
-        .execution_plan()
-        .expect("workflow definition should be acyclic")
-        .stages()
-        .iter()
-        .map(|stage| stage.iter().map(|node| node.as_str().to_owned()).collect())
-        .collect()
-}
-
-fn execute_node(node: &NodeDefinition, outputs: &BTreeMap<String, Value>) -> Value {
-    match node.kind {
-        NodeKind::Constant => node.value.clone(),
-        NodeKind::Template => render_template(&node.template, outputs).into(),
-    }
-}
-
-fn render_template(template: &str, outputs: &BTreeMap<String, Value>) -> String {
-    let mut rendered = template.to_owned();
-
-    for (node_id, value) in outputs {
-        rendered = rendered.replace(&format!("{{{{{node_id}}}}}"), &json_scalar_to_string(value));
-
-        if let Value::Object(fields) = value {
-            for (field, value) in fields {
-                rendered = rendered.replace(
-                    &format!("{{{{{node_id}.{field}}}}}"),
-                    &json_scalar_to_string(value),
-                );
-            }
-        }
-    }
-
-    rendered
-}
-
-fn json_scalar_to_string(value: &Value) -> String {
-    match value {
-        Value::String(value) => value.clone(),
-        Value::Number(value) => value.to_string(),
-        Value::Bool(value) => value.to_string(),
-        Value::Null => "null".to_owned(),
-        other => other.to_string(),
-    }
-}
-
-fn push_event(events: &mut Vec<Value>, mut event: Value) {
-    let sequence = events.len();
-    event["sequence"] = sequence.into();
-    events.push(event);
 }
 
 fn rpc_result(id: Value, result: Value) -> Value {
