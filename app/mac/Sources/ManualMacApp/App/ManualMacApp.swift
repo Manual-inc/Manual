@@ -8,11 +8,12 @@ struct ManualMacApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .frame(minWidth: 1100, minHeight: 720)
+                .frame(minWidth: 1240, minHeight: 760)
+                .preferredColorScheme(.dark)
         }
         .commands {
             CommandMenu("Workflow") {
-                Button("Start Example Workflow") {
+                Button("Execute Workflow") {
                     NotificationCenter.default.post(name: .startExampleWorkflow, object: nil)
                 }
                 .keyboardShortcut("r", modifiers: [.command])
@@ -25,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        NSApp.appearance = NSAppearance(named: .darkAqua)
     }
 }
 
