@@ -194,6 +194,76 @@ fn workflow_definition_executes_api_nodes_and_emits_run_events() {
     );
 }
 
+#[test]
+fn workflow_definition_emits_failure_events_when_a_node_fails() {
+    let definition: WorkflowDefinition = serde_json::from_value(serde_json::json!({
+        "id": "failing-review",
+        "nodes": [
+            {
+                "id": "explode",
+                "kind": "fail",
+                "error": "boom"
+            },
+            {
+                "id": "after",
+                "kind": "template",
+                "template": "unreachable"
+            }
+        ],
+        "dependencies": [
+            {
+                "node": "after",
+                "depends_on": "explode"
+            }
+        ]
+    }))
+    .unwrap();
+    let mut events = Vec::new();
+
+    let error = definition
+        .execute_with_events("run-1", |event| events.push(event))
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        WorkflowError::NodeExecutionFailed {
+            node: NodeId::new("explode").unwrap(),
+            message: "boom".into(),
+        }
+    );
+    assert_eq!(
+        events,
+        [
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 0,
+                "type": "workflow_started",
+                "workflow_id": "failing-review"
+            }),
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 1,
+                "type": "node_started",
+                "node_id": "explode"
+            }),
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 2,
+                "type": "node_failed",
+                "node_id": "explode",
+                "error": "boom"
+            }),
+            serde_json::json!({
+                "run_id": "run-1",
+                "sequence": 3,
+                "type": "workflow_failed",
+                "workflow_id": "failing-review",
+                "error": "boom"
+            })
+        ]
+    );
+}
+
 struct ConstantNode {
     value: WorkflowValue,
 }

@@ -1,6 +1,6 @@
 use app_server::AppServer;
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[test]
 fn json_rpc_create_start_and_stream_workflow_events() {
@@ -70,24 +70,11 @@ fn json_rpc_create_start_and_stream_workflow_events() {
     .unwrap();
     let run_id = start["result"]["run_id"].as_str().unwrap();
 
-    let events: Value = serde_json::from_str(
-        &server.handle_json(
-            &json!({
-                "jsonrpc": "2.0",
-                "id": 3,
-                "method": "workflow.events",
-                "params": {
-                    "run_id": run_id,
-                    "cursor": 0
-                }
-            })
-            .to_string(),
-        ),
-    )
-    .unwrap();
+    let events = poll_events_until(&server, run_id, 0, |events| {
+        events["result"]["completed"].as_bool().unwrap()
+    });
 
     assert_eq!(events["jsonrpc"], "2.0");
-    assert_eq!(events["id"], 3);
     assert_eq!(events["result"]["completed"], true);
     assert_eq!(events["result"]["next_cursor"], 6);
     assert_eq!(
@@ -139,7 +126,7 @@ fn json_rpc_create_start_and_stream_workflow_events() {
 }
 
 #[test]
-fn run_events_can_be_observed_as_a_stream() {
+fn workflow_start_runs_in_background_and_events_can_poll_progress() {
     let server = AppServer::new();
 
     server.handle_json(
@@ -149,25 +136,92 @@ fn run_events_can_be_observed_as_a_stream() {
             "method": "workflow.create",
             "params": {
                 "workflow": {
-                    "id": "streaming-review",
+                    "id": "background-review",
                     "nodes": [
                         {
-                            "id": "source",
-                            "kind": "constant",
-                            "value": {
-                                "name": "Manual"
-                            }
+                            "id": "pause",
+                            "kind": "delay",
+                            "duration_ms": 100
                         },
                         {
                             "id": "message",
                             "kind": "template",
-                            "template": "hello {{source.name}}"
+                            "template": "done"
                         }
                     ],
                     "dependencies": [
                         {
                             "node": "message",
-                            "depends_on": "source"
+                            "depends_on": "pause"
+                        }
+                    ]
+                }
+            }
+        })
+        .to_string(),
+    );
+
+    let started_at = Instant::now();
+    let start: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "workflow.start",
+                "params": {
+                    "workflow_id": "background-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    assert!(started_at.elapsed() < Duration::from_millis(50));
+
+    let run_id = start["result"]["run_id"].as_str().unwrap();
+    let in_progress = poll_events_until(&server, run_id, 0, |events| {
+        !events["result"]["completed"].as_bool().unwrap()
+            && events["result"]["events"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|event| event["type"] == "node_started" && event["node_id"] == "pause")
+    });
+
+    assert_eq!(in_progress["result"]["completed"], false);
+    let next_cursor = in_progress["result"]["next_cursor"].as_u64().unwrap() as usize;
+
+    let completed = poll_events_until(&server, run_id, next_cursor, |events| {
+        events["result"]["completed"].as_bool().unwrap()
+    });
+
+    assert_eq!(completed["result"]["completed"], true);
+    assert!(
+        completed["result"]["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|event| event["type"] == "workflow_completed")
+    );
+}
+
+#[test]
+fn workflow_events_reports_background_execution_failure() {
+    let server = AppServer::new();
+
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "workflow.create",
+            "params": {
+                "workflow": {
+                    "id": "failing-review",
+                    "nodes": [
+                        {
+                            "id": "explode",
+                            "kind": "fail",
+                            "error": "boom"
                         }
                     ]
                 }
@@ -183,7 +237,7 @@ fn run_events_can_be_observed_as_a_stream() {
                 "id": 2,
                 "method": "workflow.start",
                 "params": {
-                    "workflow_id": "streaming-review"
+                    "workflow_id": "failing-review"
                 }
             })
             .to_string(),
@@ -191,27 +245,42 @@ fn run_events_can_be_observed_as_a_stream() {
     )
     .unwrap();
     let run_id = start["result"]["run_id"].as_str().unwrap();
-    let stream = server.subscribe_run(run_id).unwrap();
 
-    let mut event_types = Vec::new();
-    while let Ok(event) = stream.recv_timeout(Duration::from_millis(20)) {
-        event_types.push(event["type"].as_str().unwrap().to_owned());
+    let events = poll_events_until(&server, run_id, 0, |events| {
+        events["result"]["completed"].as_bool().unwrap()
+    });
 
-        if event["type"] == "workflow_completed" {
-            break;
-        }
-    }
-
+    assert_eq!(events["result"]["completed"], true);
     assert_eq!(
-        event_types,
-        [
-            "workflow_started",
-            "node_started",
-            "node_completed",
-            "node_started",
-            "node_completed",
-            "workflow_completed"
-        ]
+        events["result"]["events"],
+        json!([
+            {
+                "run_id": run_id,
+                "sequence": 0,
+                "type": "workflow_started",
+                "workflow_id": "failing-review"
+            },
+            {
+                "run_id": run_id,
+                "sequence": 1,
+                "type": "node_started",
+                "node_id": "explode"
+            },
+            {
+                "run_id": run_id,
+                "sequence": 2,
+                "type": "node_failed",
+                "node_id": "explode",
+                "error": "boom"
+            },
+            {
+                "run_id": run_id,
+                "sequence": 3,
+                "type": "workflow_failed",
+                "workflow_id": "failing-review",
+                "error": "boom"
+            }
+        ])
     );
 }
 
@@ -267,24 +336,46 @@ fn template_nodes_can_reference_scalar_upstream_results() {
     .unwrap();
     let run_id = start["result"]["run_id"].as_str().unwrap();
 
-    let events: Value = serde_json::from_str(
-        &server.handle_json(
-            &json!({
-                "jsonrpc": "2.0",
-                "id": 3,
-                "method": "workflow.events",
-                "params": {
-                    "run_id": run_id,
-                    "cursor": 0
-                }
-            })
-            .to_string(),
-        ),
-    )
-    .unwrap();
+    let events = poll_events_until(&server, run_id, 0, |events| {
+        events["result"]["completed"].as_bool().unwrap()
+    });
 
     assert_eq!(
         events["result"]["events"][4]["result"],
         "next action: clear stale tickets"
     );
+}
+
+fn poll_events_until(
+    server: &AppServer,
+    run_id: &str,
+    cursor: usize,
+    predicate: impl Fn(&Value) -> bool,
+) -> Value {
+    let deadline = Instant::now() + Duration::from_secs(1);
+
+    loop {
+        let events: Value = serde_json::from_str(
+            &server.handle_json(
+                &json!({
+                    "jsonrpc": "2.0",
+                    "id": 99,
+                    "method": "workflow.events",
+                    "params": {
+                        "run_id": run_id,
+                        "cursor": cursor
+                    }
+                })
+                .to_string(),
+            ),
+        )
+        .unwrap();
+
+        if predicate(&events) {
+            return events;
+        }
+
+        assert!(Instant::now() < deadline, "timed out waiting for events");
+        std::thread::sleep(Duration::from_millis(5));
+    }
 }

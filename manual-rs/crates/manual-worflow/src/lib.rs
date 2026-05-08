@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::thread;
+use std::time::Duration;
 
 use manual_agent::{AgentCommand, CommandRequest};
 use serde::Deserialize;
@@ -69,6 +71,10 @@ pub enum WorkflowError {
     MissingTask {
         node: NodeId,
     },
+    NodeExecutionFailed {
+        node: NodeId,
+        message: String,
+    },
     AgentCommandIo {
         message: String,
     },
@@ -117,11 +123,22 @@ impl WorkflowDefinition {
     }
 
     pub fn execute(&self, run_id: &str) -> Result<WorkflowRun, WorkflowError> {
-        let mut events = Vec::new();
+        let mut run = WorkflowRun::pending();
+        self.execute_with_events(run_id, |event| run.record_event(event))?;
+        Ok(run)
+    }
+
+    pub fn execute_with_events(
+        &self,
+        run_id: &str,
+        mut emit: impl FnMut(Value),
+    ) -> Result<(), WorkflowError> {
+        let mut sequence = 0;
         let mut outputs = BTreeMap::new();
 
-        push_event(
-            &mut events,
+        emit_event(
+            &mut sequence,
+            &mut emit,
             json!({
                 "run_id": run_id,
                 "type": "workflow_started",
@@ -129,7 +146,13 @@ impl WorkflowDefinition {
             }),
         );
 
-        let plan = self.execution_plan()?;
+        let plan = match self.execution_plan() {
+            Ok(plan) => plan,
+            Err(error) => {
+                emit_workflow_failed(run_id, &self.id, &mut sequence, &mut emit, &error);
+                return Err(error);
+            }
+        };
 
         for stage in plan.stages() {
             for node_id in stage {
@@ -139,8 +162,9 @@ impl WorkflowDefinition {
                     .find(|node| node.id == node_id.as_str())
                     .expect("execution plan should only include defined nodes");
 
-                push_event(
-                    &mut events,
+                emit_event(
+                    &mut sequence,
+                    &mut emit,
                     json!({
                         "run_id": run_id,
                         "type": "node_started",
@@ -148,11 +172,28 @@ impl WorkflowDefinition {
                     }),
                 );
 
-                let result = execute_definition_node(node, &outputs);
+                let result = match execute_definition_node(node, &outputs) {
+                    Ok(result) => result,
+                    Err(error) => {
+                        emit_event(
+                            &mut sequence,
+                            &mut emit,
+                            json!({
+                                "run_id": run_id,
+                                "type": "node_failed",
+                                "node_id": node.id,
+                                "error": workflow_error_message(&error),
+                            }),
+                        );
+                        emit_workflow_failed(run_id, &self.id, &mut sequence, &mut emit, &error);
+                        return Err(error);
+                    }
+                };
                 outputs.insert(node.id.clone(), result.clone());
 
-                push_event(
-                    &mut events,
+                emit_event(
+                    &mut sequence,
+                    &mut emit,
                     json!({
                         "run_id": run_id,
                         "type": "node_completed",
@@ -163,8 +204,9 @@ impl WorkflowDefinition {
             }
         }
 
-        push_event(
-            &mut events,
+        emit_event(
+            &mut sequence,
+            &mut emit,
             json!({
                 "run_id": run_id,
                 "type": "workflow_completed",
@@ -172,10 +214,7 @@ impl WorkflowDefinition {
             }),
         );
 
-        Ok(WorkflowRun {
-            events,
-            completed: true,
-        })
+        Ok(())
     }
 }
 
@@ -187,12 +226,18 @@ pub struct NodeDefinition {
     pub value: Value,
     #[serde(default)]
     pub template: String,
+    #[serde(default)]
+    pub duration_ms: u64,
+    #[serde(default)]
+    pub error: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeKind {
     Constant,
+    Delay,
+    Fail,
     Template,
 }
 
@@ -209,6 +254,13 @@ pub struct WorkflowRun {
 }
 
 impl WorkflowRun {
+    pub fn pending() -> Self {
+        Self {
+            events: Vec::new(),
+            completed: false,
+        }
+    }
+
     pub fn events(&self) -> &[Value] {
         &self.events
     }
@@ -216,12 +268,39 @@ impl WorkflowRun {
     pub fn completed(&self) -> bool {
         self.completed
     }
+
+    pub fn record_event(&mut self, event: Value) {
+        if event["type"] == "workflow_completed" || event["type"] == "workflow_failed" {
+            self.completed = true;
+        }
+
+        self.events.push(event);
+    }
 }
 
-fn execute_definition_node(node: &NodeDefinition, outputs: &BTreeMap<String, Value>) -> Value {
+fn execute_definition_node(
+    node: &NodeDefinition,
+    outputs: &BTreeMap<String, Value>,
+) -> Result<Value, WorkflowError> {
     match node.kind {
-        NodeKind::Constant => node.value.clone(),
-        NodeKind::Template => render_template(&node.template, outputs).into(),
+        NodeKind::Constant => Ok(node.value.clone()),
+        NodeKind::Delay => {
+            thread::sleep(Duration::from_millis(node.duration_ms));
+            Ok(Value::Null)
+        }
+        NodeKind::Fail => {
+            let message = if node.error.is_empty() {
+                "node execution failed".to_owned()
+            } else {
+                node.error.clone()
+            };
+
+            Err(WorkflowError::NodeExecutionFailed {
+                node: NodeId::new(node.id.clone())?,
+                message,
+            })
+        }
+        NodeKind::Template => Ok(render_template(&node.template, outputs).into()),
     }
 }
 
@@ -254,10 +333,48 @@ fn json_scalar_to_string(value: &Value) -> String {
     }
 }
 
-fn push_event(events: &mut Vec<Value>, mut event: Value) {
-    let sequence = events.len();
-    event["sequence"] = sequence.into();
-    events.push(event);
+fn emit_event(sequence: &mut usize, emit: &mut impl FnMut(Value), mut event: Value) {
+    event["sequence"] = (*sequence).into();
+    *sequence += 1;
+    emit(event);
+}
+
+fn emit_workflow_failed(
+    run_id: &str,
+    workflow_id: &str,
+    sequence: &mut usize,
+    emit: &mut impl FnMut(Value),
+    error: &WorkflowError,
+) {
+    emit_event(
+        sequence,
+        emit,
+        json!({
+            "run_id": run_id,
+            "type": "workflow_failed",
+            "workflow_id": workflow_id,
+            "error": workflow_error_message(error),
+        }),
+    );
+}
+
+fn workflow_error_message(error: &WorkflowError) -> String {
+    match error {
+        WorkflowError::EmptyNodeId => "empty node id".to_owned(),
+        WorkflowError::NodeIdTooLong { max } => format!("node id too long; max {max}"),
+        WorkflowError::DuplicateNode { node } => format!("duplicate node: {node}"),
+        WorkflowError::UnknownNode { node } => format!("unknown node: {node}"),
+        WorkflowError::MissingTask { node } => format!("missing task: {node}"),
+        WorkflowError::NodeExecutionFailed { message, .. } => message.clone(),
+        WorkflowError::AgentCommandIo { message } => message.clone(),
+        WorkflowError::AgentCommandFailed {
+            status_code,
+            stderr,
+        } => {
+            format!("agent command failed with status {status_code:?}: {stderr}")
+        }
+        WorkflowError::CycleDetected => "cycle detected".to_owned(),
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

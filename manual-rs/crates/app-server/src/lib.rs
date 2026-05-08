@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
-use std::sync::Mutex;
-use std::sync::mpsc::{self, Receiver};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 use manual_worflow::{WorkflowDefinition, WorkflowRun};
 use serde::Deserialize;
@@ -12,7 +12,7 @@ pub fn crate_name() -> &'static str {
 
 #[derive(Default)]
 pub struct AppServer {
-    state: Mutex<ServerState>,
+    state: Arc<Mutex<ServerState>>,
 }
 
 impl AppServer {
@@ -23,23 +23,6 @@ impl AppServer {
     pub fn handle_json(&self, input: &str) -> String {
         let response = self.handle_json_value(input);
         response.to_string()
-    }
-
-    pub fn subscribe_run(&self, run_id: &str) -> Option<Receiver<Value>> {
-        let state = self
-            .state
-            .lock()
-            .expect("server state lock should not poison");
-        let run = state.runs.get(run_id)?;
-        let (sender, receiver) = mpsc::channel();
-
-        for event in run.events() {
-            sender
-                .send(event.clone())
-                .expect("receiver should stay alive while replaying events");
-        }
-
-        Some(receiver)
     }
 
     fn handle_json_value(&self, input: &str) -> Value {
@@ -97,10 +80,32 @@ impl AppServer {
 
         state.next_run_number += 1;
         let run_id = format!("run-{}", state.next_run_number);
-        let run = workflow
-            .execute(&run_id)
-            .expect("workflow definitions should be executable");
-        state.runs.insert(run_id.clone(), run);
+        state.runs.insert(run_id.clone(), WorkflowRun::pending());
+        let state = Arc::clone(&self.state);
+        let thread_run_id = run_id.clone();
+
+        thread::spawn(move || {
+            let result = workflow.execute_with_events(&thread_run_id, |event| {
+                let mut state = state.lock().expect("server state lock should not poison");
+                if let Some(run) = state.runs.get_mut(&thread_run_id) {
+                    run.record_event(event);
+                }
+            });
+
+            if let Err(error) = result {
+                let mut state = state.lock().expect("server state lock should not poison");
+                if let Some(run) = state.runs.get_mut(&thread_run_id) {
+                    if !run.completed() {
+                        run.record_event(json!({
+                            "run_id": thread_run_id,
+                            "sequence": run.events().len(),
+                            "type": "workflow_failed",
+                            "error": format!("{error:?}"),
+                        }));
+                    }
+                }
+            }
+        });
 
         rpc_result(id, json!({ "run_id": run_id }))
     }
