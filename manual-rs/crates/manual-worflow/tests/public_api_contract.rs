@@ -5,6 +5,7 @@ use manual_worflow::{
     WorkflowValue,
 };
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 #[test]
 fn node_id_rejects_empty_whitespace_and_overlong_values() {
@@ -113,6 +114,29 @@ fn workflow_definition_deserializes_api_shape_and_produces_execution_plan() {
             vec![NodeId::new("score").unwrap()]
         ]
     );
+}
+
+#[test]
+fn workflow_definition_deserializes_pi_agent_nodes() {
+    let definition: WorkflowDefinition = serde_json::from_value(serde_json::json!({
+        "id": "agent-review",
+        "nodes": [
+            {
+                "id": "recommendation",
+                "kind": "pi",
+                "prompt": "Recommend one operational next action.",
+                "model": "openai/gpt-4o"
+            }
+        ]
+    }))
+    .unwrap();
+
+    assert_eq!(definition.nodes[0].kind, NodeKind::Pi);
+    assert_eq!(
+        definition.nodes[0].prompt,
+        "Recommend one operational next action."
+    );
+    assert_eq!(definition.nodes[0].model.as_deref(), Some("openai/gpt-4o"));
 }
 
 #[test]
@@ -262,6 +286,84 @@ fn workflow_definition_emits_failure_events_when_a_node_fails() {
             })
         ]
     );
+}
+
+#[test]
+fn workflow_definition_runs_independent_stage_nodes_in_parallel() {
+    let definition: WorkflowDefinition = serde_json::from_value(serde_json::json!({
+        "id": "parallel-review",
+        "nodes": [
+            {
+                "id": "source",
+                "kind": "constant",
+                "value": "ready"
+            },
+            {
+                "id": "sales_health",
+                "kind": "delay",
+                "duration_ms": 120
+            },
+            {
+                "id": "support_health",
+                "kind": "delay",
+                "duration_ms": 120
+            },
+            {
+                "id": "digest",
+                "kind": "template",
+                "template": "done"
+            }
+        ],
+        "dependencies": [
+            {
+                "node": "sales_health",
+                "depends_on": "source"
+            },
+            {
+                "node": "support_health",
+                "depends_on": "source"
+            },
+            {
+                "node": "digest",
+                "depends_on": "sales_health"
+            },
+            {
+                "node": "digest",
+                "depends_on": "support_health"
+            }
+        ]
+    }))
+    .unwrap();
+    let mut events = Vec::new();
+
+    let started_at = Instant::now();
+    definition
+        .execute_with_events("run-1", |event| events.push(event))
+        .unwrap();
+    let elapsed = started_at.elapsed();
+
+    let sales_started = event_position(&events, "node_started", "sales_health");
+    let support_started = event_position(&events, "node_started", "support_health");
+    let first_parallel_completed = events.iter().position(|event| {
+        event["type"] == "node_completed"
+            && (event["node_id"] == "sales_health" || event["node_id"] == "support_health")
+    });
+
+    assert!(sales_started.is_some());
+    assert!(support_started.is_some());
+    assert!(first_parallel_completed.is_some());
+    assert!(sales_started.unwrap() < first_parallel_completed.unwrap());
+    assert!(support_started.unwrap() < first_parallel_completed.unwrap());
+    assert!(
+        elapsed < Duration::from_millis(210),
+        "expected parallel delay nodes to finish in under 210ms, took {elapsed:?}"
+    );
+}
+
+fn event_position(events: &[serde_json::Value], event_type: &str, node_id: &str) -> Option<usize> {
+    events
+        .iter()
+        .position(|event| event["type"] == event_type && event["node_id"] == node_id)
 }
 
 struct ConstantNode {

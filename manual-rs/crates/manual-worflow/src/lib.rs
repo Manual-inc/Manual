@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use manual_agent::{AgentCommand, CommandRequest};
+use manual_agent::{Agent, AgentCommand, CommandRequest, pi::Pi};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -155,13 +156,17 @@ impl WorkflowDefinition {
         };
 
         for stage in plan.stages() {
-            for node_id in stage {
-                let node = self
-                    .nodes
-                    .iter()
-                    .find(|node| node.id == node_id.as_str())
-                    .expect("execution plan should only include defined nodes");
+            let stage_nodes = stage
+                .iter()
+                .map(|node_id| {
+                    self.nodes
+                        .iter()
+                        .find(|node| node.id == node_id.as_str())
+                        .expect("execution plan should only include defined nodes")
+                })
+                .collect::<Vec<_>>();
 
+            for node in &stage_nodes {
                 emit_event(
                     &mut sequence,
                     &mut emit,
@@ -171,36 +176,68 @@ impl WorkflowDefinition {
                         "node_id": node.id,
                     }),
                 );
+            }
 
-                let result = match execute_definition_node(node, &outputs) {
-                    Ok(result) => result,
-                    Err(error) => {
-                        emit_event(
-                            &mut sequence,
-                            &mut emit,
-                            json!({
-                                "run_id": run_id,
-                                "type": "node_failed",
-                                "node_id": node.id,
-                                "error": workflow_error_message(&error),
-                            }),
-                        );
-                        emit_workflow_failed(run_id, &self.id, &mut sequence, &mut emit, &error);
-                        return Err(error);
+            let stage_inputs = outputs.clone();
+            let (tx, rx) = mpsc::channel();
+
+            let stage_error = thread::scope(|scope| {
+                for node in stage_nodes {
+                    let tx = tx.clone();
+                    let stage_inputs = &stage_inputs;
+
+                    scope.spawn(move || {
+                        let result = execute_definition_node(node, stage_inputs);
+                        tx.send((node.id.clone(), result))
+                            .expect("stage result receiver should stay open");
+                    });
+                }
+
+                drop(tx);
+
+                let mut stage_error = None;
+
+                for (node_id, result) in rx {
+                    match result {
+                        Ok(result) => {
+                            outputs.insert(node_id.clone(), result.clone());
+
+                            emit_event(
+                                &mut sequence,
+                                &mut emit,
+                                json!({
+                                    "run_id": run_id,
+                                    "type": "node_completed",
+                                    "node_id": node_id,
+                                    "result": result,
+                                }),
+                            );
+                        }
+                        Err(error) => {
+                            emit_event(
+                                &mut sequence,
+                                &mut emit,
+                                json!({
+                                    "run_id": run_id,
+                                    "type": "node_failed",
+                                    "node_id": node_id,
+                                    "error": workflow_error_message(&error),
+                                }),
+                            );
+
+                            if stage_error.is_none() {
+                                stage_error = Some(error);
+                            }
+                        }
                     }
-                };
-                outputs.insert(node.id.clone(), result.clone());
+                }
 
-                emit_event(
-                    &mut sequence,
-                    &mut emit,
-                    json!({
-                        "run_id": run_id,
-                        "type": "node_completed",
-                        "node_id": node.id,
-                        "result": result,
-                    }),
-                );
+                stage_error
+            });
+
+            if let Some(error) = stage_error {
+                emit_workflow_failed(run_id, &self.id, &mut sequence, &mut emit, &error);
+                return Err(error);
             }
         }
 
@@ -230,6 +267,10 @@ pub struct NodeDefinition {
     pub duration_ms: u64,
     #[serde(default)]
     pub error: String,
+    #[serde(default)]
+    pub prompt: String,
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -238,6 +279,7 @@ pub enum NodeKind {
     Constant,
     Delay,
     Fail,
+    Pi,
     Template,
 }
 
@@ -300,8 +342,45 @@ fn execute_definition_node(
                 message,
             })
         }
+        NodeKind::Pi => execute_pi_node(node, outputs),
         NodeKind::Template => Ok(render_template(&node.template, outputs).into()),
     }
+}
+
+fn execute_pi_node(
+    node: &NodeDefinition,
+    outputs: &BTreeMap<String, Value>,
+) -> Result<Value, WorkflowError> {
+    let pi = Pi::new(Agent::new(
+        "pi.pipeline_advisor",
+        "Pi Pipeline Advisor",
+        "Use Pi CLI to generate workflow recommendations.",
+    ));
+    let prompt = format!("{}\n\nInput: {}", node.prompt, json!(outputs));
+    let mut request = CommandRequest::new(prompt);
+
+    if let Some(model) = node.model.as_deref().filter(|model| !model.is_empty()) {
+        request = request.with_model(model);
+    }
+
+    let output = pi
+        .run(&request)
+        .map_err(|error| WorkflowError::AgentCommandIo {
+            message: error.to_string(),
+        })?;
+
+    if output.status_code != Some(0) {
+        return Err(WorkflowError::AgentCommandFailed {
+            status_code: output.status_code,
+            stderr: output.stderr,
+        });
+    }
+
+    Ok(json!({
+        "status_code": output.status_code,
+        "stdout": output.stdout,
+        "stderr": output.stderr,
+    }))
 }
 
 fn render_template(template: &str, outputs: &BTreeMap<String, Value>) -> String {

@@ -80,6 +80,9 @@ private struct EventRow: View {
     }
 
     private var symbolName: String {
+        if event.title.contains("failed") {
+            return "xmark.octagon.fill"
+        }
         if event.nodeID == nil {
             return event.title.contains("completed") ? "flag.checkered" : "bolt.fill"
         }
@@ -87,6 +90,9 @@ private struct EventRow: View {
     }
 
     private var symbolColor: Color {
+        if event.title.contains("failed") {
+            return Color(red: 0.96, green: 0.45, blue: 0.45)
+        }
         if event.nodeID == nil {
             return AppTheme.accent
         }

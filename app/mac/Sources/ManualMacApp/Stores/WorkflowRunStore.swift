@@ -24,8 +24,16 @@ final class WorkflowRunStore: ObservableObject {
         nodes.filter { $0.status == .succeeded }.count
     }
 
+    var failedCount: Int {
+        nodes.filter { $0.status == .failed }.count
+    }
+
     var progressText: String {
-        "\(completedCount) of \(nodes.count) nodes"
+        if failedCount > 0 {
+            return "\(completedCount) succeeded, \(failedCount) failed"
+        }
+
+        return "\(completedCount) of \(nodes.count) nodes"
     }
 
     func selectNode(_ id: String) {
@@ -69,7 +77,6 @@ final class WorkflowRunStore: ObservableObject {
 
             for event in page.events {
                 applyServerEvent(event)
-                try? await Task.sleep(for: .milliseconds(320))
             }
 
             if !completed {
@@ -89,6 +96,12 @@ final class WorkflowRunStore: ObservableObject {
             appendEvent(nodeID: nil, title: "Workflow started", detail: BusinessWorkflowExample.workflowID)
         case "workflow_completed":
             appendEvent(nodeID: nil, title: "Workflow completed", detail: "Operator digest is ready")
+        case "workflow_failed":
+            appendEvent(
+                nodeID: nil,
+                title: "Workflow failed",
+                detail: displayString(for: event["error"])
+            )
         case "node_started":
             if let nodeID {
                 mark(nodeID, as: .running)
@@ -99,6 +112,12 @@ final class WorkflowRunStore: ObservableObject {
                 let result = displayString(for: event["result"])
                 complete(nodeID, result: result)
                 appendEvent(nodeID: nodeID, title: "Node completed", detail: result)
+            }
+        case "node_failed":
+            if let nodeID {
+                let error = displayString(for: event["error"])
+                fail(nodeID, error: error)
+                appendEvent(nodeID: nodeID, title: "Node failed", detail: error)
             }
         default:
             appendEvent(nodeID: nodeID, title: type, detail: displayString(for: event))
@@ -119,6 +138,13 @@ final class WorkflowRunStore: ObservableObject {
         guard let index = nodes.firstIndex(where: { $0.id == nodeID }) else { return }
         nodes[index].status = .succeeded
         nodes[index].result = result
+    }
+
+    private func fail(_ nodeID: String, error: String) {
+        guard let index = nodes.firstIndex(where: { $0.id == nodeID }) else { return }
+        nodes[index].status = .failed
+        nodes[index].result = error
+        selectedNodeID = nodeID
     }
 
     private func appendEvent(nodeID: String?, title: String, detail: String) {

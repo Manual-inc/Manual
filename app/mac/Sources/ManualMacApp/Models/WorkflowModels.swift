@@ -81,7 +81,14 @@ struct BusinessWorkflowExample {
             title: "Pi Recommendation",
             subtitle: "Risk and next action",
             kind: .agent,
-            position: CGPoint(x: 0.62, y: 0.45)
+            position: CGPoint(x: 0.58, y: 0.30)
+        ),
+        WorkflowNodeModel(
+            id: "chaos_script",
+            title: "Chaos Script",
+            subtitle: "Intentional script failure",
+            kind: .script,
+            position: CGPoint(x: 0.58, y: 0.66)
         ),
         WorkflowNodeModel(
             id: "operator_digest",
@@ -89,7 +96,7 @@ struct BusinessWorkflowExample {
             subtitle: "Final run summary",
             kind: .digest,
             position: CGPoint(x: 0.88, y: 0.45)
-        )
+        ),
     ]
 
     static let edges: [WorkflowEdgeModel] = [
@@ -97,17 +104,20 @@ struct BusinessWorkflowExample {
         WorkflowEdgeModel(from: "weekly_context", to: "support_health"),
         WorkflowEdgeModel(from: "sales_health", to: "pi_recommendation"),
         WorkflowEdgeModel(from: "support_health", to: "pi_recommendation"),
+        WorkflowEdgeModel(from: "pi_recommendation", to: "chaos_script"),
         WorkflowEdgeModel(from: "weekly_context", to: "operator_digest"),
         WorkflowEdgeModel(from: "sales_health", to: "operator_digest"),
         WorkflowEdgeModel(from: "support_health", to: "operator_digest"),
-        WorkflowEdgeModel(from: "pi_recommendation", to: "operator_digest")
+        WorkflowEdgeModel(from: "pi_recommendation", to: "operator_digest"),
+        WorkflowEdgeModel(from: "chaos_script", to: "operator_digest"),
     ]
 
     static let stages: [[String]] = [
         ["weekly_context"],
         ["sales_health", "support_health"],
         ["pi_recommendation"],
-        ["operator_digest"]
+        ["chaos_script"],
+        ["operator_digest"],
     ]
 
     static var jsonDefinition: [String: Any] {
@@ -120,8 +130,8 @@ struct BusinessWorkflowExample {
                     "value": [
                         "week": "2026-W19",
                         "business": "B2B SaaS",
-                        "goal": "Decide one light intervention for next week"
-                    ]
+                        "goal": "Decide one light intervention for next week",
+                    ],
                 ],
                 [
                     "id": "sales_health",
@@ -132,8 +142,8 @@ struct BusinessWorkflowExample {
                         "demos": 18,
                         "conversion_rate": 32.8,
                         "demo_rate": 42.9,
-                        "signal": "lead quality is acceptable but demo booking needs attention"
-                    ]
+                        "signal": "lead quality is acceptable but demo booking needs attention",
+                    ],
                 ],
                 [
                     "id": "support_health",
@@ -142,30 +152,39 @@ struct BusinessWorkflowExample {
                         "open_tickets": 37,
                         "stale_tickets": 9,
                         "stale_rate": 24.3,
-                        "signal": "stale tickets are the clearest retention risk"
-                    ]
+                        "signal": "stale tickets are the clearest retention risk",
+                    ],
                 ],
                 [
                     "id": "pi_recommendation",
-                    "kind": "template",
-                    "template": "Risk: {{support_health.signal}}. Next: reduce {{support_health.stale_tickets}} stale tickets before tuning demo booking."
+                    "kind": "pi",
+                    "prompt":
+                        "You are reviewing a tiny weekly business health workflow. Based only on the input, return exactly two short bullet points: one risk and one next action.",
+                ],
+                [
+                    "id": "chaos_script",
+                    "kind": "fail",
+                    "error": "script panic: simulated Rust script failure after recommendation",
                 ],
                 [
                     "id": "operator_digest",
                     "kind": "template",
-                    "template": "Weekly digest for {{weekly_context.business}}: {{sales_health.qualified}} qualified leads, {{support_health.open_tickets}} open tickets. Recommendation: {{pi_recommendation}}"
-                ]
+                    "template":
+                        "Weekly digest for {{weekly_context.business}}: {{sales_health.qualified}} qualified leads, {{support_health.open_tickets}} open tickets. Recommendation: {{pi_recommendation}}",
+                ],
             ],
             "dependencies": [
                 ["node": "sales_health", "depends_on": "weekly_context"],
                 ["node": "support_health", "depends_on": "weekly_context"],
                 ["node": "pi_recommendation", "depends_on": "sales_health"],
                 ["node": "pi_recommendation", "depends_on": "support_health"],
+                ["node": "chaos_script", "depends_on": "pi_recommendation"],
                 ["node": "operator_digest", "depends_on": "weekly_context"],
                 ["node": "operator_digest", "depends_on": "sales_health"],
                 ["node": "operator_digest", "depends_on": "support_health"],
-                ["node": "operator_digest", "depends_on": "pi_recommendation"]
-            ]
+                ["node": "operator_digest", "depends_on": "pi_recommendation"],
+                ["node": "operator_digest", "depends_on": "chaos_script"],
+            ],
         ]
     }
 }
