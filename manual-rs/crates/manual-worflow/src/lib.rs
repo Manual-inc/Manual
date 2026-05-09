@@ -5,7 +5,7 @@ use std::thread;
 use std::time::Duration;
 
 use manual_agent::{Agent, AgentCommand, CommandRequest, pi::Pi};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 pub const MAX_NODE_ID_LEN: usize = 128;
@@ -100,7 +100,7 @@ pub enum WorkflowValue {
     Object(BTreeMap<String, WorkflowValue>),
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct WorkflowDefinition {
     pub id: String,
     pub nodes: Vec<NodeDefinition>,
@@ -255,7 +255,7 @@ impl WorkflowDefinition {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct NodeDefinition {
     pub id: String,
     pub kind: NodeKind,
@@ -273,7 +273,7 @@ pub struct NodeDefinition {
     pub model: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeKind {
     Constant,
@@ -283,7 +283,7 @@ pub enum NodeKind {
     Template,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DependencyDefinition {
     pub node: String,
     pub depends_on: String,

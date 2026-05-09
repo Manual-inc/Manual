@@ -1,10 +1,14 @@
 use app_server::AppServer;
 use serde_json::{Value, json};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
+
+static STORAGE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
 fn json_rpc_create_start_and_stream_workflow_events() {
-    let server = AppServer::new();
+    let server = test_server();
 
     let create = server.handle_json(
         &json!({
@@ -127,7 +131,7 @@ fn json_rpc_create_start_and_stream_workflow_events() {
 
 #[test]
 fn workflow_start_runs_in_background_and_events_can_poll_progress() {
-    let server = AppServer::new();
+    let server = test_server();
 
     server.handle_json(
         &json!({
@@ -207,7 +211,7 @@ fn workflow_start_runs_in_background_and_events_can_poll_progress() {
 
 #[test]
 fn workflow_events_reports_background_execution_failure() {
-    let server = AppServer::new();
+    let server = test_server();
 
     server.handle_json(
         &json!({
@@ -286,7 +290,7 @@ fn workflow_events_reports_background_execution_failure() {
 
 #[test]
 fn template_nodes_can_reference_scalar_upstream_results() {
-    let server = AppServer::new();
+    let server = test_server();
 
     server.handle_json(
         &json!({
@@ -346,6 +350,345 @@ fn template_nodes_can_reference_scalar_upstream_results() {
     );
 }
 
+#[test]
+fn json_rpc_can_read_list_update_and_delete_workflows() {
+    let server = test_server();
+
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "workflow.create",
+            "params": {
+                "workflow": {
+                    "id": "crud-review",
+                    "nodes": [
+                        {
+                            "id": "message",
+                            "kind": "template",
+                            "template": "first draft"
+                        }
+                    ]
+                }
+            }
+        })
+        .to_string(),
+    );
+
+    let get: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "workflow.get",
+                "params": {
+                    "workflow_id": "crud-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(get["result"]["workflow"]["id"], "crud-review");
+    assert_eq!(
+        get["result"]["workflow"]["nodes"][0]["template"],
+        "first draft"
+    );
+
+    let list: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "workflow.list"
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(
+        list["result"]["workflows"],
+        json!([
+            {
+                "workflow_id": "crud-review",
+                "node_count": 1
+            }
+        ])
+    );
+
+    let update: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "workflow.update",
+                "params": {
+                    "workflow_id": "crud-review",
+                    "workflow": {
+                        "id": "crud-review",
+                        "nodes": [
+                            {
+                                "id": "message",
+                                "kind": "template",
+                                "template": "final draft"
+                            },
+                            {
+                                "id": "done",
+                                "kind": "template",
+                                "template": "published"
+                            }
+                        ],
+                        "dependencies": [
+                            {
+                                "node": "done",
+                                "depends_on": "message"
+                            }
+                        ]
+                    }
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(
+        update["result"],
+        json!({
+            "workflow_id": "crud-review",
+            "node_count": 2
+        })
+    );
+
+    let updated: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "workflow.get",
+                "params": {
+                    "workflow_id": "crud-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(
+        updated["result"]["workflow"]["nodes"][0]["template"],
+        "final draft"
+    );
+    assert_eq!(
+        updated["result"]["workflow"]["nodes"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    let delete: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "workflow.delete",
+                "params": {
+                    "workflow_id": "crud-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(
+        delete["result"],
+        json!({
+            "workflow_id": "crud-review",
+            "deleted": true
+        })
+    );
+
+    let missing_after_delete: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "workflow.get",
+                "params": {
+                    "workflow_id": "crud-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(missing_after_delete["error"]["code"], -32000);
+    assert_eq!(
+        missing_after_delete["error"]["message"],
+        "workflow not found"
+    );
+}
+
+#[test]
+fn workflows_are_loaded_from_storage_after_server_restart() {
+    let storage_dir = unique_storage_dir("restart");
+    let first_server = AppServer::with_storage_dir(&storage_dir);
+
+    let create: Value = serde_json::from_str(
+        &first_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "workflow.create",
+                "params": {
+                    "workflow": {
+                        "id": "durable-review",
+                        "nodes": [
+                            {
+                                "id": "message",
+                                "kind": "template",
+                                "template": "survives restart"
+                            }
+                        ]
+                    }
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    assert_eq!(create["result"]["workflow_id"], "durable-review");
+
+    let restarted_server = AppServer::with_storage_dir(&storage_dir);
+    let get: Value = serde_json::from_str(
+        &restarted_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "workflow.get",
+                "params": {
+                    "workflow_id": "durable-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(get["result"]["workflow"]["id"], "durable-review");
+    assert_eq!(
+        get["result"]["workflow"]["nodes"][0]["template"],
+        "survives restart"
+    );
+
+    let list: Value = serde_json::from_str(
+        &restarted_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "workflow.list"
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(
+        list["result"]["workflows"],
+        json!([
+            {
+                "workflow_id": "durable-review",
+                "node_count": 1
+            }
+        ])
+    );
+
+    let update: Value = serde_json::from_str(
+        &restarted_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "workflow.update",
+                "params": {
+                    "workflow_id": "durable-review",
+                    "workflow": {
+                        "id": "durable-review",
+                        "nodes": [
+                            {
+                                "id": "message",
+                                "kind": "template",
+                                "template": "updated after restart"
+                            }
+                        ]
+                    }
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    assert_eq!(update["result"]["workflow_id"], "durable-review");
+
+    let updated_server = AppServer::with_storage_dir(&storage_dir);
+    let updated: Value = serde_json::from_str(
+        &updated_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "workflow.get",
+                "params": {
+                    "workflow_id": "durable-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    assert_eq!(
+        updated["result"]["workflow"]["nodes"][0]["template"],
+        "updated after restart"
+    );
+
+    let delete: Value = serde_json::from_str(
+        &updated_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "workflow.delete",
+                "params": {
+                    "workflow_id": "durable-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    assert_eq!(delete["result"]["deleted"], true);
+
+    let deleted_server = AppServer::with_storage_dir(&storage_dir);
+    let missing: Value = serde_json::from_str(
+        &deleted_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "workflow.get",
+                "params": {
+                    "workflow_id": "durable-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(missing["error"]["code"], -32000);
+}
+
 fn poll_events_until(
     server: &AppServer,
     run_id: &str,
@@ -378,4 +721,18 @@ fn poll_events_until(
         assert!(Instant::now() < deadline, "timed out waiting for events");
         std::thread::sleep(Duration::from_millis(5));
     }
+}
+
+fn test_server() -> AppServer {
+    AppServer::with_storage_dir(unique_storage_dir("json-rpc-workflow"))
+}
+
+fn unique_storage_dir(name: &str) -> PathBuf {
+    let counter = STORAGE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let unique = format!(
+        "{name}-{}-{:?}-{counter}",
+        std::process::id(),
+        std::thread::current().id()
+    );
+    std::env::temp_dir().join("manual-rs-tests").join(unique)
 }
