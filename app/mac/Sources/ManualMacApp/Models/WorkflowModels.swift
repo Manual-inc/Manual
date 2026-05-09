@@ -22,6 +22,19 @@ enum WorkflowNodeKind: String {
     case script = "Rust Script"
     case agent = "Pi Agent"
     case digest = "Digest"
+
+    static func serverKind(_ value: String) -> WorkflowNodeKind {
+        switch value {
+        case "constant":
+            .context
+        case "pi":
+            .agent
+        case "template":
+            .digest
+        default:
+            .script
+        }
+    }
 }
 
 struct WorkflowNodeModel: Identifiable, Equatable {
@@ -49,6 +62,128 @@ struct WorkflowEventModel: Identifiable, Equatable {
     let nodeID: String?
     let title: String
     let detail: String
+}
+
+struct WorkflowDisplayModel {
+    let workflowID: String
+    let nodes: [WorkflowNodeModel]
+    let edges: [WorkflowEdgeModel]
+}
+
+enum WorkflowDisplayBuilder {
+    static func build(from workflow: [String: Any]) -> WorkflowDisplayModel {
+        let workflowID = workflow["id"] as? String ?? "untitled-workflow"
+        let nodeObjects = workflow["nodes"] as? [[String: Any]] ?? []
+        let dependencyObjects = workflow["dependencies"] as? [[String: Any]] ?? []
+        let nodeIDs = nodeObjects.compactMap { $0["id"] as? String }
+        let stages = layoutStages(nodeIDs: nodeIDs, dependencies: dependencyObjects)
+        let positions = positionsByNodeID(stages: stages)
+
+        let nodes = nodeObjects.enumerated().compactMap { offset, object -> WorkflowNodeModel? in
+            guard let id = object["id"] as? String else { return nil }
+            let serverKind = object["kind"] as? String ?? "template"
+            return WorkflowNodeModel(
+                id: id,
+                title: title(for: id),
+                subtitle: subtitle(for: object),
+                kind: WorkflowNodeKind.serverKind(serverKind),
+                position: positions[id] ?? fallbackPosition(offset: offset, count: max(nodeObjects.count, 1))
+            )
+        }
+
+        let edges = dependencyObjects.compactMap { dependency -> WorkflowEdgeModel? in
+            guard
+                let from = dependency["depends_on"] as? String,
+                let to = dependency["node"] as? String
+            else { return nil }
+
+            return WorkflowEdgeModel(from: from, to: to)
+        }
+
+        return WorkflowDisplayModel(workflowID: workflowID, nodes: nodes, edges: edges)
+    }
+
+    private static func layoutStages(nodeIDs: [String], dependencies: [[String: Any]]) -> [[String]] {
+        var remaining = Set(nodeIDs)
+        var completed = Set<String>()
+        var stages: [[String]] = []
+
+        while !remaining.isEmpty {
+            let ready = remaining
+                .filter { nodeID in
+                    dependencies
+                        .filter { $0["node"] as? String == nodeID }
+                        .allSatisfy { dependency in
+                            guard let upstream = dependency["depends_on"] as? String else { return true }
+                            return completed.contains(upstream)
+                        }
+                }
+                .sorted()
+
+            let stage = ready.isEmpty ? remaining.sorted() : ready
+            stages.append(stage)
+            completed.formUnion(stage)
+            remaining.subtract(stage)
+        }
+
+        return stages
+    }
+
+    private static func positionsByNodeID(stages: [[String]]) -> [String: CGPoint] {
+        var positions: [String: CGPoint] = [:]
+        let stageCount = max(stages.count, 1)
+
+        for (stageIndex, stage) in stages.enumerated() {
+            let x = stageCount == 1
+                ? 0.50
+                : 0.12 + (0.76 * CGFloat(stageIndex) / CGFloat(stageCount - 1))
+            let rowCount = max(stage.count, 1)
+
+            for (rowIndex, nodeID) in stage.enumerated() {
+                let y = rowCount == 1
+                    ? 0.50
+                    : 0.24 + (0.52 * CGFloat(rowIndex) / CGFloat(rowCount - 1))
+                positions[nodeID] = CGPoint(x: x, y: y)
+            }
+        }
+
+        return positions
+    }
+
+    private static func fallbackPosition(offset: Int, count: Int) -> CGPoint {
+        CGPoint(
+            x: 0.15 + (0.70 * CGFloat(offset) / CGFloat(max(count - 1, 1))),
+            y: 0.50
+        )
+    }
+
+    private static func title(for id: String) -> String {
+        id
+            .split(separator: "_")
+            .map { word in
+                word.prefix(1).uppercased() + word.dropFirst()
+            }
+            .joined(separator: " ")
+    }
+
+    private static func subtitle(for object: [String: Any]) -> String {
+        let kind = object["kind"] as? String ?? "template"
+
+        switch kind {
+        case "constant":
+            return "Constant payload"
+        case "delay":
+            return "\(object["duration_ms"] as? Int ?? 0) ms delay"
+        case "fail":
+            return object["error"] as? String ?? "Failure node"
+        case "pi":
+            return object["model"] as? String ?? "Pi agent"
+        case "template":
+            return object["template"] as? String ?? "Template"
+        default:
+            return kind
+        }
+    }
 }
 
 struct BusinessWorkflowExample {

@@ -3,7 +3,7 @@ import Foundation
 enum AppServerClientError: Error, LocalizedError {
     case binaryNotFound
     case emptyResponse
-    case rpcError(String)
+    case rpcError(Int, String)
     case invalidResponse
 
     var errorDescription: String? {
@@ -12,25 +12,75 @@ enum AppServerClientError: Error, LocalizedError {
             "The app-server binary was not found."
         case .emptyResponse:
             "The app-server process returned an empty response."
-        case let .rpcError(message):
-            message
+        case let .rpcError(code, message):
+            "app-server error \(code): \(message)"
         case .invalidResponse:
             "The app-server response was not valid JSON-RPC."
         }
     }
 }
 
-actor AppServerClient {
+@MainActor
+final class AppServerClient {
     private var process: Process?
     private var input: FileHandle?
     private var output: FileHandle?
     private var nextID = 1
 
-    func createWorkflow(_ workflow: [String: Any]) async throws {
-        _ = try await request(
+    func createWorkflow(_ workflow: [String: Any]) async throws -> WorkflowMutationResult {
+        let result = try await request(
             method: "workflow.create",
             params: ["workflow": workflow]
         )
+        return try WorkflowMutationResult(result)
+    }
+
+    func workflow(id workflowID: String) async throws -> [String: Any] {
+        let result = try await request(
+            method: "workflow.get",
+            params: ["workflow_id": workflowID]
+        )
+
+        guard
+            let object = result as? [String: Any],
+            let workflow = object["workflow"] as? [String: Any]
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        return workflow
+    }
+
+    func workflows() async throws -> [WorkflowSummary] {
+        let result = try await request(method: "workflow.list", params: [:])
+
+        guard
+            let object = result as? [String: Any],
+            let workflows = object["workflows"] as? [[String: Any]]
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        return try workflows.map(WorkflowSummary.init)
+    }
+
+    func updateWorkflow(id workflowID: String, workflow: [String: Any]) async throws -> WorkflowMutationResult {
+        let result = try await request(
+            method: "workflow.update",
+            params: [
+                "workflow_id": workflowID,
+                "workflow": workflow
+            ]
+        )
+        return try WorkflowMutationResult(result)
+    }
+
+    func deleteWorkflow(id workflowID: String) async throws -> WorkflowDeleteResult {
+        let result = try await request(
+            method: "workflow.delete",
+            params: ["workflow_id": workflowID]
+        )
+        return try WorkflowDeleteResult(result)
     }
 
     func startWorkflow(id workflowID: String) async throws -> String {
@@ -62,12 +112,13 @@ actor AppServerClient {
             let object = result as? [String: Any],
             let events = object["events"] as? [[String: Any]],
             let nextCursor = object["next_cursor"] as? Int,
-            let completed = object["completed"] as? Bool
+            let completed = object["completed"] as? Bool,
+            let run = object["run"] as? [String: Any]
         else {
             throw AppServerClientError.invalidResponse
         }
 
-        return WorkflowEventsPage(events: events, nextCursor: nextCursor, completed: completed)
+        return WorkflowEventsPage(events: events, nextCursor: nextCursor, completed: completed, run: run)
     }
 
     private func request(method: String, params: [String: Any]) async throws -> Any {
@@ -102,7 +153,10 @@ actor AppServerClient {
         }
 
         if let error = object["error"] as? [String: Any] {
-            throw AppServerClientError.rpcError(error["message"] as? String ?? "JSON-RPC error")
+            throw AppServerClientError.rpcError(
+                error["code"] as? Int ?? 0,
+                error["message"] as? String ?? "JSON-RPC error"
+            )
         }
 
         guard let result = object["result"] else {
@@ -124,8 +178,14 @@ actor AppServerClient {
         let process = Process()
         let stdin = Pipe()
         let stdout = Pipe()
+        let workflowStorageURL = try workflowStorageDirectory()
 
         process.executableURL = URL(fileURLWithPath: binary)
+        process.currentDirectoryURL = workflowStorageURL
+        process.environment = ProcessInfo.processInfo.environment.merging(
+            ["MANUAL_RS_WORKFLOW_DIR": workflowStorageURL.path],
+            uniquingKeysWith: { _, newValue in newValue }
+        )
         process.standardInput = stdin
         process.standardOutput = stdout
         process.standardError = FileHandle.standardError
@@ -161,12 +221,92 @@ actor AppServerClient {
 
         return nil
     }
+
+    private func workflowStorageDirectory() throws -> URL {
+        let applicationSupportURL = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let storageURL = applicationSupportURL
+            .appendingPathComponent("ManualMac", isDirectory: true)
+            .appendingPathComponent("workflows", isDirectory: true)
+
+        try FileManager.default.createDirectory(
+            at: storageURL,
+            withIntermediateDirectories: true
+        )
+
+        return storageURL
+    }
+}
+
+struct WorkflowSummary: Identifiable, Equatable, Sendable {
+    let workflowID: String
+    let nodeCount: Int
+
+    var id: String { workflowID }
+
+    init(workflowID: String, nodeCount: Int) {
+        self.workflowID = workflowID
+        self.nodeCount = nodeCount
+    }
+
+    init(_ object: [String: Any]) throws {
+        guard
+            let workflowID = object["workflow_id"] as? String,
+            let nodeCount = object["node_count"] as? Int
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        self.workflowID = workflowID
+        self.nodeCount = nodeCount
+    }
+}
+
+struct WorkflowMutationResult: Sendable {
+    let workflowID: String
+    let nodeCount: Int
+
+    init(_ result: Any) throws {
+        guard
+            let object = result as? [String: Any],
+            let workflowID = object["workflow_id"] as? String,
+            let nodeCount = object["node_count"] as? Int
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        self.workflowID = workflowID
+        self.nodeCount = nodeCount
+    }
+}
+
+struct WorkflowDeleteResult: Sendable {
+    let workflowID: String
+    let deleted: Bool
+
+    init(_ result: Any) throws {
+        guard
+            let object = result as? [String: Any],
+            let workflowID = object["workflow_id"] as? String,
+            let deleted = object["deleted"] as? Bool
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        self.workflowID = workflowID
+        self.deleted = deleted
+    }
 }
 
 struct WorkflowEventsPage: @unchecked Sendable {
     let events: [[String: Any]]
     let nextCursor: Int
     let completed: Bool
+    let run: [String: Any]
 }
 
 private extension FileHandle {

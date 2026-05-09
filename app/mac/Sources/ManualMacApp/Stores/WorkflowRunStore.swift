@@ -2,17 +2,25 @@ import Foundation
 
 @MainActor
 final class WorkflowRunStore: ObservableObject {
+    @Published private(set) var workflows: [WorkflowSummary] = []
     @Published private(set) var nodes = BusinessWorkflowExample.nodes
     @Published private(set) var edges = BusinessWorkflowExample.edges
     @Published private(set) var events: [WorkflowEventModel] = []
     @Published private(set) var isRunning = false
+    @Published private(set) var isLoading = false
     @Published private(set) var selectedNodeID: String? = BusinessWorkflowExample.nodes.first?.id
+    @Published private(set) var selectedWorkflowID: String? = BusinessWorkflowExample.workflowID
     @Published private(set) var runID: String?
+    @Published private(set) var statusMessage = "Ready"
+    @Published private(set) var rawWorkflowJSON = "{}"
 
     private let client: AppServerClient
+    private var currentWorkflow = BusinessWorkflowExample.jsonDefinition
 
     init(client: AppServerClient = AppServerClient()) {
         self.client = client
+        syncDisplay(with: currentWorkflow)
+        rawWorkflowJSON = prettyJSONString(currentWorkflow)
     }
 
     var selectedNode: WorkflowNodeModel? {
@@ -36,32 +44,173 @@ final class WorkflowRunStore: ObservableObject {
         return "\(completedCount) of \(nodes.count) nodes"
     }
 
+    var hasSelectedWorkflow: Bool {
+        selectedWorkflowID != nil
+    }
+
     func selectNode(_ id: String) {
         selectedNodeID = id
     }
 
+    func bootstrap() {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.refreshWorkflows(createExampleIfMissing: true)
+        }
+    }
+
+    func refresh() {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.refreshWorkflows(createExampleIfMissing: false)
+        }
+    }
+
+    func selectWorkflow(_ workflowID: String) {
+        guard selectedWorkflowID != workflowID else { return }
+        selectedWorkflowID = workflowID
+        Task { [weak self] in
+            guard let self else { return }
+            await self.loadWorkflow(id: workflowID)
+        }
+    }
+
+    func saveSelectedWorkflow() {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.persistCurrentWorkflow()
+        }
+    }
+
+    func deleteSelectedWorkflow() {
+        guard let workflowID = selectedWorkflowID, !isRunning else { return }
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.deleteWorkflow(id: workflowID)
+        }
+    }
+
     func start() {
-        guard !isRunning else { return }
+        guard !isRunning, let workflowID = selectedWorkflowID else { return }
 
         isRunning = true
         runID = nil
         events.removeAll()
         resetNodes()
+        statusMessage = "Starting \(workflowID)"
 
         Task { [weak self] in
             guard let self else { return }
-            await self.startViaJSONRPC()
+            await self.startViaJSONRPC(workflowID: workflowID)
         }
     }
 
-    private func startViaJSONRPC() async {
+    private func refreshWorkflows(createExampleIfMissing: Bool) async {
+        isLoading = true
+        defer { isLoading = false }
+
         do {
-            try await client.createWorkflow(BusinessWorkflowExample.jsonDefinition)
-            let runID = try await client.startWorkflow(id: BusinessWorkflowExample.workflowID)
+            var summaries = try await client.workflows()
+
+            if createExampleIfMissing && !summaries.contains(where: { $0.workflowID == BusinessWorkflowExample.workflowID }) {
+                let result = try await client.createWorkflow(BusinessWorkflowExample.jsonDefinition)
+                summaries.append(WorkflowSummary(workflowID: result.workflowID, nodeCount: result.nodeCount))
+                summaries.sort { $0.workflowID < $1.workflowID }
+            }
+
+            workflows = summaries
+
+            if let selectedWorkflowID, summaries.contains(where: { $0.workflowID == selectedWorkflowID }) {
+                await loadWorkflow(id: selectedWorkflowID)
+            } else if let first = summaries.first {
+                selectedWorkflowID = first.workflowID
+                await loadWorkflow(id: first.workflowID)
+            } else {
+                selectedWorkflowID = BusinessWorkflowExample.workflowID
+                currentWorkflow = BusinessWorkflowExample.jsonDefinition
+                syncDisplay(with: currentWorkflow)
+                rawWorkflowJSON = prettyJSONString(currentWorkflow)
+            }
+
+            statusMessage = "\(summaries.count) workflow\(summaries.count == 1 ? "" : "s") loaded"
+        } catch {
+            statusMessage = error.localizedDescription
+            appendEvent(nodeID: nil, title: "Refresh failed", detail: error.localizedDescription)
+        }
+    }
+
+    private func loadWorkflow(id workflowID: String) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let workflow = try await client.workflow(id: workflowID)
+            currentWorkflow = workflow
+            selectedWorkflowID = workflow["id"] as? String ?? workflowID
+            syncDisplay(with: workflow)
+            rawWorkflowJSON = prettyJSONString(workflow)
+            statusMessage = "Loaded \(workflowID)"
+        } catch {
+            statusMessage = error.localizedDescription
+            appendEvent(nodeID: nil, title: "Load failed", detail: error.localizedDescription)
+        }
+    }
+
+    private func persistCurrentWorkflow() async {
+        do {
+            let workflowID = currentWorkflow["id"] as? String ?? BusinessWorkflowExample.workflowID
+            let exists = workflows.contains { $0.workflowID == workflowID }
+            let result = if exists {
+                try await client.updateWorkflow(id: workflowID, workflow: currentWorkflow)
+            } else {
+                try await client.createWorkflow(currentWorkflow)
+            }
+
+            selectedWorkflowID = result.workflowID
+            await refreshWorkflows(createExampleIfMissing: false)
+            statusMessage = "Saved \(result.workflowID)"
+        } catch {
+            statusMessage = error.localizedDescription
+            appendEvent(nodeID: nil, title: "Save failed", detail: error.localizedDescription)
+        }
+    }
+
+    private func deleteWorkflow(id workflowID: String) async {
+        do {
+            let result = try await client.deleteWorkflow(id: workflowID)
+            if result.deleted {
+                workflows.removeAll { $0.workflowID == workflowID }
+                events.removeAll()
+                runID = nil
+                statusMessage = "Deleted \(workflowID)"
+
+                if let next = workflows.first {
+                    selectedWorkflowID = next.workflowID
+                    await loadWorkflow(id: next.workflowID)
+                } else {
+                    selectedWorkflowID = BusinessWorkflowExample.workflowID
+                    currentWorkflow = BusinessWorkflowExample.jsonDefinition
+                    syncDisplay(with: currentWorkflow)
+                    rawWorkflowJSON = prettyJSONString(currentWorkflow)
+                }
+            }
+        } catch {
+            statusMessage = error.localizedDescription
+            appendEvent(nodeID: nil, title: "Delete failed", detail: error.localizedDescription)
+        }
+    }
+
+    private func startViaJSONRPC(workflowID: String) async {
+        do {
+            await persistCurrentWorkflow()
+            let runID = try await client.startWorkflow(id: workflowID)
             self.runID = runID
+            statusMessage = "Running \(runID)"
             try await streamEvents(runID: runID)
         } catch {
             appendEvent(nodeID: nil, title: "Workflow failed", detail: error.localizedDescription)
+            statusMessage = error.localizedDescription
             isRunning = false
         }
     }
@@ -78,13 +227,22 @@ final class WorkflowRunStore: ObservableObject {
             for event in page.events {
                 applyServerEvent(event)
             }
+            applyRunSummary(page.run)
 
             if !completed {
                 try? await Task.sleep(for: .milliseconds(350))
             }
         }
 
+        statusMessage = "Completed \(runID)"
         isRunning = false
+    }
+
+    private func syncDisplay(with workflow: [String: Any]) {
+        let display = WorkflowDisplayBuilder.build(from: workflow)
+        nodes = display.nodes.isEmpty ? BusinessWorkflowExample.nodes : display.nodes
+        edges = display.edges
+        selectedNodeID = nodes.first?.id
     }
 
     private func applyServerEvent(_ event: [String: Any]) {
@@ -93,9 +251,9 @@ final class WorkflowRunStore: ObservableObject {
 
         switch type {
         case "workflow_started":
-            appendEvent(nodeID: nil, title: "Workflow started", detail: BusinessWorkflowExample.workflowID)
+            appendEvent(nodeID: nil, title: "Workflow started", detail: selectedWorkflowID ?? "workflow")
         case "workflow_completed":
-            appendEvent(nodeID: nil, title: "Workflow completed", detail: "Operator digest is ready")
+            appendEvent(nodeID: nil, title: "Workflow completed", detail: "Run finished")
         case "workflow_failed":
             appendEvent(
                 nodeID: nil,
@@ -124,9 +282,13 @@ final class WorkflowRunStore: ObservableObject {
         }
     }
 
+    private func applyRunSummary(_ run: [String: Any]) {
+        guard let status = run["status"] as? String else { return }
+        statusMessage = "\(run["run_id"] as? String ?? "Run"): \(status)"
+    }
+
     private func resetNodes() {
-        nodes = BusinessWorkflowExample.nodes
-        selectedNodeID = nodes.first?.id
+        syncDisplay(with: currentWorkflow)
     }
 
     private func mark(_ nodeID: String, as status: WorkflowNodeStatus) {
@@ -185,4 +347,16 @@ final class WorkflowRunStore: ObservableObject {
             String(describing: value!)
         }
     }
+}
+
+private func prettyJSONString(_ object: [String: Any]) -> String {
+    guard
+        JSONSerialization.isValidJSONObject(object),
+        let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys]),
+        let string = String(data: data, encoding: .utf8)
+    else {
+        return "{}"
+    }
+
+    return string
 }

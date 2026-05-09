@@ -3,7 +3,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use manual_worflow::WorkflowDefinition;
+use manual_worflow::{WorkflowDefinition, WorkflowRun};
 
 #[derive(Clone)]
 pub(crate) struct WorkflowStore {
@@ -18,16 +18,32 @@ impl WorkflowStore {
     }
 
     pub(crate) fn load_workflows(&self) -> BTreeMap<String, WorkflowDefinition> {
-        let mut workflows = BTreeMap::new();
-        let entries = match fs::read_dir(&self.storage_dir) {
+        load_json_map(
+            &self.workflows_dir(),
+            "workflow",
+            |workflow: &WorkflowDefinition| workflow.id.clone(),
+        )
+    }
+
+    pub(crate) fn save_workflow(&self, workflow: &WorkflowDefinition) -> io::Result<()> {
+        self.save_json(&self.workflow_path(&workflow.id), workflow)
+    }
+
+    pub(crate) fn delete_workflow(&self, workflow_id: &str) -> io::Result<()> {
+        delete_file(self.workflow_path(workflow_id))
+    }
+
+    pub(crate) fn load_runs(&self) -> BTreeMap<String, WorkflowRun> {
+        let mut runs = BTreeMap::new();
+        let entries = match fs::read_dir(self.runs_dir()) {
             Ok(entries) => entries,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return workflows,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return runs,
             Err(error) => {
                 eprintln!(
-                    "failed to read workflow storage directory {}: {error}",
-                    self.storage_dir.display()
+                    "failed to read workflow run storage directory {}: {error}",
+                    self.runs_dir().display()
                 );
-                return workflows;
+                return runs;
             }
         };
 
@@ -37,53 +53,184 @@ impl WorkflowStore {
                 continue;
             }
 
+            let Some(run_id) = path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .and_then(hex_decode)
+            else {
+                continue;
+            };
+
             match fs::read_to_string(&path)
                 .ok()
-                .and_then(|content| serde_json::from_str::<WorkflowDefinition>(&content).ok())
+                .and_then(|content| serde_json::from_str::<WorkflowRun>(&content).ok())
             {
-                Some(workflow) => {
-                    workflows.insert(workflow.id.clone(), workflow);
+                Some(run) => {
+                    runs.insert(run_id, run);
                 }
                 None => {
-                    eprintln!("failed to load workflow file {}", path.display());
+                    eprintln!("failed to load workflow run file {}", path.display());
                 }
             }
         }
 
-        workflows
+        runs
     }
 
-    pub(crate) fn save(&self, workflow: &WorkflowDefinition) -> io::Result<()> {
-        fs::create_dir_all(&self.storage_dir)?;
-        let path = self.workflow_path(&workflow.id);
-        let content = serde_json::to_string_pretty(workflow).map_err(io::Error::other)?;
-        fs::write(path, content)
+    pub(crate) fn load_run(&self, run_id: &str) -> Option<WorkflowRun> {
+        fs::read_to_string(self.run_path(run_id))
+            .ok()
+            .and_then(|content| serde_json::from_str::<WorkflowRun>(&content).ok())
     }
 
-    pub(crate) fn delete(&self, workflow_id: &str) -> io::Result<()> {
-        let path = self.workflow_path(workflow_id);
-        match fs::remove_file(path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(error),
+    pub(crate) fn save_run(&self, run_id: &str, run: &WorkflowRun) -> io::Result<()> {
+        self.save_json(&self.run_path(run_id), run)
+    }
+
+    fn save_json<T: serde::Serialize>(&self, path: &Path, value: &T) -> io::Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
         }
+
+        let content = serde_json::to_string_pretty(value).map_err(io::Error::other)?;
+        let temporary_path = path.with_extension("json.tmp");
+        fs::write(&temporary_path, content)?;
+        fs::rename(temporary_path, path)
     }
 
     fn workflow_path(&self, workflow_id: &str) -> PathBuf {
-        self.storage_dir
+        self.workflows_dir()
             .join(format!("{}.json", hex_encode(workflow_id.as_bytes())))
+    }
+
+    fn run_path(&self, run_id: &str) -> PathBuf {
+        self.runs_dir()
+            .join(format!("{}.json", hex_encode(run_id.as_bytes())))
+    }
+
+    fn workflows_dir(&self) -> PathBuf {
+        self.storage_dir.join("workflows")
+    }
+
+    fn runs_dir(&self) -> PathBuf {
+        self.storage_dir.join("runs")
     }
 }
 
 pub(crate) fn default_workflow_storage_dir() -> PathBuf {
     if let Some(path) = std::env::var_os("MANUAL_RS_WORKFLOW_DIR") {
-        return PathBuf::from(path);
+        return default_workflow_storage_dir_from(
+            Some(Path::new(&path)),
+            &std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            macos_application_support_dir().as_deref(),
+            std::env::var_os("XDG_DATA_HOME").as_deref().map(Path::new),
+            std::env::var_os("HOME").as_deref().map(Path::new),
+        );
     }
 
-    std::env::current_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join(".manual-rs")
-        .join("workflows")
+    default_workflow_storage_dir_from(
+        None,
+        &std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+        macos_application_support_dir().as_deref(),
+        std::env::var_os("XDG_DATA_HOME").as_deref().map(Path::new),
+        std::env::var_os("HOME").as_deref().map(Path::new),
+    )
+}
+
+fn default_workflow_storage_dir_from(
+    override_dir: Option<&Path>,
+    current_dir: &Path,
+    macos_application_support_dir: Option<&Path>,
+    xdg_data_home: Option<&Path>,
+    home_dir: Option<&Path>,
+) -> PathBuf {
+    if let Some(path) = override_dir {
+        return path.to_path_buf();
+    }
+
+    if let Some(path) = macos_application_support_dir {
+        return path.join("Manual").join("workflows");
+    }
+
+    if let Some(path) = xdg_data_home {
+        return path.join("manual").join("workflows");
+    }
+
+    if let Some(path) = home_dir {
+        return path
+            .join(".local")
+            .join("share")
+            .join("manual")
+            .join("workflows");
+    }
+
+    current_dir.join(".manual-rs")
+}
+
+#[cfg(target_os = "macos")]
+fn macos_application_support_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .map(|home| home.join("Library").join("Application Support"))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn macos_application_support_dir() -> Option<PathBuf> {
+    None
+}
+
+fn load_json_map<T>(
+    storage_dir: &Path,
+    label: &str,
+    key_for_value: impl Fn(&T) -> String,
+) -> BTreeMap<String, T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let mut values = BTreeMap::new();
+    let entries = match fs::read_dir(storage_dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return values,
+        Err(error) => {
+            eprintln!(
+                "failed to read {label} storage directory {}: {error}",
+                storage_dir.display()
+            );
+            return values;
+        }
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+            continue;
+        }
+
+        match fs::read_to_string(&path)
+            .ok()
+            .and_then(|content| serde_json::from_str::<T>(&content).ok())
+        {
+            Some(value) => {
+                let key = key_for_value(&value);
+                if !key.is_empty() {
+                    values.insert(key, value);
+                }
+            }
+            None => {
+                eprintln!("failed to load {label} file {}", path.display());
+            }
+        }
+    }
+
+    values
+}
+
+fn delete_file(path: PathBuf) -> io::Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
@@ -96,4 +243,49 @@ fn hex_encode(bytes: &[u8]) -> String {
     }
 
     encoded
+}
+
+fn hex_decode(encoded: &str) -> Option<String> {
+    if !encoded.len().is_multiple_of(2) {
+        return None;
+    }
+
+    let mut bytes = Vec::with_capacity(encoded.len() / 2);
+    for chunk in encoded.as_bytes().chunks_exact(2) {
+        let high = hex_value(chunk[0])?;
+        let low = hex_value(chunk[1])?;
+        bytes.push((high << 4) | low);
+    }
+
+    String::from_utf8(bytes).ok()
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_storage_dir_uses_user_data_dir_when_env_override_is_absent() {
+        let storage_dir = default_workflow_storage_dir_from(
+            None,
+            Path::new("/"),
+            Some(Path::new("/Users/example/Library/Application Support")),
+            None,
+            None,
+        );
+
+        assert_eq!(
+            storage_dir,
+            PathBuf::from("/Users/example/Library/Application Support/Manual/workflows")
+        );
+    }
 }

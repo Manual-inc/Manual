@@ -13,6 +13,9 @@ struct ContentView: View {
                 LeftRail()
                     .frame(width: 56)
 
+                WorkflowSidebar(store: store)
+                    .frame(width: 260)
+
                 VStack(spacing: 0) {
                     TopBar(store: store, inspectorVisible: $inspectorVisible)
                         .frame(height: 54)
@@ -30,6 +33,7 @@ struct ContentView: View {
                             if bottomPanelVisible {
                                 BottomPanel(
                                     events: store.events,
+                                    rawWorkflowJSON: store.rawWorkflowJSON,
                                     onClose: {
                                         withAnimation(.easeInOut(duration: 0.18)) {
                                             bottomPanelVisible = false
@@ -63,6 +67,9 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            store.bootstrap()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .startExampleWorkflow)) { _ in
             store.start()
         }
@@ -114,6 +121,142 @@ private struct BrandLogo: View {
                 .font(.system(size: 17, weight: .black, design: .rounded))
                 .foregroundStyle(.white)
         }
+    }
+}
+
+private struct WorkflowSidebar: View {
+    @ObservedObject var store: WorkflowRunStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text("Workflows")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.text)
+                Spacer()
+                Button {
+                    store.refresh()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.textMuted)
+                        .frame(width: 26, height: 24)
+                }
+                .buttonStyle(.plain)
+                .disabled(store.isLoading)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(AppTheme.stroke).frame(height: 1)
+            }
+
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    ForEach(store.workflows) { workflow in
+                        WorkflowListRow(
+                            workflow: workflow,
+                            isSelected: workflow.workflowID == store.selectedWorkflowID
+                        ) {
+                            store.selectWorkflow(workflow.workflowID)
+                        }
+                    }
+                }
+                .padding(10)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(store.statusMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.textMuted)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 8) {
+                    SmallActionButton(symbol: "square.and.arrow.down", label: "Save") {
+                        store.saveSelectedWorkflow()
+                    }
+                    SmallActionButton(symbol: "trash", label: "Delete", isDestructive: true) {
+                        store.deleteSelectedWorkflow()
+                    }
+                    .disabled(!store.hasSelectedWorkflow || store.isRunning)
+                }
+            }
+            .padding(12)
+            .overlay(alignment: .top) {
+                Rectangle().fill(AppTheme.stroke).frame(height: 1)
+            }
+        }
+        .background(AppTheme.panel)
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(AppTheme.stroke).frame(width: 1)
+        }
+    }
+}
+
+private struct WorkflowListRow: View {
+    let workflow: WorkflowSummary
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: isSelected ? "flowchart.fill" : "flowchart")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.textMuted)
+                    .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(workflow.workflowID)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(1)
+                    Text("\(workflow.nodeCount) nodes")
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppTheme.textMuted)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? AppTheme.panelElev : Color.clear)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? AppTheme.strokeStrong : Color.clear, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct SmallActionButton: View {
+    let symbol: String
+    let label: String
+    var isDestructive = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: symbol)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(isDestructive ? Color(red: 0.96, green: 0.45, blue: 0.45) : AppTheme.text)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 7).fill(AppTheme.panelElev))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7).stroke(AppTheme.stroke, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -186,7 +329,12 @@ private struct TopBar: View {
             Spacer()
 
             HStack(spacing: 8) {
-                SecondaryButton(label: "Save")
+                SecondaryButton(label: "Save") {
+                    store.saveSelectedWorkflow()
+                }
+                SecondaryButton(label: "Refresh") {
+                    store.refresh()
+                }
                 ExecuteButton(isRunning: store.isRunning) {
                     store.start()
                 }
@@ -224,9 +372,10 @@ private struct TabPill: View {
 
 private struct SecondaryButton: View {
     let label: String
+    let action: () -> Void
 
     var body: some View {
-        Button {} label: {
+        Button(action: action) {
             Text(label)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(AppTheme.text)
@@ -340,14 +489,19 @@ private struct BottomToggle: View {
 
 private struct BottomPanel: View {
     let events: [WorkflowEventModel]
+    let rawWorkflowJSON: String
     let onClose: () -> Void
+    @State private var selectedTab: BottomPanelTab = .events
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 0) {
-                LogTab(label: "Executions", isActive: true)
-                LogTab(label: "Output", isActive: false)
-                LogTab(label: "JSON", isActive: false)
+                LogTab(label: "Executions", isActive: selectedTab == .events) {
+                    selectedTab = .events
+                }
+                LogTab(label: "JSON", isActive: selectedTab == .json) {
+                    selectedTab = .json
+                }
                 Spacer()
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -367,28 +521,49 @@ private struct BottomPanel: View {
                 Rectangle().fill(AppTheme.stroke).frame(height: 1)
             }
 
-            EventTimelineView(events: events)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if selectedTab == .events {
+                EventTimelineView(events: events)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AppTheme.panel)
+            } else {
+                ScrollView {
+                    Text(rawWorkflowJSON)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(AppTheme.textMuted)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                }
                 .background(AppTheme.panel)
+            }
         }
         .background(AppTheme.panel)
     }
 }
 
+private enum BottomPanelTab {
+    case events
+    case json
+}
+
 private struct LogTab: View {
     let label: String
     let isActive: Bool
+    let action: () -> Void
 
     var body: some View {
-        Text(label)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(isActive ? AppTheme.text : AppTheme.textMuted)
-            .padding(.horizontal, 18)
-            .frame(maxHeight: .infinity)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(isActive ? AppTheme.accent : Color.clear)
-                    .frame(height: 2)
-            }
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isActive ? AppTheme.text : AppTheme.textMuted)
+                .padding(.horizontal, 18)
+                .frame(maxHeight: .infinity)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(isActive ? AppTheme.accent : Color.clear)
+                        .frame(height: 2)
+                }
+        }
+        .buttonStyle(.plain)
     }
 }

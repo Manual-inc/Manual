@@ -289,7 +289,7 @@ pub struct DependencyDefinition {
     pub depends_on: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct WorkflowRun {
     events: Vec<Value>,
     completed: bool,

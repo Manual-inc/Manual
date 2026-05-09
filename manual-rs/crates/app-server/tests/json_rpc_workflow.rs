@@ -689,6 +689,95 @@ fn workflows_are_loaded_from_storage_after_server_restart() {
     assert_eq!(missing["error"]["code"], -32000);
 }
 
+#[test]
+fn run_events_and_node_state_are_loaded_from_storage_after_server_restart() {
+    let storage_dir = unique_storage_dir("run-restart");
+    let first_server = AppServer::with_storage_dir(&storage_dir);
+
+    first_server.handle_json(
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "workflow.create",
+            "params": {
+                "workflow": {
+                    "id": "durable-run",
+                    "nodes": [
+                        {
+                            "id": "pause",
+                            "kind": "delay",
+                            "duration_ms": 100
+                        },
+                        {
+                            "id": "message",
+                            "kind": "template",
+                            "template": "done"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "node": "message",
+                            "depends_on": "pause"
+                        }
+                    ]
+                }
+            }
+        })
+        .to_string(),
+    );
+
+    let start: Value = serde_json::from_str(
+        &first_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "workflow.start",
+                "params": {
+                    "workflow_id": "durable-run"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    let run_id = start["result"]["run_id"].as_str().unwrap();
+
+    let in_progress = poll_events_until(&first_server, run_id, 0, |events| {
+        events["result"]["run"]["status"] == "running"
+            && events["result"]["run"]["nodes"]["pause"]["status"] == "running"
+    });
+    let cursor_after_restart = in_progress["result"]["next_cursor"].as_u64().unwrap() as usize;
+
+    let restarted_server = AppServer::with_storage_dir(&storage_dir);
+    let resumed = poll_events_until(&restarted_server, run_id, cursor_after_restart, |events| {
+        events["result"]["completed"].as_bool().unwrap()
+    });
+
+    assert_eq!(resumed["result"]["completed"], true);
+    assert_eq!(resumed["result"]["run"]["status"], "completed");
+    assert_eq!(
+        resumed["result"]["run"]["nodes"]["pause"],
+        json!({
+            "status": "completed",
+            "result": null
+        })
+    );
+    assert_eq!(
+        resumed["result"]["run"]["nodes"]["message"],
+        json!({
+            "status": "completed",
+            "result": "done"
+        })
+    );
+    assert!(
+        resumed["result"]["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|event| event["type"] == "workflow_completed")
+    );
+}
+
 fn poll_events_until(
     server: &AppServer,
     run_id: &str,

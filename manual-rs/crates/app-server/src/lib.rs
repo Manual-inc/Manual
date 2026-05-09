@@ -5,7 +5,7 @@ use std::thread;
 
 use manual_worflow::{WorkflowDefinition, WorkflowRun};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 mod workflow_store;
 
@@ -27,8 +27,11 @@ impl AppServer {
 
     pub fn with_storage_dir(storage_dir: impl AsRef<Path>) -> Self {
         let workflow_store = WorkflowStore::new(storage_dir);
+        let runs = workflow_store.load_runs();
         let state = ServerState {
             workflows: workflow_store.load_workflows(),
+            next_run_number: next_run_number(&runs),
+            runs,
             ..ServerState::default()
         };
 
@@ -74,7 +77,7 @@ impl AppServer {
             .state
             .lock()
             .expect("server state lock should not poison");
-        if let Err(error) = self.workflow_store.save(&params.workflow) {
+        if let Err(error) = self.workflow_store.save_workflow(&params.workflow) {
             return rpc_error(id, -32002, error.to_string());
         }
 
@@ -147,7 +150,7 @@ impl AppServer {
             return rpc_error(id, -32000, "workflow not found");
         }
 
-        if let Err(error) = self.workflow_store.save(&params.workflow) {
+        if let Err(error) = self.workflow_store.save_workflow(&params.workflow) {
             return rpc_error(id, -32002, error.to_string());
         }
 
@@ -178,7 +181,7 @@ impl AppServer {
             return rpc_error(id, -32000, "workflow not found");
         }
 
-        if let Err(error) = self.workflow_store.delete(&params.workflow_id) {
+        if let Err(error) = self.workflow_store.delete_workflow(&params.workflow_id) {
             return rpc_error(id, -32002, error.to_string());
         }
 
@@ -211,7 +214,14 @@ impl AppServer {
         state.next_run_number += 1;
         let run_id = format!("run-{}", state.next_run_number);
         state.runs.insert(run_id.clone(), WorkflowRun::pending());
+        if let Some(run) = state.runs.get(&run_id) {
+            if let Err(error) = self.workflow_store.save_run(&run_id, run) {
+                state.runs.remove(&run_id);
+                return rpc_error(id, -32002, error.to_string());
+            }
+        }
         let state = Arc::clone(&self.state);
+        let workflow_store = self.workflow_store.clone();
         let thread_run_id = run_id.clone();
 
         thread::spawn(move || {
@@ -219,6 +229,9 @@ impl AppServer {
                 let mut state = state.lock().expect("server state lock should not poison");
                 if let Some(run) = state.runs.get_mut(&thread_run_id) {
                     run.record_event(event);
+                    if let Err(error) = workflow_store.save_run(&thread_run_id, run) {
+                        eprintln!("failed to persist workflow run {thread_run_id}: {error}");
+                    }
                 }
             });
 
@@ -232,6 +245,9 @@ impl AppServer {
                             "type": "workflow_failed",
                             "error": format!("{error:?}"),
                         }));
+                        if let Err(error) = workflow_store.save_run(&thread_run_id, run) {
+                            eprintln!("failed to persist workflow run {thread_run_id}: {error}");
+                        }
                     }
                 }
             }
@@ -246,10 +262,14 @@ impl AppServer {
             Err(error) => return rpc_error(id, -32602, error.to_string()),
         };
 
-        let state = self
+        let mut state = self
             .state
             .lock()
             .expect("server state lock should not poison");
+        if let Some(stored_run) = self.workflow_store.load_run(&params.run_id) {
+            state.runs.insert(params.run_id.clone(), stored_run);
+        }
+
         let run = match state.runs.get(&params.run_id) {
             Some(run) => run,
             None => return rpc_error(id, -32001, "run not found"),
@@ -268,6 +288,7 @@ impl AppServer {
                 "events": events,
                 "next_cursor": run.events().len(),
                 "completed": run.completed(),
+                "run": run_summary(&params.run_id, run),
             }),
         )
     }
@@ -284,6 +305,72 @@ struct ServerState {
     workflows: BTreeMap<String, WorkflowDefinition>,
     runs: BTreeMap<String, WorkflowRun>,
     next_run_number: u64,
+}
+
+fn next_run_number(runs: &BTreeMap<String, WorkflowRun>) -> u64 {
+    runs.keys()
+        .filter_map(|run_id| run_id.strip_prefix("run-"))
+        .filter_map(|run_number| run_number.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0)
+}
+
+fn run_summary(run_id: &str, run: &WorkflowRun) -> Value {
+    let mut nodes = Map::new();
+    let mut workflow_id = Value::Null;
+    let mut status = "pending";
+
+    for event in run.events() {
+        match event["type"].as_str() {
+            Some("workflow_started") => {
+                status = "running";
+                workflow_id = event["workflow_id"].clone();
+            }
+            Some("workflow_completed") => {
+                status = "completed";
+                workflow_id = event["workflow_id"].clone();
+            }
+            Some("workflow_failed") => {
+                status = "failed";
+                workflow_id = event["workflow_id"].clone();
+            }
+            Some("node_started") => {
+                if let Some(node_id) = event["node_id"].as_str() {
+                    nodes.insert(node_id.to_owned(), json!({ "status": "running" }));
+                }
+            }
+            Some("node_completed") => {
+                if let Some(node_id) = event["node_id"].as_str() {
+                    nodes.insert(
+                        node_id.to_owned(),
+                        json!({
+                            "status": "completed",
+                            "result": event["result"].clone(),
+                        }),
+                    );
+                }
+            }
+            Some("node_failed") => {
+                if let Some(node_id) = event["node_id"].as_str() {
+                    nodes.insert(
+                        node_id.to_owned(),
+                        json!({
+                            "status": "failed",
+                            "error": event["error"].clone(),
+                        }),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
+    json!({
+        "run_id": run_id,
+        "workflow_id": workflow_id,
+        "status": status,
+        "nodes": nodes,
+    })
 }
 
 #[derive(Deserialize)]
