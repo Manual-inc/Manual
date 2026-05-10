@@ -2,50 +2,68 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var store = WorkflowRunStore()
-    @State private var inspectorVisible = true
-    @State private var bottomPanelVisible = true
+    @SceneStorage("ManualMac.sidebarVisible") private var sidebarVisible = true
+    @SceneStorage("ManualMac.inspectorVisible") private var inspectorVisible = false
+    @SceneStorage("ManualMac.bottomPanelVisible") private var bottomPanelVisible = false
 
     var body: some View {
         ZStack {
             AppTheme.canvas.ignoresSafeArea()
 
             HStack(spacing: 0) {
-                LeftRail()
+                LeftRail(sidebarVisible: $sidebarVisible)
                     .frame(width: 56)
 
-                WorkflowSidebar(store: store)
-                    .frame(width: 260)
+                if sidebarVisible {
+                    WorkflowSidebar(store: store)
+                        .frame(width: 260)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
 
                 VStack(spacing: 0) {
-                    TopBar(store: store, inspectorVisible: $inspectorVisible)
+                    TopBar(
+                        store: store,
+                        sidebarVisible: $sidebarVisible,
+                        inspectorVisible: $inspectorVisible,
+                        bottomPanelVisible: $bottomPanelVisible
+                    )
                         .frame(height: 54)
 
                     HStack(spacing: 0) {
-                        VStack(spacing: 0) {
+                        ZStack(alignment: .bottom) {
                             WorkflowGraphView(
                                 nodes: store.nodes,
                                 edges: store.edges,
                                 selectedNodeID: store.selectedNodeID,
-                                onSelect: store.selectNode
+                                onSelect: { nodeID in
+                                    store.selectNode(nodeID)
+                                    withAnimation(.easeInOut(duration: 0.18)) {
+                                        inspectorVisible = true
+                                    }
+                                }
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                            if bottomPanelVisible {
-                                BottomPanel(
-                                    events: store.events,
-                                    rawWorkflowJSON: store.rawWorkflowJSON,
-                                    onClose: {
-                                        withAnimation(.easeInOut(duration: 0.18)) {
-                                            bottomPanelVisible = false
+                            VStack(spacing: 0) {
+                                if bottomPanelVisible {
+                                    BottomPanel(
+                                        events: store.events,
+                                        rawWorkflowJSON: store.rawWorkflowJSON,
+                                        onClose: {
+                                            withAnimation(.easeInOut(duration: 0.18)) {
+                                                bottomPanelVisible = false
+                                            }
                                         }
-                                    }
-                                )
-                                .frame(height: 220)
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
-                            }
+                                    )
+                                    .frame(height: 220)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                }
 
-                            BottomToggle(visible: $bottomPanelVisible, eventCount: store.events.count)
-                                .frame(height: 30)
+                                BottomToggle(visible: $bottomPanelVisible, eventCount: store.events.count)
+                                    .frame(height: 30)
+                            }
+                            .background(AppTheme.panel.opacity(0.98))
+                            .shadow(color: .black.opacity(bottomPanelVisible ? 0.35 : 0), radius: 16, y: -4)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -71,6 +89,9 @@ struct ContentView: View {
             store.bootstrap()
         }
         .onReceive(NotificationCenter.default.publisher(for: .startExampleWorkflow)) { _ in
+            withAnimation(.easeInOut(duration: 0.18)) {
+                bottomPanelVisible = true
+            }
             store.start()
         }
     }
@@ -79,22 +100,32 @@ struct ContentView: View {
 // MARK: - Left rail
 
 private struct LeftRail: View {
+    @Binding var sidebarVisible: Bool
+
     var body: some View {
         VStack(spacing: 6) {
             BrandLogo()
                 .padding(.top, 14)
                 .padding(.bottom, 14)
 
-            RailButton(symbol: "square.grid.2x2.fill", isActive: true)
+            RailButton(symbol: "square.grid.2x2.fill", isActive: sidebarVisible) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    sidebarVisible.toggle()
+                }
+            }
+            /*
             RailButton(symbol: "clock.arrow.circlepath", isActive: false)
             RailButton(symbol: "key.fill", isActive: false)
             RailButton(symbol: "person.2.fill", isActive: false)
+            */
 
             Spacer()
 
+            /*
             RailButton(symbol: "questionmark.circle", isActive: false)
             RailButton(symbol: "gearshape", isActive: false)
                 .padding(.bottom, 14)
+            */
         }
         .frame(maxHeight: .infinity)
         .background(AppTheme.rail)
@@ -263,6 +294,13 @@ private struct SmallActionButton: View {
 private struct RailButton: View {
     let symbol: String
     let isActive: Bool
+    let action: (() -> Void)?
+
+    init(symbol: String, isActive: Bool, action: (() -> Void)? = nil) {
+        self.symbol = symbol
+        self.isActive = isActive
+        self.action = action
+    }
 
     var body: some View {
         ZStack {
@@ -277,6 +315,9 @@ private struct RailButton: View {
         }
         .frame(width: 40, height: 40)
         .contentShape(Rectangle())
+        .onTapGesture {
+            action?()
+        }
     }
 }
 
@@ -284,10 +325,18 @@ private struct RailButton: View {
 
 private struct TopBar: View {
     @ObservedObject var store: WorkflowRunStore
+    @Binding var sidebarVisible: Bool
     @Binding var inspectorVisible: Bool
+    @Binding var bottomPanelVisible: Bool
 
     var body: some View {
         HStack(spacing: 14) {
+            IconButton(symbol: "sidebar.left", isActive: sidebarVisible) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    sidebarVisible.toggle()
+                }
+            }
+
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("Personal")
@@ -315,6 +364,7 @@ private struct TopBar: View {
 
             Spacer()
 
+            /*
             HStack(spacing: 0) {
                 TabPill(label: "Editor", isActive: true)
                 TabPill(label: "Executions", isActive: false)
@@ -327,6 +377,7 @@ private struct TopBar: View {
             }
 
             Spacer()
+            */
 
             HStack(spacing: 8) {
                 SecondaryButton(label: "Save") {
@@ -336,7 +387,15 @@ private struct TopBar: View {
                     store.refresh()
                 }
                 ExecuteButton(isRunning: store.isRunning) {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        bottomPanelVisible = true
+                    }
                     store.start()
+                }
+                IconButton(symbol: "rectangle.bottomthird.inset.filled", isActive: bottomPanelVisible) {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        bottomPanelVisible.toggle()
+                    }
                 }
                 IconButton(symbol: "sidebar.right", isActive: inspectorVisible) {
                     withAnimation(.easeInOut(duration: 0.18)) {

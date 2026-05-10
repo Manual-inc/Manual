@@ -72,8 +72,10 @@ struct NodeInspectorView: View {
     private var tabBar: some View {
         HStack(spacing: 0) {
             InspectorTab(label: "Parameters", isActive: true)
+            /*
             InspectorTab(label: "Settings", isActive: false)
             InspectorTab(label: "Docs", isActive: false)
+            */
             Spacer()
         }
         .frame(height: 36)
