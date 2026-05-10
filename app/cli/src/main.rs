@@ -1,11 +1,12 @@
 use std::env;
 use std::fmt;
 use std::fs;
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, Read, Write};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
@@ -19,7 +20,19 @@ fn main() {
 
 fn run() -> Result<(), CliError> {
     let cli = Cli::parse();
-    let mut client = AppServerClient::launch(resolve_server_bin(cli.server_bin.as_deref())?)?;
+    let mut client = if let Some(server_bin) = cli.server_bin.as_deref() {
+        AppServerClient::stdio(resolve_server_bin(Some(server_bin))?)?
+    } else if let Some(server_url) = cli.server_url {
+        let auth_token = cli.auth_token.ok_or_else(|| {
+            CliError::InvalidResponse("--auth-token is required with --server-url".to_owned())
+        })?;
+        AppServerClient::http(server_url, auth_token)
+    } else {
+        AppServerClient::daemon(
+            resolve_server_bin(None)?,
+            cli.discovery_file.unwrap_or_else(default_discovery_file),
+        )?
+    };
 
     match cli.command {
         CommandGroup::Workflow { command } => handle_workflow(command, &mut client),
@@ -128,8 +141,14 @@ fn print_events(
 #[command(name = "manual-cli")]
 #[command(about = "Command line client for the Manual app-server JSON-RPC API")]
 struct Cli {
-    #[arg(long, env = "MANUAL_APP_SERVER_BIN", value_name = "PATH")]
+    #[arg(long, value_name = "PATH")]
     server_bin: Option<PathBuf>,
+    #[arg(long, env = "MANUAL_APP_SERVER_URL", value_name = "URL")]
+    server_url: Option<String>,
+    #[arg(long, env = "MANUAL_APP_SERVER_TOKEN", value_name = "TOKEN")]
+    auth_token: Option<String>,
+    #[arg(long, env = "MANUAL_APP_SERVER_DISCOVERY", value_name = "PATH")]
+    discovery_file: Option<PathBuf>,
 
     #[command(subcommand)]
     command: CommandGroup,
@@ -189,14 +208,73 @@ enum WorkflowCommand {
     },
 }
 
-struct AppServerClient {
+enum AppServerClient {
+    Stdio(StdioAppServerClient),
+    Http(HttpAppServerClient),
+}
+
+impl AppServerClient {
+    fn stdio(server_bin: PathBuf) -> Result<Self, CliError> {
+        StdioAppServerClient::launch(server_bin).map(Self::Stdio)
+    }
+
+    fn http(server_url: String, auth_token: String) -> Self {
+        Self::Http(HttpAppServerClient {
+            server_url,
+            auth_token,
+        })
+    }
+
+    fn daemon(server_bin: PathBuf, discovery_file: PathBuf) -> Result<Self, CliError> {
+        if let Some(discovery) = read_discovery_file(&discovery_file) {
+            let client = HttpAppServerClient {
+                server_url: discovery.server_url,
+                auth_token: discovery.auth_token,
+            };
+            if client.health().is_ok() {
+                return Ok(Self::Http(client));
+            }
+        }
+
+        let auth_token = generate_auth_token();
+        launch_daemon(&server_bin, &discovery_file, &auth_token)?;
+
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while std::time::Instant::now() < deadline {
+            if let Some(discovery) = read_discovery_file(&discovery_file) {
+                let client = HttpAppServerClient {
+                    server_url: discovery.server_url,
+                    auth_token: discovery.auth_token,
+                };
+                if client.health().is_ok() {
+                    return Ok(Self::Http(client));
+                }
+            }
+
+            thread::sleep(Duration::from_millis(50));
+        }
+
+        Err(CliError::InvalidResponse(
+            "app-server daemon did not publish discovery information".to_owned(),
+        ))
+    }
+
+    fn request(&mut self, method: &str, params: Value) -> Result<Value, CliError> {
+        match self {
+            Self::Stdio(client) => client.request(method, params),
+            Self::Http(client) => client.request(method, params),
+        }
+    }
+}
+
+struct StdioAppServerClient {
     _child: Child,
     stdin: ChildStdin,
     stdout: io::BufReader<ChildStdout>,
     next_id: u64,
 }
 
-impl AppServerClient {
+impl StdioAppServerClient {
     fn launch(server_bin: PathBuf) -> Result<Self, CliError> {
         let mut child = Command::new(&server_bin)
             .stdin(Stdio::piped())
@@ -265,6 +343,80 @@ impl AppServerClient {
     }
 }
 
+struct HttpAppServerClient {
+    server_url: String,
+    auth_token: String,
+}
+
+impl HttpAppServerClient {
+    fn health(&self) -> Result<(), CliError> {
+        let (host, port) = parse_http_url(&self.server_url)?;
+        let mut stream = TcpStream::connect((host.as_str(), port))?;
+        let request = format!("GET /health HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n");
+        stream.write_all(request.as_bytes())?;
+        stream.shutdown(std::net::Shutdown::Write)?;
+        let mut response = String::new();
+        stream.read_to_string(&mut response)?;
+        if response.starts_with("HTTP/1.1 200 OK") {
+            Ok(())
+        } else {
+            Err(CliError::InvalidResponse(
+                "app-server health check failed".to_owned(),
+            ))
+        }
+    }
+
+    fn request(&mut self, method: &str, params: Value) -> Result<Value, CliError> {
+        let (host, port) = parse_http_url(&self.server_url)?;
+        let mut stream = TcpStream::connect((host.as_str(), port))?;
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": method,
+            "params": params,
+        });
+        let body = request.to_string();
+        let http_request = format!(
+            "POST /rpc HTTP/1.1\r\nHost: {host}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            self.auth_token,
+            body.len()
+        );
+        stream.write_all(http_request.as_bytes())?;
+        stream.shutdown(std::net::Shutdown::Write)?;
+
+        let mut response = String::new();
+        stream.read_to_string(&mut response)?;
+        if !response.starts_with("HTTP/1.1 200 OK") {
+            return Err(CliError::InvalidResponse(
+                response
+                    .lines()
+                    .next()
+                    .unwrap_or("app-server HTTP error")
+                    .to_owned(),
+            ));
+        }
+
+        let (_, body) = response
+            .split_once("\r\n\r\n")
+            .ok_or_else(|| CliError::InvalidResponse("missing HTTP response body".to_owned()))?;
+        let response: Value = serde_json::from_str(body)?;
+        if let Some(error) = response.get("error") {
+            let code = error.get("code").and_then(Value::as_i64).unwrap_or(0);
+            let message = error
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("JSON-RPC error")
+                .to_owned();
+            return Err(CliError::Rpc { code, message });
+        }
+
+        response
+            .get("result")
+            .cloned()
+            .ok_or_else(|| CliError::InvalidResponse("missing result".to_owned()))
+    }
+}
+
 fn resolve_server_bin(explicit: Option<&Path>) -> Result<PathBuf, CliError> {
     if let Some(path) = explicit {
         return Ok(path.to_owned());
@@ -285,6 +437,109 @@ fn resolve_server_bin(explicit: Option<&Path>) -> Result<PathBuf, CliError> {
         .into_iter()
         .find(|candidate| candidate.is_file())
         .ok_or(CliError::ServerBinaryNotFound)
+}
+
+struct Discovery {
+    server_url: String,
+    auth_token: String,
+}
+
+fn read_discovery_file(path: &Path) -> Option<Discovery> {
+    let contents = fs::read_to_string(path).ok()?;
+    let value: Value = serde_json::from_str(&contents).ok()?;
+    Some(Discovery {
+        server_url: value.get("url")?.as_str()?.to_owned(),
+        auth_token: value.get("auth_token")?.as_str()?.to_owned(),
+    })
+}
+
+fn launch_daemon(
+    server_bin: &Path,
+    discovery_file: &Path,
+    auth_token: &str,
+) -> Result<(), CliError> {
+    let mut command = Command::new(server_bin);
+    command
+        .arg("--listen")
+        .arg("127.0.0.1:0")
+        .arg("--auth-token")
+        .arg(auth_token)
+        .arg("--discovery-file")
+        .arg(discovery_file)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::inherit());
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        unsafe extern "C" {
+            fn setsid() -> i32;
+        }
+
+        unsafe {
+            command.pre_exec(|| {
+                if setsid() == -1 {
+                    return Err(io::Error::last_os_error());
+                }
+
+                Ok(())
+            });
+        }
+    }
+
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|source| CliError::LaunchServer {
+            path: server_bin.to_owned(),
+            source,
+        })
+}
+
+fn default_discovery_file() -> PathBuf {
+    if let Ok(path) = env::var("MANUAL_APP_SERVER_DISCOVERY") {
+        return PathBuf::from(path);
+    }
+
+    if let Ok(home) = env::var("HOME") {
+        return PathBuf::from(home)
+            .join("Library")
+            .join("Application Support")
+            .join("Manual")
+            .join("app-server.json");
+    }
+
+    env::temp_dir().join("manual-app-server.json")
+}
+
+fn generate_auth_token() -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    format!("{:x}-{:x}", std::process::id(), nanos)
+}
+
+fn parse_http_url(url: &str) -> Result<(String, u16), CliError> {
+    let address = url.strip_prefix("http://").ok_or_else(|| {
+        CliError::InvalidResponse("only http:// app-server URLs are supported".to_owned())
+    })?;
+    let (host, port) = address.split_once(':').ok_or_else(|| {
+        CliError::InvalidResponse("app-server URL must include a port".to_owned())
+    })?;
+    let port = port
+        .trim_end_matches('/')
+        .parse::<u16>()
+        .map_err(|_| CliError::InvalidResponse("app-server URL port is invalid".to_owned()))?;
+
+    if host != "127.0.0.1" && host != "localhost" {
+        return Err(CliError::InvalidResponse(
+            "app-server URL must point at localhost".to_owned(),
+        ));
+    }
+
+    Ok((host.to_owned(), port))
 }
 
 fn read_json_file(path: &Path) -> Result<Value, CliError> {

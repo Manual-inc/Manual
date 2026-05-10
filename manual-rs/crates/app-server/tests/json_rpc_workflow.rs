@@ -535,6 +535,236 @@ fn json_rpc_can_read_list_update_and_delete_workflows() {
 }
 
 #[test]
+fn json_rpc_can_patch_workflow_nodes_and_dependencies() {
+    let storage_dir = unique_storage_dir("patch");
+    let server = AppServer::with_storage_dir(&storage_dir);
+
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "workflow.create",
+            "params": {
+                "workflow": {
+                    "id": "patch-review",
+                    "nodes": [
+                        {
+                            "id": "source",
+                            "kind": "constant",
+                            "value": {
+                                "count": 3
+                            }
+                        },
+                        {
+                            "id": "summary",
+                            "kind": "template",
+                            "template": "count: {{source.count}}"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "node": "summary",
+                            "depends_on": "source"
+                        }
+                    ]
+                }
+            }
+        })
+        .to_string(),
+    );
+
+    let patch: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "workflow.patch",
+                "params": {
+                    "workflow_id": "patch-review",
+                    "operations": [
+                        {
+                            "op": "update_node",
+                            "node": {
+                                "id": "summary",
+                                "kind": "template",
+                                "template": "total: {{source.count}}"
+                            }
+                        },
+                        {
+                            "op": "add_node",
+                            "node": {
+                                "id": "publish",
+                                "kind": "template",
+                                "template": "{{summary}} ready"
+                            }
+                        },
+                        {
+                            "op": "add_dependency",
+                            "dependency": {
+                                "node": "publish",
+                                "depends_on": "summary"
+                            }
+                        },
+                        {
+                            "op": "update_dependency",
+                            "node": "summary",
+                            "depends_on": "source",
+                            "dependency": {
+                                "node": "publish",
+                                "depends_on": "source"
+                            }
+                        },
+                        {
+                            "op": "delete_node",
+                            "node_id": "summary"
+                        }
+                    ]
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(
+        patch["result"],
+        json!({
+            "workflow_id": "patch-review",
+            "node_count": 2,
+            "dependency_count": 1
+        })
+    );
+
+    let restarted_server = AppServer::with_storage_dir(&storage_dir);
+    let updated: Value = serde_json::from_str(
+        &restarted_server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "workflow.get",
+                "params": {
+                    "workflow_id": "patch-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(
+        updated["result"]["workflow"],
+        json!({
+            "id": "patch-review",
+            "nodes": [
+                {
+                    "id": "source",
+                    "kind": "constant",
+                    "value": {
+                        "count": 3
+                    },
+                    "template": "",
+                    "duration_ms": 0,
+                    "error": "",
+                    "prompt": "",
+                    "model": null
+                },
+                {
+                    "id": "publish",
+                    "kind": "template",
+                    "value": null,
+                    "template": "{{summary}} ready",
+                    "duration_ms": 0,
+                    "error": "",
+                    "prompt": "",
+                    "model": null
+                }
+            ],
+            "dependencies": [
+                {
+                    "node": "publish",
+                    "depends_on": "source"
+                }
+            ]
+        })
+    );
+}
+
+#[test]
+fn json_rpc_patch_rejects_invalid_workflow_changes() {
+    let server = test_server();
+
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "workflow.create",
+            "params": {
+                "workflow": {
+                    "id": "invalid-patch",
+                    "nodes": [
+                        {
+                            "id": "message",
+                            "kind": "template",
+                            "template": "hello"
+                        }
+                    ]
+                }
+            }
+        })
+        .to_string(),
+    );
+
+    let patch: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "workflow.patch",
+                "params": {
+                    "workflow_id": "invalid-patch",
+                    "operations": [
+                        {
+                            "op": "add_dependency",
+                            "dependency": {
+                                "node": "message",
+                                "depends_on": "missing"
+                            }
+                        }
+                    ]
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(patch["error"]["code"], -32602);
+    assert!(
+        patch["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("unknown node")
+    );
+
+    let unchanged: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "workflow.get",
+                "params": {
+                    "workflow_id": "invalid-patch"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(unchanged["result"]["workflow"]["dependencies"], json!([]));
+}
+
+#[test]
 fn workflows_are_loaded_from_storage_after_server_restart() {
     let storage_dir = unique_storage_dir("restart");
     let first_server = AppServer::with_storage_dir(&storage_dir);

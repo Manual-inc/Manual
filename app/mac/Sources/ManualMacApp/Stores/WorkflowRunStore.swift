@@ -16,6 +16,8 @@ final class WorkflowRunStore: ObservableObject {
 
     private let client: AppServerClient
     private var currentWorkflow = BusinessWorkflowExample.jsonDefinition
+    private var liveEventsTask: Task<Void, Never>?
+    private var observedRunIDs = Set<String>()
 
     init(client: AppServerClient = AppServerClient()) {
         self.client = client
@@ -53,6 +55,7 @@ final class WorkflowRunStore: ObservableObject {
     }
 
     func bootstrap() {
+        startLiveUpdates()
         Task { [weak self] in
             guard let self else { return }
             await self.refreshWorkflows(createExampleIfMissing: true)
@@ -140,6 +143,49 @@ final class WorkflowRunStore: ObservableObject {
         }
     }
 
+    private func startLiveUpdates() {
+        liveEventsTask?.cancel()
+        liveEventsTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let stream = try await client.liveEvents()
+                for try await event in stream {
+                    await self.applyLiveEvent(event)
+                }
+            } catch {
+                await MainActor.run {
+                    self.statusMessage = "Live updates disconnected: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func applyLiveEvent(_ event: AppServerLiveEvent) async {
+        switch event.name {
+        case "workflow_changed":
+            await refreshWorkflows(createExampleIfMissing: false)
+        case "run_changed":
+            guard
+                let runID = event.payload["run_id"] as? String,
+                !observedRunIDs.contains(runID)
+            else {
+                return
+            }
+
+            observedRunIDs.insert(runID)
+            self.runID = runID
+            isRunning = true
+            statusMessage = "Running \(runID)"
+            Task { [weak self] in
+                guard let self else { return }
+                try? await self.streamEvents(runID: runID)
+            }
+        default:
+            break
+        }
+    }
+
     private func loadWorkflow(id workflowID: String) async {
         isLoading = true
         defer { isLoading = false }
@@ -206,6 +252,7 @@ final class WorkflowRunStore: ObservableObject {
             await persistCurrentWorkflow()
             let runID = try await client.startWorkflow(id: workflowID)
             self.runID = runID
+            observedRunIDs.insert(runID)
             statusMessage = "Running \(runID)"
             try await streamEvents(runID: runID)
         } catch {

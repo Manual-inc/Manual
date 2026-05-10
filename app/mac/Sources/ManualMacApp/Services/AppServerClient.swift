@@ -23,9 +23,9 @@ enum AppServerClientError: Error, LocalizedError {
 @MainActor
 final class AppServerClient {
     private var process: Process?
-    private var input: FileHandle?
-    private var output: FileHandle?
     private var nextID = 1
+    private var serverURL: URL?
+    private var authToken: String?
 
     func createWorkflow(_ workflow: [String: Any]) async throws -> WorkflowMutationResult {
         let result = try await request(
@@ -69,7 +69,7 @@ final class AppServerClient {
             method: "workflow.update",
             params: [
                 "workflow_id": workflowID,
-                "workflow": workflow
+                "workflow": workflow,
             ]
         )
         return try WorkflowMutationResult(result)
@@ -104,7 +104,7 @@ final class AppServerClient {
             method: "workflow.events",
             params: [
                 "run_id": runID,
-                "cursor": cursor
+                "cursor": cursor,
             ]
         )
 
@@ -121,8 +121,61 @@ final class AppServerClient {
         return WorkflowEventsPage(events: events, nextCursor: nextCursor, completed: completed, run: run)
     }
 
+    func liveEvents() async throws -> AsyncThrowingStream<AppServerLiveEvent, Error> {
+        try await ensureDaemon()
+        guard let serverURL, let authToken else {
+            throw AppServerClientError.binaryNotFound
+        }
+
+        let eventsURL = serverURL.appendingPathComponent("events")
+        var components = URLComponents(url: eventsURL, resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "token", value: authToken)]
+        guard let url = components?.url else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let (bytes, response) = try await URLSession.shared.bytes(from: url)
+                    guard
+                        let httpResponse = response as? HTTPURLResponse,
+                        httpResponse.statusCode == 200
+                    else {
+                        throw AppServerClientError.invalidResponse
+                    }
+
+                    var eventName = "message"
+                    for try await line in bytes.lines {
+                        if line.hasPrefix("event: ") {
+                            eventName = String(line.dropFirst("event: ".count))
+                        } else if line.hasPrefix("data: ") {
+                            let data = Data(line.dropFirst("data: ".count).utf8)
+                            if
+                                let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                            {
+                                continuation.yield(AppServerLiveEvent(name: eventName, payload: object))
+                            }
+                        }
+                    }
+
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
     private func request(method: String, params: [String: Any]) async throws -> Any {
-        try launchIfNeeded()
+        try await ensureDaemon()
+        guard let serverURL, let authToken else {
+            throw AppServerClientError.binaryNotFound
+        }
 
         let requestID = nextID
         nextID += 1
@@ -131,24 +184,29 @@ final class AppServerClient {
             "jsonrpc": "2.0",
             "id": requestID,
             "method": method,
-            "params": params
+            "params": params,
         ]
 
-        let requestData = try JSONSerialization.data(withJSONObject: payload)
-        guard let input, let output else {
-            throw AppServerClientError.binaryNotFound
+        var request = URLRequest(url: serverURL.appendingPathComponent("rpc"))
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (responseData, response) = try await URLSession.shared.data(for: request)
+        guard
+            let httpResponse = response as? HTTPURLResponse,
+            httpResponse.statusCode == 200
+        else {
+            throw AppServerClientError.invalidResponse
         }
 
-        input.write(requestData)
-        input.write(Data([0x0A]))
-
-        let responseData = output.readLineData()
         guard !responseData.isEmpty else {
             throw AppServerClientError.emptyResponse
         }
 
-        let response = try JSONSerialization.jsonObject(with: responseData)
-        guard let object = response as? [String: Any] else {
+        let decoded = try JSONSerialization.jsonObject(with: responseData)
+        guard let object = decoded as? [String: Any] else {
             throw AppServerClientError.invalidResponse
         }
 
@@ -166,8 +224,14 @@ final class AppServerClient {
         return result
     }
 
-    private func launchIfNeeded() throws {
-        if process?.isRunning == true {
+    private func ensureDaemon() async throws {
+        if let serverURL, await healthCheck(serverURL: serverURL) {
+            return
+        }
+
+        if let discovery = try? readDiscovery(), await healthCheck(serverURL: discovery.serverURL) {
+            serverURL = discovery.serverURL
+            authToken = discovery.authToken
             return
         }
 
@@ -175,26 +239,57 @@ final class AppServerClient {
             throw AppServerClientError.binaryNotFound
         }
 
+        let token = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let discoveryURL = try discoveryFileURL()
         let process = Process()
-        let stdin = Pipe()
-        let stdout = Pipe()
-        let workflowStorageURL = try workflowStorageDirectory()
-
         process.executableURL = URL(fileURLWithPath: binary)
-        process.currentDirectoryURL = workflowStorageURL
-        process.environment = ProcessInfo.processInfo.environment.merging(
-            ["MANUAL_RS_WORKFLOW_DIR": workflowStorageURL.path],
-            uniquingKeysWith: { _, newValue in newValue }
-        )
-        process.standardInput = stdin
-        process.standardOutput = stdout
+        process.arguments = [
+            "--listen", "127.0.0.1:0",
+            "--auth-token", token,
+            "--discovery-file", discoveryURL.path,
+        ]
+        process.standardInput = nil
+        process.standardOutput = nil
         process.standardError = FileHandle.standardError
 
         try process.run()
-
         self.process = process
-        self.input = stdin.fileHandleForWriting
-        self.output = stdout.fileHandleForReading
+
+        let deadline = Date().addingTimeInterval(3)
+        while Date() < deadline {
+            if let discovery = try? readDiscovery(), await healthCheck(serverURL: discovery.serverURL) {
+                serverURL = discovery.serverURL
+                authToken = discovery.authToken
+                return
+            }
+
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+
+        throw AppServerClientError.emptyResponse
+    }
+
+    private func healthCheck(serverURL: URL) async -> Bool {
+        do {
+            let (_, response) = try await URLSession.shared.data(from: serverURL.appendingPathComponent("health"))
+            return (response as? HTTPURLResponse)?.statusCode == 200
+        } catch {
+            return false
+        }
+    }
+
+    private func readDiscovery() throws -> AppServerDiscovery {
+        let data = try Data(contentsOf: discoveryFileURL())
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard
+            let urlString = object?["url"] as? String,
+            let serverURL = URL(string: urlString),
+            let authToken = object?["auth_token"] as? String
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        return AppServerDiscovery(serverURL: serverURL, authToken: authToken)
     }
 
     private func resolvedAppServerBinary() -> String? {
@@ -222,24 +317,31 @@ final class AppServerClient {
         return nil
     }
 
-    private func workflowStorageDirectory() throws -> URL {
+    private func discoveryFileURL() throws -> URL {
+        if let path = ProcessInfo.processInfo.environment["MANUAL_APP_SERVER_DISCOVERY"] {
+            return URL(fileURLWithPath: path)
+        }
+
         let applicationSupportURL = try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
             create: true
         )
-        let storageURL = applicationSupportURL
-            .appendingPathComponent("ManualMac", isDirectory: true)
-            .appendingPathComponent("workflows", isDirectory: true)
-
-        try FileManager.default.createDirectory(
-            at: storageURL,
-            withIntermediateDirectories: true
-        )
-
-        return storageURL
+        let manualURL = applicationSupportURL.appendingPathComponent("Manual", isDirectory: true)
+        try FileManager.default.createDirectory(at: manualURL, withIntermediateDirectories: true)
+        return manualURL.appendingPathComponent("app-server.json")
     }
+}
+
+private struct AppServerDiscovery {
+    let serverURL: URL
+    let authToken: String
+}
+
+struct AppServerLiveEvent: @unchecked Sendable {
+    let name: String
+    let payload: [String: Any]
 }
 
 struct WorkflowSummary: Identifiable, Equatable, Sendable {
@@ -307,20 +409,4 @@ struct WorkflowEventsPage: @unchecked Sendable {
     let nextCursor: Int
     let completed: Bool
     let run: [String: Any]
-}
-
-private extension FileHandle {
-    func readLineData() -> Data {
-        var data = Data()
-
-        while true {
-            let byte = readData(ofLength: 1)
-            if byte.isEmpty || byte == Data([0x0A]) {
-                break
-            }
-            data.append(byte)
-        }
-
-        return data
-    }
 }
