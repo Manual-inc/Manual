@@ -1,0 +1,99 @@
+{
+  "id": "multi-agent-code-review",
+  "nodes": [
+    {
+      "id": "review_scope",
+      "kind": "constant",
+      "value": {
+        "repository": "/Users/leejs/Project/manual",
+        "commit": "39c2acffd55d453ec5b44121bd64432e72a5ab65",
+        "diff_command": "git -C /Users/leejs/Project/manual diff 39c2acffd55d453ec5b44121bd64432e72a5ab65^ 39c2acffd55d453ec5b44121bd64432e72a5ab65",
+        "summary": "Review the commit feat: add live app-server workflow sync. Changed app-server HTTP/SSE daemon support, workflow persistence, CLI daemon/HTTP client support, Mac app live event client/store updates, and app-server tests.",
+        "files": [
+          "app/cli/src/main.rs",
+          "app/mac/Sources/ManualMacApp/Services/AppServerClient.swift",
+          "app/mac/Sources/ManualMacApp/Stores/WorkflowRunStore.swift",
+          "manual-rs/crates/app-server/src/lib.rs",
+          "manual-rs/crates/app-server/src/main.rs",
+          "manual-rs/crates/app-server/tests/http_daemon.rs",
+          "manual-rs/crates/app-server/tests/json_rpc_workflow.rs"
+        ],
+        "rules": [
+          "Review only. Do not edit files.",
+          "Prioritize correctness, data loss, security, concurrency, persistence, and missing tests.",
+          "Return only actionable findings with file path, line or function when possible, severity, and evidence.",
+          "If there are no findings, return an empty list."
+        ]
+      }
+    },
+    {
+      "id": "pi_review",
+      "kind": "pi",
+      "cwd": "/Users/leejs/Project/manual",
+      "prompt": "Review the referenced commit. Output compact JSON only: {\"reviewer\":\"pi\",\"findings\":[{\"title\":\"...\",\"severity\":\"P0|P1|P2|P3\",\"evidence\":\"...\",\"recommendation\":\"...\"}]}. Include only actionable correctness/security/data-loss/concurrency/persistence findings. If none, return an empty findings array. Do not modify files."
+    },
+    {
+      "id": "claude_review",
+      "kind": "claude",
+      "cwd": "/Users/leejs/Project/manual",
+      "extra_args": [
+        "--permission-mode",
+        "bypassPermissions",
+        "--no-session-persistence"
+      ],
+      "prompt": "Review the referenced commit. Output compact JSON only: {\"reviewer\":\"claude\",\"findings\":[{\"title\":\"...\",\"severity\":\"P0|P1|P2|P3\",\"evidence\":\"...\",\"recommendation\":\"...\"}]}. Include only actionable correctness/security/data-loss/concurrency/persistence findings. If none, return an empty findings array. Do not modify files."
+    },
+    {
+      "id": "codex_review",
+      "kind": "codex",
+      "cwd": "/Users/leejs/Project/manual",
+      "extra_args": [
+        "--sandbox",
+        "read-only",
+        "--cd",
+        "/Users/leejs/Project/manual",
+        "--skip-git-repo-check"
+      ],
+      "prompt": "Review the referenced commit. Output compact JSON only: {\"reviewer\":\"codex\",\"findings\":[{\"title\":\"...\",\"severity\":\"P0|P1|P2|P3\",\"evidence\":\"...\",\"recommendation\":\"...\"}]}. Include only actionable correctness/security/data-loss/concurrency/persistence findings. If none, return an empty findings array. Do not modify files."
+    },
+    {
+      "id": "unanimous_review",
+      "kind": "codex",
+      "cwd": "/Users/leejs/Project/manual",
+      "extra_args": [
+        "--sandbox",
+        "read-only",
+        "--cd",
+        "/Users/leejs/Project/manual",
+        "--skip-git-repo-check"
+      ],
+      "prompt": "Compare pi_review, claude_review, and codex_review. Output only findings that all three reviewers substantively agree on. If there are no unanimous findings, output exactly: No unanimous findings. Do not include non-unanimous or speculative findings. Do not modify files."
+    }
+  ],
+  "dependencies": [
+    {
+      "node": "pi_review",
+      "depends_on": "review_scope"
+    },
+    {
+      "node": "claude_review",
+      "depends_on": "review_scope"
+    },
+    {
+      "node": "codex_review",
+      "depends_on": "review_scope"
+    },
+    {
+      "node": "unanimous_review",
+      "depends_on": "pi_review"
+    },
+    {
+      "node": "unanimous_review",
+      "depends_on": "claude_review"
+    },
+    {
+      "node": "unanimous_review",
+      "depends_on": "codex_review"
+    }
+  ]
+}

@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use manual_agent::{Agent, AgentCommand, CommandRequest, pi::Pi};
+use manual_agent::{Agent, AgentCommand, CommandRequest, claude::Claude, codex::Codex, pi::Pi};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -271,12 +271,18 @@ pub struct NodeDefinition {
     pub prompt: String,
     #[serde(default)]
     pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_args: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeKind {
+    Claude,
     Constant,
+    Codex,
     Delay,
     Fail,
     Pi,
@@ -342,9 +348,35 @@ fn execute_definition_node(
                 message,
             })
         }
+        NodeKind::Claude => execute_claude_node(node, outputs),
+        NodeKind::Codex => execute_codex_node(node, outputs),
         NodeKind::Pi => execute_pi_node(node, outputs),
         NodeKind::Template => Ok(render_template(&node.template, outputs).into()),
     }
+}
+
+fn execute_claude_node(
+    node: &NodeDefinition,
+    outputs: &BTreeMap<String, Value>,
+) -> Result<Value, WorkflowError> {
+    let claude = Claude::new(Agent::new(
+        "claude.code_reviewer",
+        "Claude Code Reviewer",
+        "Use Claude CLI to review code changes.",
+    ));
+    execute_agent_node(&claude, node, outputs)
+}
+
+fn execute_codex_node(
+    node: &NodeDefinition,
+    outputs: &BTreeMap<String, Value>,
+) -> Result<Value, WorkflowError> {
+    let codex = Codex::new(Agent::new(
+        "codex.code_reviewer",
+        "Codex Code Reviewer",
+        "Use Codex CLI to review code changes.",
+    ));
+    execute_agent_node(&codex, node, outputs)
 }
 
 fn execute_pi_node(
@@ -356,6 +388,14 @@ fn execute_pi_node(
         "Pi Pipeline Advisor",
         "Use Pi CLI to generate workflow recommendations.",
     ));
+    execute_agent_node(&pi, node, outputs)
+}
+
+fn execute_agent_node(
+    agent: &impl AgentCommand,
+    node: &NodeDefinition,
+    outputs: &BTreeMap<String, Value>,
+) -> Result<Value, WorkflowError> {
     let prompt = format!("{}\n\nInput: {}", node.prompt, json!(outputs));
     let mut request = CommandRequest::new(prompt);
 
@@ -363,7 +403,15 @@ fn execute_pi_node(
         request = request.with_model(model);
     }
 
-    let output = pi
+    if let Some(cwd) = node.cwd.as_deref().filter(|cwd| !cwd.is_empty()) {
+        request = request.with_cwd(cwd);
+    }
+
+    for arg in &node.extra_args {
+        request = request.with_extra_arg(arg);
+    }
+
+    let output = agent
         .run(&request)
         .map_err(|error| WorkflowError::AgentCommandIo {
             message: error.to_string(),

@@ -38,6 +38,8 @@ enum AppTheme {
         case .context: return Color(red: 0.50, green: 0.62, blue: 1.00)
         case .script:  return Color(red: 1.00, green: 0.55, blue: 0.30)
         case .agent:   return Color(red: 0.93, green: 0.39, blue: 0.71)
+        case .claude:  return Color(red: 0.75, green: 0.58, blue: 1.00)
+        case .codex:   return Color(red: 0.40, green: 0.74, blue: 1.00)
         case .digest:  return Color(red: 0.42, green: 0.85, blue: 0.50)
         }
     }
@@ -47,7 +49,20 @@ enum AppTheme {
         case .context: return "doc.text"
         case .script:  return "chevron.left.slash.chevron.right"
         case .agent:   return "sparkles"
+        case .claude:  return "quote.bubble"
+        case .codex:   return "curlybraces"
         case .digest:  return "tray.full"
+        }
+    }
+
+    static func kindLogoResource(_ kind: WorkflowNodeKind) -> (name: String, ext: String)? {
+        switch kind {
+        case .claude:
+            return ("claude", "svg")
+        case .codex:
+            return ("codex", "png")
+        default:
+            return nil
         }
     }
 }

@@ -15,6 +15,7 @@ APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
+RESOURCE_BUNDLE_NAME="ManualMac_ManualMacApp.bundle"
 
 cd "$ROOT_DIR"
 
@@ -24,11 +25,16 @@ swift build
 cargo build --manifest-path "$REPO_ROOT/manual-rs/Cargo.toml" -p app-server
 export MANUAL_APP_SERVER_BIN="$APP_SERVER_BIN"
 BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
+BUILD_RESOURCE_BUNDLE="$(swift build --show-bin-path)/$RESOURCE_BUNDLE_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+
+if [[ -d "$BUILD_RESOURCE_BUNDLE" ]]; then
+  cp -R "$BUILD_RESOURCE_BUNDLE" "$APP_BUNDLE/$RESOURCE_BUNDLE_NAME"
+fi
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

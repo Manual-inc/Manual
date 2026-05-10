@@ -21,12 +21,18 @@ enum WorkflowNodeKind: String {
     case context = "Context"
     case script = "Rust Script"
     case agent = "Pi Agent"
+    case claude = "Claude Review"
+    case codex = "Codex Review"
     case digest = "Digest"
 
     static func serverKind(_ value: String) -> WorkflowNodeKind {
         switch value {
+        case "claude":
+            .claude
         case "constant":
             .context
+        case "codex":
+            .codex
         case "pi":
             .agent
         case "template":
@@ -178,6 +184,10 @@ enum WorkflowDisplayBuilder {
             return object["error"] as? String ?? "Failure node"
         case "pi":
             return object["model"] as? String ?? "Pi agent"
+        case "claude":
+            return object["model"] as? String ?? "Claude reviewer"
+        case "codex":
+            return object["model"] as? String ?? "Codex reviewer"
         case "template":
             return object["template"] as? String ?? "Template"
         default:

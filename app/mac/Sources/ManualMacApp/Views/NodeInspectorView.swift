@@ -32,9 +32,7 @@ struct NodeInspectorView: View {
                         .fill(AppTheme.kindColor(node.kind).opacity(0.18))
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(AppTheme.kindColor(node.kind).opacity(0.5), lineWidth: 1)
-                    Image(systemName: AppTheme.kindIcon(node.kind))
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AppTheme.kindColor(node.kind))
+                    NodeKindIcon(kind: node.kind, symbolSize: 13)
                 }
                 .frame(width: 30, height: 30)
 

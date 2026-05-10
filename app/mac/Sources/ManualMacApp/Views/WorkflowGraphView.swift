@@ -261,9 +261,7 @@ private struct WorkflowNodeCard: View {
                         .fill(AppTheme.kindColor(node.kind).opacity(0.18))
                     RoundedRectangle(cornerRadius: 11)
                         .stroke(AppTheme.kindColor(node.kind).opacity(0.55), lineWidth: 1)
-                    Image(systemName: AppTheme.kindIcon(node.kind))
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(AppTheme.kindColor(node.kind))
+                    NodeKindIcon(kind: node.kind, symbolSize: 18)
                 }
                 .frame(width: 46, height: 46)
 

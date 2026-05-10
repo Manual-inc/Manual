@@ -140,6 +140,40 @@ fn workflow_definition_deserializes_pi_agent_nodes() {
 }
 
 #[test]
+fn workflow_definition_deserializes_claude_and_codex_agent_nodes() {
+    let definition: WorkflowDefinition = serde_json::from_value(serde_json::json!({
+        "id": "multi-agent-review",
+        "nodes": [
+            {
+                "id": "claude_review",
+                "kind": "claude",
+                "prompt": "Review the diff for correctness.",
+                "model": "sonnet"
+            },
+            {
+                "id": "codex_review",
+                "kind": "codex",
+                "prompt": "Review the diff for integration risks.",
+                "model": "gpt-5",
+                "cwd": "/tmp/manual",
+                "extra_args": ["--sandbox", "read-only"]
+            }
+        ]
+    }))
+    .unwrap();
+
+    assert_eq!(definition.nodes[0].kind, NodeKind::Claude);
+    assert_eq!(definition.nodes[0].model.as_deref(), Some("sonnet"));
+    assert_eq!(definition.nodes[1].kind, NodeKind::Codex);
+    assert_eq!(definition.nodes[1].model.as_deref(), Some("gpt-5"));
+    assert_eq!(definition.nodes[1].cwd.as_deref(), Some("/tmp/manual"));
+    assert_eq!(
+        definition.nodes[1].extra_args,
+        ["--sandbox".to_owned(), "read-only".to_owned()]
+    );
+}
+
+#[test]
 fn workflow_definition_executes_api_nodes_and_emits_run_events() {
     let definition: WorkflowDefinition = serde_json::from_value(serde_json::json!({
         "id": "lead-review",

@@ -11,7 +11,11 @@ let package = Package(
         .executable(name: "ManualMac", targets: ["ManualMacApp"])
     ],
     targets: [
-        .executableTarget(name: "ManualMacApp")
+        .executableTarget(
+            name: "ManualMacApp",
+            resources: [
+                .process("Resources")
+            ]
+        )
     ]
 )
-
