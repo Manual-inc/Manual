@@ -36,8 +36,11 @@ date_updated: 2026-05-11
 - 높은 판단력이 필요한 단계만 Claude/Codex 같은 고급 에이전트에 맡긴다.
 - 앞단 결과를 요약해 전달해 컨텍스트 크기를 줄인다.
 
+이 비용 절감 전략은 [[features/Adaptive-Compute|Adaptive Compute]]의 관측 기반 개선 루프와 직접 연결된다. 비용 관측은 어떤 노드를 스크립트화하거나 저비용 모델로 낮출 수 있는지 판단하는 근거가 된다.
+
 ## 관련 페이지
 
+- [[features/Adaptive-Compute|Adaptive Compute]]
 - [[decisions/2026-05-11-mvp-scope|2026-05-11 MVP 범위 결정]]
 - [[features/partial-run-and-restart|부분 실행과 재시작]]
 - [[architecture/manual-app-architecture|Manual 앱 아키텍처]]

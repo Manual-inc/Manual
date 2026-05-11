@@ -27,6 +27,7 @@ date_updated: 2026-05-11
 
 ## Features
 
+- [Adaptive Compute](features/Adaptive-Compute.md) - 워크플로우를 지속적으로 개선해 스크립트, 저비용 모델, 상위 LLM을 적절히 배치하고 비용을 최소화하는 원칙.
 - [부분 실행과 재시작](features/partial-run-and-restart.md) - 노드별 실행, 실패 지점 재시작, 단계별 확인 기능.
 - [노드 Storybook](features/node-storybook.md) - 노드 독립 실행, 임의 입력 주입, 노드 registry/schema 관리 기능.
 - [토큰 비용 관측](features/token-cost-observability.md) - run/job 및 노드별 토큰/비용 기록과 최적화 기능.
