@@ -1,0 +1,36 @@
+use std::process::Command;
+
+use crate::{Agent, AgentCommand, CommandRequest, apply_cwd};
+
+pub const BINARY: &str = "codex";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Codex {
+    agent: Agent,
+}
+
+impl Codex {
+    pub fn new(agent: Agent) -> Self {
+        Self { agent }
+    }
+}
+
+impl AgentCommand for Codex {
+    fn agent(&self) -> &Agent {
+        &self.agent
+    }
+
+    fn command(&self, request: &CommandRequest) -> Command {
+        let mut command = Command::new(BINARY);
+        command.arg("exec");
+
+        if let Some(model) = request.model() {
+            command.args(["--model", model]);
+        }
+
+        command.args(request.extra_args());
+        command.arg(request.prompt());
+        apply_cwd(&mut command, request);
+        command
+    }
+}

@@ -1,0 +1,8 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/manual-agent",
+    "crates/manual-worflow",
+    "crates/manual-sandbox",
+    "crates/app-server",
+]
