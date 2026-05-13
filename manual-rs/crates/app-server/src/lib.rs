@@ -6,8 +6,12 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
+use manual_node::{
+    NodeRun, NodeTemplate, STORYBOOK_INPUT_NODE_ID, iso_timestamp, node_run_summary,
+    storybook_workflow,
+};
 use manual_worflow::{
-    DependencyDefinition, NodeDefinition, WorkflowDefinition, WorkflowError, WorkflowRun,
+    DependencyDefinition, NodeDefinition, NodeKind, WorkflowDefinition, WorkflowError, WorkflowRun,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -51,6 +55,9 @@ pub struct AppServer {
     next_run_number: Arc<Mutex<u64>>,
     workflow_store: WorkflowStore,
     event_hub: EventHub,
+    node_templates: Arc<RwLock<BTreeMap<String, NodeTemplate>>>,
+    node_runs: Arc<RwLock<BTreeMap<String, NodeRun>>>,
+    next_node_run_number: Arc<Mutex<u64>>,
 }
 
 impl AppServer {
@@ -63,6 +70,9 @@ impl AppServer {
         let runs = workflow_store.load_runs();
         let workflows = workflow_store.load_workflows();
         let next_run_number = next_run_number(&runs);
+        let node_templates = workflow_store.load_node_templates();
+        let node_runs = workflow_store.load_node_runs();
+        let next_node_run_number_val = next_node_run_number(&node_runs);
 
         Self {
             workflows: Arc::new(RwLock::new(workflows)),
@@ -70,12 +80,14 @@ impl AppServer {
             next_run_number: Arc::new(Mutex::new(next_run_number)),
             workflow_store,
             event_hub: EventHub::default(),
+            node_templates: Arc::new(RwLock::new(node_templates)),
+            node_runs: Arc::new(RwLock::new(node_runs)),
+            next_node_run_number: Arc::new(Mutex::new(next_node_run_number_val)),
         }
     }
 
     pub fn handle_json(&self, input: &str) -> String {
-        let response = self.handle_json_value(input);
-        response.to_string()
+        self.handle_json_value(input).to_string()
     }
 
     fn handle_json_value(&self, input: &str) -> Value {
@@ -93,6 +105,15 @@ impl AppServer {
             "workflow.delete" => self.delete_workflow(request.id, request.params),
             "workflow.start" => self.start_workflow(request.id, request.params),
             "workflow.events" => self.workflow_events(request.id, request.params),
+            "node.create" => self.create_node_template(request.id, request.params),
+            "node.get" => self.get_node_template(request.id, request.params),
+            "node.list" => self.list_node_templates(request.id),
+            "node.update" => self.update_node_template(request.id, request.params),
+            "node.delete" => self.delete_node_template(request.id, request.params),
+            "node.schema" => self.node_schema(request.id, request.params),
+            "node.run" => self.run_node(request.id, request.params),
+            "node.run.get" => self.get_node_run(request.id, request.params),
+            "node.run.events" => self.node_run_events(request.id, request.params),
             _ => rpc_error(request.id, -32601, "method not found"),
         }
     }
@@ -408,6 +429,315 @@ impl AppServer {
             }),
         )
     }
+
+    fn create_node_template(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<CreateNodeTemplateParams>(params) {
+            Ok(p) => p,
+            Err(e) => return rpc_error(id, -32602, e.to_string()),
+        };
+
+        if params.node.id == STORYBOOK_INPUT_NODE_ID {
+            return rpc_error(
+                id,
+                -32602,
+                format!("node id cannot be {STORYBOOK_INPUT_NODE_ID}"),
+            );
+        }
+
+        let template_id = params.node.id.clone();
+        let now = iso_timestamp();
+        let template = NodeTemplate {
+            id: template_id.clone(),
+            name: params.name,
+            description: params.description,
+            node: params.node,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+
+        if let Err(e) = self.workflow_store.save_node_template(&template) {
+            return rpc_error(id, -32002, e.to_string());
+        }
+
+        self.node_templates
+            .write()
+            .expect("node template lock should not poison")
+            .insert(template_id.clone(), template.clone());
+        self.event_hub
+            .publish(node_changed_event("node_created", &template_id));
+
+        rpc_result(id, json!({ "template": template }))
+    }
+
+    fn get_node_template(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<NodeIdParams>(params) {
+            Ok(p) => p,
+            Err(e) => return rpc_error(id, -32602, e.to_string()),
+        };
+
+        let templates = self
+            .node_templates
+            .read()
+            .expect("node template lock should not poison");
+        let template = match templates.get(&params.node_id) {
+            Some(t) => t.clone(),
+            None => return rpc_error(id, -32000, "node template not found"),
+        };
+
+        rpc_result(id, json!({ "template": template }))
+    }
+
+    fn list_node_templates(&self, id: Value) -> Value {
+        let templates = self
+            .node_templates
+            .read()
+            .expect("node template lock should not poison")
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        rpc_result(id, json!({ "templates": templates }))
+    }
+
+    fn update_node_template(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<UpdateNodeTemplateParams>(params) {
+            Ok(p) => p,
+            Err(e) => return rpc_error(id, -32602, e.to_string()),
+        };
+
+        let mut templates = self
+            .node_templates
+            .write()
+            .expect("node template lock should not poison");
+
+        let existing = match templates.get_mut(&params.node_id) {
+            Some(t) => t,
+            None => return rpc_error(id, -32000, "node template not found"),
+        };
+
+        if let Some(name) = params.name {
+            existing.name = name;
+        }
+        if let Some(description) = params.description {
+            existing.description = description;
+        }
+        if let Some(node) = params.node {
+            if node.id != params.node_id {
+                return rpc_error(id, -32602, "node.id must match node_id");
+            }
+            existing.node = node;
+        }
+        existing.updated_at = iso_timestamp();
+
+        let updated = existing.clone();
+        drop(templates);
+
+        if let Err(e) = self.workflow_store.save_node_template(&updated) {
+            return rpc_error(id, -32002, e.to_string());
+        }
+
+        self.event_hub
+            .publish(node_changed_event("node_updated", &params.node_id));
+        rpc_result(id, json!({ "template": updated }))
+    }
+
+    fn delete_node_template(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<NodeIdParams>(params) {
+            Ok(p) => p,
+            Err(e) => return rpc_error(id, -32602, e.to_string()),
+        };
+
+        if !self
+            .node_templates
+            .read()
+            .expect("node template lock should not poison")
+            .contains_key(&params.node_id)
+        {
+            return rpc_error(id, -32000, "node template not found");
+        }
+
+        if let Err(e) = self.workflow_store.delete_node_template(&params.node_id) {
+            return rpc_error(id, -32002, e.to_string());
+        }
+
+        self.node_templates
+            .write()
+            .expect("node template lock should not poison")
+            .remove(&params.node_id);
+        self.event_hub
+            .publish(node_changed_event("node_deleted", &params.node_id));
+
+        rpc_result(
+            id,
+            json!({ "node_id": params.node_id, "deleted": true }),
+        )
+    }
+
+    fn node_schema(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<NodeSchemaParams>(params) {
+            Ok(p) => p,
+            Err(e) => return rpc_error(id, -32602, e.to_string()),
+        };
+
+        rpc_result(id, json!({ "schema": manual_node::node_schema(&params.kind) }))
+    }
+
+    fn run_node(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<RunNodeParams>(params) {
+            Ok(p) => p,
+            Err(e) => return rpc_error(id, -32602, e.to_string()),
+        };
+
+        if params.node.id == STORYBOOK_INPUT_NODE_ID {
+            return rpc_error(
+                id,
+                -32602,
+                format!("node id cannot be {STORYBOOK_INPUT_NODE_ID}"),
+            );
+        }
+
+        let run_id = {
+            let mut n = self
+                .next_node_run_number
+                .lock()
+                .expect("node run number lock should not poison");
+            *n += 1;
+            format!("node-run-{}", *n)
+        };
+
+        let pending_run =
+            NodeRun::pending(run_id.clone(), params.node.clone(), params.inputs.clone());
+
+        if let Err(e) = self.workflow_store.save_node_run(&run_id, &pending_run) {
+            return rpc_error(id, -32002, e.to_string());
+        }
+
+        self.node_runs
+            .write()
+            .expect("node run lock should not poison")
+            .insert(run_id.clone(), pending_run);
+        self.event_hub
+            .publish(node_run_changed_event(&run_id, "created"));
+
+        let node_runs = Arc::clone(&self.node_runs);
+        let workflow_store = self.workflow_store.clone();
+        let event_hub = self.event_hub.clone();
+        let thread_run_id = run_id.clone();
+        let inputs = params.inputs;
+        let node = params.node;
+
+        thread::spawn(move || {
+            let temp_workflow = storybook_workflow(node, inputs, &thread_run_id);
+
+            let result = temp_workflow.execute_with_events(&thread_run_id, |event| {
+                let mut runs = node_runs.write().expect("node run lock should not poison");
+                if let Some(run) = runs.get_mut(&thread_run_id) {
+                    run.record_event(event);
+                    if let Err(e) = workflow_store.save_node_run(&thread_run_id, run) {
+                        eprintln!("failed to persist node run {thread_run_id}: {e}");
+                    }
+                    event_hub.publish(node_run_changed_event(&thread_run_id, "event"));
+                }
+            });
+
+            if let Err(error) = result {
+                let mut runs = node_runs.write().expect("node run lock should not poison");
+                if let Some(run) = runs.get_mut(&thread_run_id) {
+                    if !run.completed() {
+                        run.record_event(json!({
+                            "run_id": thread_run_id,
+                            "sequence": run.events().len(),
+                            "type": "workflow_failed",
+                            "error": format!("{error:?}"),
+                        }));
+                        if let Err(e) = workflow_store.save_node_run(&thread_run_id, run) {
+                            eprintln!("failed to persist node run {thread_run_id}: {e}");
+                        }
+                        event_hub.publish(node_run_changed_event(&thread_run_id, "event"));
+                    }
+                }
+            }
+        });
+
+        rpc_result(id, json!({ "run_id": run_id }))
+    }
+
+    fn get_node_run(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<NodeRunIdParams>(params) {
+            Ok(p) => p,
+            Err(e) => return rpc_error(id, -32602, e.to_string()),
+        };
+
+        if let Some(stored) = self.workflow_store.load_node_run(&params.run_id) {
+            let mut runs = self
+                .node_runs
+                .write()
+                .expect("node run lock should not poison");
+            let should_update = runs
+                .get(&params.run_id)
+                .is_none_or(|r| stored.events().len() > r.events().len());
+            if should_update {
+                runs.insert(params.run_id.clone(), stored);
+            }
+        }
+
+        let runs = self
+            .node_runs
+            .read()
+            .expect("node run lock should not poison");
+        let run = match runs.get(&params.run_id) {
+            Some(r) => r.clone(),
+            None => return rpc_error(id, -32001, "node run not found"),
+        };
+
+        rpc_result(id, json!({ "run": node_run_summary(&params.run_id, &run) }))
+    }
+
+    fn node_run_events(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<NodeRunEventsParams>(params) {
+            Ok(p) => p,
+            Err(e) => return rpc_error(id, -32602, e.to_string()),
+        };
+
+        if let Some(stored) = self.workflow_store.load_node_run(&params.run_id) {
+            let mut runs = self
+                .node_runs
+                .write()
+                .expect("node run lock should not poison");
+            let should_update = runs
+                .get(&params.run_id)
+                .is_none_or(|r| stored.events().len() > r.events().len());
+            if should_update {
+                runs.insert(params.run_id.clone(), stored);
+            }
+        }
+
+        let runs = self
+            .node_runs
+            .read()
+            .expect("node run lock should not poison");
+        let run = match runs.get(&params.run_id) {
+            Some(r) => r.clone(),
+            None => return rpc_error(id, -32001, "node run not found"),
+        };
+
+        let events = run
+            .events()
+            .iter()
+            .skip(params.cursor)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        rpc_result(
+            id,
+            json!({
+                "events": events,
+                "next_cursor": run.events().len(),
+                "completed": run.completed(),
+                "run": node_run_summary(&params.run_id, &run),
+            }),
+        )
+    }
 }
 
 impl Default for AppServer {
@@ -456,10 +786,34 @@ fn run_changed_event(run_id: &str, change: &str) -> Value {
     })
 }
 
+fn node_changed_event(kind: &str, node_id: &str) -> Value {
+    json!({
+        "type": "node_changed",
+        "change": kind,
+        "node_id": node_id,
+    })
+}
+
+fn node_run_changed_event(run_id: &str, change: &str) -> Value {
+    json!({
+        "type": "node_run_changed",
+        "change": change,
+        "run_id": run_id,
+    })
+}
+
 fn next_run_number(runs: &BTreeMap<String, WorkflowRun>) -> u64 {
     runs.keys()
         .filter_map(|run_id| run_id.strip_prefix("run-"))
         .filter_map(|run_number| run_number.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0)
+}
+
+fn next_node_run_number(runs: &BTreeMap<String, NodeRun>) -> u64 {
+    runs.keys()
+        .filter_map(|run_id| run_id.strip_prefix("node-run-"))
+        .filter_map(|n| n.parse::<u64>().ok())
         .max()
         .unwrap_or(0)
 }
@@ -588,6 +942,52 @@ struct StartWorkflowParams {
 
 #[derive(Deserialize)]
 struct WorkflowEventsParams {
+    run_id: String,
+    #[serde(default)]
+    cursor: usize,
+}
+
+#[derive(Deserialize)]
+struct CreateNodeTemplateParams {
+    node: NodeDefinition,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    description: String,
+}
+
+#[derive(Deserialize)]
+struct NodeIdParams {
+    node_id: String,
+}
+
+#[derive(Deserialize)]
+struct UpdateNodeTemplateParams {
+    node_id: String,
+    name: Option<String>,
+    description: Option<String>,
+    node: Option<NodeDefinition>,
+}
+
+#[derive(Deserialize)]
+struct NodeSchemaParams {
+    kind: NodeKind,
+}
+
+#[derive(Deserialize)]
+struct RunNodeParams {
+    node: NodeDefinition,
+    #[serde(default)]
+    inputs: Value,
+}
+
+#[derive(Deserialize)]
+struct NodeRunIdParams {
+    run_id: String,
+}
+
+#[derive(Deserialize)]
+struct NodeRunEventsParams {
     run_id: String,
     #[serde(default)]
     cursor: usize,

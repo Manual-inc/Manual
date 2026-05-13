@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 use manual_worflow::{WorkflowDefinition, WorkflowRun};
 
+use manual_node::{NodeRun, NodeTemplate};
+
 #[derive(Clone)]
 pub(crate) struct WorkflowStore {
     storage_dir: PathBuf,
@@ -87,6 +89,74 @@ impl WorkflowStore {
         self.save_json(&self.run_path(run_id), run)
     }
 
+    pub(crate) fn load_node_templates(&self) -> BTreeMap<String, NodeTemplate> {
+        load_json_map(
+            &self.node_templates_dir(),
+            "node template",
+            |template: &NodeTemplate| template.id.clone(),
+        )
+    }
+
+    pub(crate) fn save_node_template(&self, template: &NodeTemplate) -> io::Result<()> {
+        self.save_json(&self.node_template_path(&template.id), template)
+    }
+
+    pub(crate) fn delete_node_template(&self, template_id: &str) -> io::Result<()> {
+        delete_file(self.node_template_path(template_id))
+    }
+
+    pub(crate) fn load_node_runs(&self) -> BTreeMap<String, NodeRun> {
+        let mut runs = BTreeMap::new();
+        let entries = match fs::read_dir(self.node_runs_dir()) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return runs,
+            Err(error) => {
+                eprintln!(
+                    "failed to read node run storage directory {}: {error}",
+                    self.node_runs_dir().display()
+                );
+                return runs;
+            }
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+                continue;
+            }
+            let Some(run_id) = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(hex_decode)
+            else {
+                continue;
+            };
+            match fs::read_to_string(&path)
+                .ok()
+                .and_then(|c| serde_json::from_str::<NodeRun>(&c).ok())
+            {
+                Some(run) => {
+                    runs.insert(run_id, run);
+                }
+                None => {
+                    eprintln!("failed to load node run file {}", path.display());
+                }
+            }
+        }
+
+        runs
+    }
+
+    pub(crate) fn load_node_run(&self, run_id: &str) -> Option<NodeRun> {
+        fs::read_to_string(self.node_run_path(run_id))
+            .ok()
+            .and_then(|c| serde_json::from_str::<NodeRun>(&c).ok())
+    }
+
+    pub(crate) fn save_node_run(&self, run_id: &str, run: &NodeRun) -> io::Result<()> {
+        self.save_json(&self.node_run_path(run_id), run)
+    }
+
     fn save_json<T: serde::Serialize>(&self, path: &Path, value: &T) -> io::Result<()> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -114,6 +184,24 @@ impl WorkflowStore {
 
     fn runs_dir(&self) -> PathBuf {
         self.storage_dir.join("runs")
+    }
+
+    fn node_templates_dir(&self) -> PathBuf {
+        self.storage_dir.join("nodes")
+    }
+
+    fn node_runs_dir(&self) -> PathBuf {
+        self.storage_dir.join("node_runs")
+    }
+
+    fn node_template_path(&self, template_id: &str) -> PathBuf {
+        self.node_templates_dir()
+            .join(format!("{}.json", hex_encode(template_id.as_bytes())))
+    }
+
+    fn node_run_path(&self, run_id: &str) -> PathBuf {
+        self.node_runs_dir()
+            .join(format!("{}.json", hex_encode(run_id.as_bytes())))
     }
 }
 

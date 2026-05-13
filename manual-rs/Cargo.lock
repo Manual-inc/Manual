@@ -6,6 +6,7 @@ version = 4
 name = "app-server"
 version = "0.1.0"
 dependencies = [
+ "manual-node",
  "manual-worflow",
  "serde",
  "serde_json",
@@ -20,6 +21,15 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 [[package]]
 name = "manual-agent"
 version = "0.1.0"
+
+[[package]]
+name = "manual-node"
+version = "0.1.0"
+dependencies = [
+ "manual-worflow",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "manual-sandbox"
