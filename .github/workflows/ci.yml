@@ -95,4 +95,7 @@ jobs:
           dotnet-version: "10.x"
 
       - name: 빌드
-        run: dotnet build --configuration Release
+        run: dotnet build ManualWindow.sln --configuration Release
+
+      - name: 테스트
+        run: dotnet test Tests/ManualWindow.Tests.csproj --configuration Release --no-build

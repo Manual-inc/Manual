@@ -1,0 +1,6 @@
+<UserControl
+    x:Class="ManualWindow.Views.NodeKindIcon"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <FontIcon x:Name="Icon" FontSize="16" />
+</UserControl>

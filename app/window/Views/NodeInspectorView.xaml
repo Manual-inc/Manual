@@ -1,0 +1,89 @@
+<UserControl x:Class="ManualWindow.Views.NodeInspectorView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+        <StackPanel Spacing="20">
+
+            <!-- 노드 없을 때 placeholder -->
+            <TextBlock x:Name="PlaceholderText" Text="Select a node to inspect"
+                       FontSize="13" Opacity="0.45"
+                       HorizontalAlignment="Center" Margin="0,40,0,0"/>
+
+            <!-- 노드 선택됐을 때 표시되는 콘텐츠 -->
+            <StackPanel x:Name="ContentPanel" Spacing="16" Visibility="Collapsed">
+
+                <!-- Header: Kind icon + Title + Kind label -->
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="NodeTitleText" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="NodeKindText" FontSize="11" Opacity="0.55" CharacterSpacing="70"/>
+                </StackPanel>
+
+                <Rectangle Height="1" Opacity="0.08" Fill="White"/>
+
+                <!-- STATUS 섹션 -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="STATUS" FontSize="10" FontWeight="Bold" Opacity="0.45" CharacterSpacing="70"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" x:Name="StatusRow">
+                        <FontIcon x:Name="StatusIcon" FontSize="14"/>
+                        <TextBlock x:Name="StatusText" FontSize="13"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ID 섹션 -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="ID" FontSize="10" FontWeight="Bold" Opacity="0.45" CharacterSpacing="70"/>
+                    <TextBlock x:Name="NodeIdText" FontSize="12" FontFamily="Consolas, Courier New"
+                               TextWrapping="Wrap" Opacity="0.75"/>
+                </StackPanel>
+
+                <!-- ACTIONS 섹션 -->
+                <StackPanel x:Name="ActionsPanel" Spacing="8">
+                    <TextBlock Text="ACTIONS" FontSize="10" FontWeight="Bold" Opacity="0.45" CharacterSpacing="70"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" x:Name="RunPanel" Visibility="Collapsed">
+                        <Button x:Name="RunButton" Click="RunButton_Click"
+                                Content="Run Node" FontSize="12"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" x:Name="RestartPanel" Visibility="Collapsed">
+                        <Button x:Name="RestartButton" Click="RestartButton_Click"
+                                Content="Restart from here" FontSize="12"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" x:Name="StopPanel" Visibility="Collapsed">
+                        <Button x:Name="StopButton" Click="StopButton_Click"
+                                Content="Stop" FontSize="12"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" x:Name="OverridePanel" Visibility="Collapsed">
+                        <Button x:Name="OverrideButton" Click="OverrideButton_Click"
+                                Content="Override Input" FontSize="12"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- OUTPUT 섹션 -->
+                <StackPanel x:Name="OutputPanel" Spacing="6" Visibility="Collapsed">
+                    <TextBlock Text="OUTPUT" FontSize="10" FontWeight="Bold" Opacity="0.45" CharacterSpacing="70"/>
+                    <Border CornerRadius="8" Padding="12" Background="#1AFFFFFF">
+                        <TextBlock x:Name="OutputText" FontSize="12" FontFamily="Consolas, Courier New"
+                                   TextWrapping="Wrap" Opacity="0.85"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- PREVIOUS OUTPUT 섹션 (result AND previousResult 둘 다 있을 때) -->
+                <StackPanel x:Name="PreviousOutputPanel" Spacing="6" Visibility="Collapsed">
+                    <TextBlock Text="PREVIOUS OUTPUT" FontSize="10" FontWeight="Bold" Opacity="0.45" CharacterSpacing="70"/>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="BEFORE" FontSize="9" Opacity="0.45" CharacterSpacing="70"/>
+                        <Border CornerRadius="6" Padding="10" Background="#14FFFFFF">
+                            <TextBlock x:Name="PreviousOutputText" FontSize="11"
+                                       FontFamily="Consolas, Courier New" TextWrapping="Wrap" Opacity="0.65"/>
+                        </Border>
+                        <TextBlock Text="AFTER" FontSize="9" Opacity="0.55" CharacterSpacing="70" Margin="0,4,0,0"/>
+                        <Border CornerRadius="6" Padding="10" Background="#1A4CAF50">
+                            <TextBlock x:Name="CurrentOutputText" FontSize="11"
+                                       FontFamily="Consolas, Courier New" TextWrapping="Wrap" Opacity="0.85"/>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

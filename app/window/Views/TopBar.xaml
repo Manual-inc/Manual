@@ -1,0 +1,72 @@
+<UserControl x:Class="ManualWindow.Views.TopBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="{ThemeResource TopBarBrush}"
+          Padding="12,0" Height="48">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Workflow ID -->
+        <TextBlock Grid.Column="0" x:Name="WorkflowIdText" FontSize="13" FontWeight="SemiBold"
+                   VerticalAlignment="Center" Opacity="0.75" TextTrimming="CharacterEllipsis"
+                   MaxWidth="200"/>
+
+        <!-- Status message -->
+        <TextBlock Grid.Column="1" x:Name="StatusText" FontSize="12" Opacity="0.55"
+                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+        <!-- Paused banner (step mode) -->
+        <Border Grid.Column="2" x:Name="PausedBanner" Visibility="Collapsed"
+                Background="#33FFCC4D" CornerRadius="4" Padding="10,4" Margin="0,0,8,0">
+            <TextBlock Text="Paused — step mode" FontSize="12" Foreground="#FFFFCC4D"/>
+        </Border>
+
+        <!-- Next Step button (only when paused) -->
+        <Button Grid.Column="3" x:Name="NextStepButton" Visibility="Collapsed"
+                Margin="0,0,6,0" Click="NextStep_Click"
+                ToolTipService.ToolTip="Execute next step">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon x:Name="NextStepIcon" FontSize="12"
+                          FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                <TextBlock Text="Next Step" FontSize="12"/>
+            </StackPanel>
+        </Button>
+
+        <!-- Execute button -->
+        <Button Grid.Column="4" x:Name="ExecuteButton" Margin="0,0,6,0" Click="Execute_Click"
+                ToolTipService.ToolTip="Run workflow">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon x:Name="ExecuteIcon" FontSize="12"
+                          FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                <TextBlock Text="Execute" FontSize="12"/>
+            </StackPanel>
+        </Button>
+
+        <!-- Step Mode button -->
+        <Button Grid.Column="5" x:Name="StepModeButton" Margin="0,0,6,0" Click="StepMode_Click"
+                ToolTipService.ToolTip="Run in step mode">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon x:Name="StepModeIcon" FontSize="12"
+                          FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                <TextBlock Text="Step" FontSize="12"/>
+            </StackPanel>
+        </Button>
+
+        <!-- Stop button -->
+        <Button Grid.Column="6" x:Name="StopButton" Visibility="Collapsed"
+                Click="Stop_Click" ToolTipService.ToolTip="Stop run">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon x:Name="StopIcon" FontSize="12"
+                          FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                <TextBlock Text="Stop" FontSize="12"/>
+            </StackPanel>
+        </Button>
+    </Grid>
+</UserControl>
