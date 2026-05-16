@@ -16,6 +16,11 @@ let package = Package(
             resources: [
                 .process("Resources")
             ]
+        ),
+        .testTarget(
+            name: "ManualMacAppTests",
+            dependencies: ["ManualMacApp"],
+            path: "Tests/ManualMacAppTests"
         )
     ]
 )

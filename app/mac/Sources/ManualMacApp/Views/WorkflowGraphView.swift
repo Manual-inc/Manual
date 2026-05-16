@@ -4,7 +4,12 @@ struct WorkflowGraphView: View {
     let nodes: [WorkflowNodeModel]
     let edges: [WorkflowEdgeModel]
     let selectedNodeID: String?
+    let isRunning: Bool
     let onSelect: (String) -> Void
+    let onRun: (String) -> Void
+    let onRestart: (String) -> Void
+    let onStop: () -> Void
+    let onOverride: (String) -> Void
 
     @State private var zoom: CGFloat = 1.0
     @State private var startZoom: CGFloat = 1.0
@@ -169,7 +174,12 @@ struct WorkflowGraphView: View {
                 WorkflowNodeCard(
                     node: node,
                     isSelected: selectedNodeID == node.id,
-                    size: nodeSize
+                    isRunning: isRunning,
+                    size: nodeSize,
+                    onRun: { onRun(node.id) },
+                    onRestart: { onRestart(node.id) },
+                    onStop: onStop,
+                    onOverride: { onOverride(node.id) }
                 )
                 .position(nodePoint(for: node, in: canvasSize))
                 .onTapGesture { onSelect(node.id) }
@@ -251,7 +261,14 @@ private struct DotGridBackground: View {
 private struct WorkflowNodeCard: View {
     let node: WorkflowNodeModel
     let isSelected: Bool
+    let isRunning: Bool
     let size: CGSize
+    let onRun: () -> Void
+    let onRestart: () -> Void
+    let onStop: () -> Void
+    let onOverride: () -> Void
+
+    @State private var isHovering = false
 
     var body: some View {
         ZStack {
@@ -316,10 +333,51 @@ private struct WorkflowNodeCard: View {
                     .offset(x: 6)
             }
             .frame(width: size.width)
+
+            // Node action overlay (hover or selected)
+            if isHovering || isSelected {
+                VStack {
+                    HStack {
+                        Spacer()
+                        HStack(spacing: 4) {
+                            NodeActionButton(
+                                symbol: "play.fill",
+                                tooltip: "Run node",
+                                isVisible: node.status == .idle || node.status == .succeeded || node.status == .skipped || node.status == .cancelled,
+                                action: onRun
+                            )
+                            NodeActionButton(
+                                symbol: "arrow.clockwise",
+                                tooltip: "Restart from here",
+                                isVisible: node.status == .failed,
+                                action: onRestart
+                            )
+                            NodeActionButton(
+                                symbol: "stop.fill",
+                                tooltip: "Stop",
+                                isVisible: node.status == .running && isRunning,
+                                action: onStop
+                            )
+                            NodeActionButton(
+                                symbol: "pencil",
+                                tooltip: "Override input",
+                                isVisible: node.status != .running,
+                                action: onOverride
+                            )
+                        }
+                        .padding(.trailing, 8)
+                        .padding(.top, 6)
+                    }
+                    Spacer()
+                }
+                .frame(width: size.width, height: size.height)
+                .transition(.opacity)
+            }
         }
         .frame(width: size.width, height: size.height)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
         .animation(.easeInOut(duration: 0.2), value: node.status)
+        .onHover { isHovering = $0 }
     }
 }
 
@@ -350,6 +408,18 @@ private struct StatusBadge: View {
                 Image(systemName: "xmark.octagon.fill")
                     .font(.system(size: 14))
                     .foregroundStyle(AppTheme.statusColor(status))
+            case .skipped:
+                Image(systemName: "arrow.forward.circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppTheme.textMuted)
+            case .paused:
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.orange)
+            case .cancelled:
+                Image(systemName: "slash.circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppTheme.textMuted)
             }
         }
     }
@@ -367,6 +437,32 @@ private struct Port: View {
             Circle()
                 .stroke(color.opacity(0.9), lineWidth: 1.4)
                 .frame(width: 12, height: 12)
+        }
+    }
+}
+
+private struct NodeActionButton: View {
+    let symbol: String
+    let tooltip: String
+    let isVisible: Bool
+    let action: () -> Void
+
+    var body: some View {
+        if isVisible {
+            Button(action: action) {
+                Image(systemName: symbol)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(AppTheme.text)
+                    .frame(width: 24, height: 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6).fill(AppTheme.panelElev)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6).stroke(AppTheme.stroke, lineWidth: 1)
+                    }
+            }
+            .buttonStyle(.plain)
+            .help(tooltip)
         }
     }
 }

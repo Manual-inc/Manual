@@ -1,0 +1,53 @@
+<UserControl
+    x:Class="ManualWindow.Views.Graph.NodeActionOverlay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="NodeActionButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2E3043"/>
+            <Setter Property="BorderBrush" Value="#14FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <StackPanel x:Name="ButtonPanel" Orientation="Horizontal" Spacing="4"
+                HorizontalAlignment="Right" VerticalAlignment="Top">
+        <!-- Run button (idle/succeeded/skipped/cancelled) -->
+        <Button x:Name="RunButton" Width="24" Height="24" Padding="0"
+                Click="RunButton_Click" ToolTipService.ToolTip="Run node"
+                Style="{StaticResource NodeActionButtonStyle}">
+            <FontIcon Glyph="&#xE768;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"/>
+        </Button>
+        <!-- Restart button (failed) -->
+        <Button x:Name="RestartButton" Width="24" Height="24" Padding="0"
+                Click="RestartButton_Click" ToolTipService.ToolTip="Restart from here"
+                Style="{StaticResource NodeActionButtonStyle}">
+            <FontIcon Glyph="&#xE72C;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"/>
+        </Button>
+        <!-- Stop button (running and workflow running) -->
+        <Button x:Name="StopButton" Width="24" Height="24" Padding="0"
+                Click="StopButton_Click" ToolTipService.ToolTip="Stop"
+                Style="{StaticResource NodeActionButtonStyle}">
+            <FontIcon Glyph="&#xE71A;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"/>
+        </Button>
+        <!-- Override button (not running) -->
+        <Button x:Name="OverrideButton" Width="24" Height="24" Padding="0"
+                Click="OverrideButton_Click" ToolTipService.ToolTip="Override input"
+                Style="{StaticResource NodeActionButtonStyle}">
+            <FontIcon Glyph="&#xE70F;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"/>
+        </Button>
+    </StackPanel>
+</UserControl>
