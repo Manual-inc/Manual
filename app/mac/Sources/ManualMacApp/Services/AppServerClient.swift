@@ -443,7 +443,7 @@ enum ExecutionMode: String, Sendable {
     case step
 }
 
-struct WorkflowStartOptions: Sendable {
+struct WorkflowStartOptions: @unchecked Sendable {
     var startNodeID: String? = nil
     var resumeFromFailure: Bool = false
     var inputOverrides: [String: Any] = [:]

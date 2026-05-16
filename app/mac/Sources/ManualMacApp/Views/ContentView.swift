@@ -81,12 +81,12 @@ struct ContentView: View {
                             Rectangle().fill(AppTheme.stroke).frame(width: 1)
                             NodeInspectorView(
                                 node: store.selectedNode,
-                                store: store,
                                 onClose: {
                                     withAnimation(.easeInOut(duration: 0.18)) {
                                         inspectorVisible = false
                                     }
                                 },
+                                store: store,
                                 onOverride: { nodeID in
                                     overrideTargetNodeID = nodeID
                                     showingOverrideSheet = true

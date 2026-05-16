@@ -49,7 +49,7 @@ enum WorkflowNodeKind: String {
     }
 }
 
-struct WorkflowNodeModel: Identifiable, Equatable {
+struct WorkflowNodeModel: Identifiable, Equatable, @unchecked Sendable {
     let id: String
     let title: String
     let subtitle: String

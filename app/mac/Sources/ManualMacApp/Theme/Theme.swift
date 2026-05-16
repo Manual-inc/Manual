@@ -30,6 +30,9 @@ enum AppTheme {
         case .running:   return Color(red: 0.40, green: 0.65, blue: 1.00)
         case .succeeded: return Color(red: 0.42, green: 0.85, blue: 0.50)
         case .failed:    return Color(red: 0.96, green: 0.45, blue: 0.45)
+        case .skipped:   return Color.white.opacity(0.30)
+        case .paused:    return Color(red: 1.00, green: 0.80, blue: 0.30)
+        case .cancelled: return Color.white.opacity(0.25)
         }
     }
 
