@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+
+jobs:
+  # ── Rust: manual-rs 워크스페이스 (Ubuntu / macOS / Windows) ──────────────
+  rust-workspace:
+    name: "Rust workspace (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: manual-rs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust stable 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 빌드 캐시
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: manual-rs
+
+      - name: 빌드
+        run: cargo build --workspace
+
+      - name: 테스트
+        run: cargo test --workspace
+
+  # ── Rust: CLI (Ubuntu / macOS / Windows) ────────────────────────────────
+  cli:
+    name: "CLI (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: app/cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust stable 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 빌드 캐시
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/cli
+
+      - name: 빌드
+        run: cargo build --release
+
+      - name: 테스트
+        run: cargo test
+
+  # ── macOS 앱 (Swift Package) ─────────────────────────────────────────────
+  mac-app:
+    name: "Mac App (Swift, macos-15)"
+    runs-on: macos-15
+    # Package.swift가 .macOS(.v26)을 요구하므로 현재 러너에서 실패할 수 있음
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: app/mac
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift 버전 확인
+        run: swift --version
+
+      - name: 빌드
+        run: swift build
+
+  # ── Windows 앱 (WinUI 3 / .NET 10) ──────────────────────────────────────
+  windows-app:
+    name: "Windows App (WinUI 3)"
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app/window
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .NET 10 SDK 설치
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.x"
+
+      - name: Windows App SDK 워크로드 설치
+        run: dotnet workload install microsoft-net-sdk-windowsappsdk
+
+      - name: 빌드
+        run: dotnet build --configuration Release
