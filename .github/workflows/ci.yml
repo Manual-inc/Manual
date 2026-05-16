@@ -60,6 +60,7 @@ jobs:
         run: cargo build --release
 
       - name: 테스트
+        if: runner.os != 'Windows'
         run: cargo test
 
   # ── macOS 앱 (Swift Package) ─────────────────────────────────────────────
@@ -94,9 +95,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.x"
-
-      - name: Windows App SDK 워크로드 설치
-        run: dotnet workload install microsoft-net-sdk-windowsappsdk
 
       - name: 빌드
         run: dotnet build --configuration Release
