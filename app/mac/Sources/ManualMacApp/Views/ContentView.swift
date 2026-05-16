@@ -5,6 +5,8 @@ struct ContentView: View {
     @SceneStorage("ManualMac.sidebarVisible") private var sidebarVisible = true
     @SceneStorage("ManualMac.inspectorVisible") private var inspectorVisible = false
     @SceneStorage("ManualMac.bottomPanelVisible") private var bottomPanelVisible = false
+    @State private var showingOverrideSheet = false
+    @State private var overrideTargetNodeID: String? = nil
 
     var body: some View {
         ZStack {
@@ -35,11 +37,19 @@ struct ContentView: View {
                                 nodes: store.nodes,
                                 edges: store.edges,
                                 selectedNodeID: store.selectedNodeID,
+                                isRunning: store.isRunning,
                                 onSelect: { nodeID in
                                     store.selectNode(nodeID)
                                     withAnimation(.easeInOut(duration: 0.18)) {
                                         inspectorVisible = true
                                     }
+                                },
+                                onRun: { nodeID in store.runNode(nodeID) },
+                                onRestart: { _ in store.restartFromFailure() },
+                                onStop: { store.stop() },
+                                onOverride: { nodeID in
+                                    overrideTargetNodeID = nodeID
+                                    showingOverrideSheet = true
                                 }
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -71,10 +81,15 @@ struct ContentView: View {
                             Rectangle().fill(AppTheme.stroke).frame(width: 1)
                             NodeInspectorView(
                                 node: store.selectedNode,
+                                store: store,
                                 onClose: {
                                     withAnimation(.easeInOut(duration: 0.18)) {
                                         inspectorVisible = false
                                     }
+                                },
+                                onOverride: { nodeID in
+                                    overrideTargetNodeID = nodeID
+                                    showingOverrideSheet = true
                                 }
                             )
                             .frame(width: 340)
@@ -82,6 +97,20 @@ struct ContentView: View {
                         }
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showingOverrideSheet) {
+            if let nodeID = overrideTargetNodeID,
+               let node = store.nodes.first(where: { $0.id == nodeID }) {
+                NodeInputOverrideSheet(
+                    nodeID: nodeID,
+                    nodeTitle: node.title,
+                    onRun: { overrides in
+                        store.runNode(nodeID, overrides: overrides)
+                        showingOverrideSheet = false
+                    },
+                    onCancel: { showingOverrideSheet = false }
+                )
             }
         }
         .preferredColorScheme(.dark)
@@ -391,6 +420,26 @@ private struct TopBar: View {
                         bottomPanelVisible = true
                     }
                     store.start()
+                }
+                if store.isRunning && !store.isPaused {
+                    SecondaryButton(label: "Stop") {
+                        store.stop()
+                    }
+                    .keyboardShortcut(".", modifiers: .command)
+                }
+                if store.isResumable {
+                    SecondaryButton(label: store.isPaused ? "Next step" : "Resume") {
+                        if store.isPaused {
+                            store.resumeStep()
+                        } else {
+                            store.restartFromFailure()
+                        }
+                    }
+                }
+                if !store.isRunning {
+                    IconButton(symbol: "forward.frame", isActive: false) {
+                        store.startStepMode()
+                    }
                 }
                 IconButton(symbol: "rectangle.bottomthird.inset.filled", isActive: bottomPanelVisible) {
                     withAnimation(.easeInOut(duration: 0.18)) {

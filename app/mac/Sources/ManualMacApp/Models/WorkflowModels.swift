@@ -6,6 +6,9 @@ enum WorkflowNodeStatus: String {
     case running = "Running"
     case succeeded = "Succeeded"
     case failed = "Failed"
+    case skipped = "Skipped"
+    case paused = "Paused"
+    case cancelled = "Cancelled"
 
     var symbolName: String {
         switch self {
@@ -13,6 +16,9 @@ enum WorkflowNodeStatus: String {
         case .running: "play.circle.fill"
         case .succeeded: "checkmark.circle.fill"
         case .failed: "xmark.octagon.fill"
+        case .skipped: "arrow.forward.circle"
+        case .paused: "pause.circle.fill"
+        case .cancelled: "slash.circle"
         }
     }
 }
@@ -51,6 +57,19 @@ struct WorkflowNodeModel: Identifiable, Equatable {
     let position: CGPoint
     var status: WorkflowNodeStatus = .idle
     var result: String?
+    var previousResult: String?
+    var inputOverride: [String: Any]?
+
+    static func == (lhs: WorkflowNodeModel, rhs: WorkflowNodeModel) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.title == rhs.title &&
+        lhs.subtitle == rhs.subtitle &&
+        lhs.kind == rhs.kind &&
+        lhs.position == rhs.position &&
+        lhs.status == rhs.status &&
+        lhs.result == rhs.result &&
+        lhs.previousResult == rhs.previousResult
+    }
 }
 
 struct WorkflowEdgeModel: Identifiable, Equatable {

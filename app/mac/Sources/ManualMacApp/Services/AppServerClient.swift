@@ -99,6 +99,40 @@ final class AppServerClient {
         return runID
     }
 
+    func startWorkflow(id workflowID: String, options: WorkflowStartOptions) async throws -> String {
+        var params: [String: Any] = ["workflow_id": workflowID]
+        if let nodeID = options.startNodeID { params["start_node_id"] = nodeID }
+        if options.resumeFromFailure { params["resume_from_failure"] = true }
+        if !options.inputOverrides.isEmpty { params["input_overrides"] = options.inputOverrides }
+        if options.mode != .auto { params["mode"] = options.mode.rawValue }
+        if let resumeRunID = options.resumeRunID { params["resume_run_id"] = resumeRunID }
+
+        let result = try await request(method: "workflow.start", params: params)
+        guard let object = result as? [String: Any], let runID = object["run_id"] as? String else {
+            throw AppServerClientError.invalidResponse
+        }
+        return runID
+    }
+
+    func stopWorkflow(runID: String) async throws -> StopWorkflowResult {
+        let result = try await request(method: "workflow.stop", params: ["run_id": runID])
+        return try StopWorkflowResult(result)
+    }
+
+    func resumeWorkflow(runID: String, options: WorkflowStartOptions = WorkflowStartOptions()) async throws -> String {
+        var params: [String: Any] = ["run_id": runID]
+        if let nodeID = options.startNodeID { params["start_node_id"] = nodeID }
+        if options.resumeFromFailure { params["resume_from_failure"] = true }
+        if !options.inputOverrides.isEmpty { params["input_overrides"] = options.inputOverrides }
+        if options.mode != .auto { params["mode"] = options.mode.rawValue }
+
+        let result = try await request(method: "workflow.resume", params: params)
+        guard let object = result as? [String: Any], let runID = object["run_id"] as? String else {
+            throw AppServerClientError.invalidResponse
+        }
+        return runID
+    }
+
     func events(runID: String, cursor: Int) async throws -> WorkflowEventsPage {
         let result = try await request(
             method: "workflow.events",
@@ -404,9 +438,54 @@ struct WorkflowDeleteResult: Sendable {
     }
 }
 
+enum ExecutionMode: String, Sendable {
+    case auto
+    case step
+}
+
+struct WorkflowStartOptions: Sendable {
+    var startNodeID: String? = nil
+    var resumeFromFailure: Bool = false
+    var inputOverrides: [String: Any] = [:]
+    var mode: ExecutionMode = .auto
+    var resumeRunID: String? = nil
+}
+
+struct StopWorkflowResult: Sendable {
+    let runID: String
+    let cancelled: Bool
+    let message: String?
+
+    init(_ result: Any) throws {
+        guard
+            let object = result as? [String: Any],
+            let runID = object["run_id"] as? String,
+            let cancelled = object["cancelled"] as? Bool
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+        self.runID = runID
+        self.cancelled = cancelled
+        self.message = object["message"] as? String
+    }
+}
+
 struct WorkflowEventsPage: @unchecked Sendable {
     let events: [[String: Any]]
     let nextCursor: Int
     let completed: Bool
     let run: [String: Any]
+    let firstFailedNode: String?
+    let resumable: Bool
+    let paused: Bool
+
+    init(events: [[String: Any]], nextCursor: Int, completed: Bool, run: [String: Any]) {
+        self.events = events
+        self.nextCursor = nextCursor
+        self.completed = completed
+        self.run = run
+        self.firstFailedNode = run["first_failed_node"] as? String
+        self.resumable = run["resumable"] as? Bool ?? false
+        self.paused = run["paused"] as? Bool ?? false
+    }
 }

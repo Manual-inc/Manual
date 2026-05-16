@@ -13,6 +13,9 @@ final class WorkflowRunStore: ObservableObject {
     @Published private(set) var runID: String?
     @Published private(set) var statusMessage = "Ready"
     @Published private(set) var rawWorkflowJSON = "{}"
+    @Published private(set) var isPaused: Bool = false
+    @Published private(set) var firstFailedNodeID: String? = nil
+    @Published private(set) var isResumable: Bool = false
 
     private let client: AppServerClient
     private var currentWorkflow = BusinessWorkflowExample.jsonDefinition
@@ -106,6 +109,117 @@ final class WorkflowRunStore: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             await self.startViaJSONRPC(workflowID: workflowID)
+        }
+    }
+
+    func runNode(_ nodeID: String, overrides: [String: Any] = [:]) {
+        guard let workflowID = selectedWorkflowID else { return }
+
+        // 재실행 전 결과 백업
+        if let index = nodes.firstIndex(where: { $0.id == nodeID }) {
+            nodes[index].previousResult = nodes[index].result
+            nodes[index].inputOverride = overrides.isEmpty ? nil : overrides
+            nodes[index].status = .idle
+        }
+
+        isRunning = true
+        statusMessage = "Running node \(nodeID)"
+
+        var options = WorkflowStartOptions()
+        options.startNodeID = nodeID
+        options.inputOverrides = overrides
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.startViaJSONRPC(workflowID: workflowID, options: options)
+        }
+    }
+
+    func restartFromFailure() {
+        guard let workflowID = selectedWorkflowID, let failedNodeID = firstFailedNodeID else { return }
+
+        guard let runID else {
+            // run_id 없으면 일반 실패 재시작
+            var options = WorkflowStartOptions()
+            options.resumeFromFailure = true
+            isRunning = true
+            statusMessage = "Restarting from failure"
+            Task { [weak self] in
+                guard let self else { return }
+                await self.startViaJSONRPC(workflowID: workflowID, options: options)
+            }
+            return
+        }
+
+        isRunning = true
+        isPaused = false
+        statusMessage = "Restarting from \(failedNodeID)"
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                var options = WorkflowStartOptions()
+                options.resumeFromFailure = true
+                let newRunID = try await self.client.resumeWorkflow(runID: runID, options: options)
+                self.runID = newRunID
+                self.observedRunIDs.insert(newRunID)
+                try await self.streamEvents(runID: newRunID)
+            } catch {
+                self.statusMessage = error.localizedDescription
+                self.isRunning = false
+            }
+        }
+    }
+
+    func stop() {
+        guard let runID, isRunning else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await self.client.stopWorkflow(runID: runID)
+                if !result.cancelled {
+                    self.statusMessage = result.message ?? "Run already completed"
+                }
+            } catch {
+                self.statusMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func resumeStep() {
+        guard let runID, isPaused else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let newRunID = try await self.client.resumeWorkflow(runID: runID)
+                if newRunID != runID {
+                    self.runID = newRunID
+                    self.observedRunIDs.insert(newRunID)
+                    try await self.streamEvents(runID: newRunID)
+                }
+                // 같은 run_id면 이미 streamEvents가 polling 중이므로 아무것도 안 해도 됨
+            } catch {
+                self.statusMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func startStepMode(from nodeID: String? = nil) {
+        guard !isRunning, let workflowID = selectedWorkflowID else { return }
+
+        isRunning = true
+        runID = nil
+        events.removeAll()
+        resetNodes()
+        statusMessage = "Starting step mode"
+
+        var options = WorkflowStartOptions()
+        options.mode = .step
+        options.startNodeID = nodeID
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.startViaJSONRPC(workflowID: workflowID, options: options)
         }
     }
 
@@ -247,10 +361,10 @@ final class WorkflowRunStore: ObservableObject {
         }
     }
 
-    private func startViaJSONRPC(workflowID: String) async {
+    private func startViaJSONRPC(workflowID: String, options: WorkflowStartOptions = WorkflowStartOptions()) async {
         do {
             await persistCurrentWorkflow()
-            let runID = try await client.startWorkflow(id: workflowID)
+            let runID = try await client.startWorkflow(id: workflowID, options: options)
             self.runID = runID
             observedRunIDs.insert(runID)
             statusMessage = "Running \(runID)"
@@ -274,7 +388,7 @@ final class WorkflowRunStore: ObservableObject {
             for event in page.events {
                 applyServerEvent(event)
             }
-            applyRunSummary(page.run)
+            applyRunSummary(page)
 
             if !completed {
                 try? await Task.sleep(for: .milliseconds(350))
@@ -283,6 +397,7 @@ final class WorkflowRunStore: ObservableObject {
 
         statusMessage = "Completed \(runID)"
         isRunning = false
+        isPaused = false
     }
 
     private func syncDisplay(with workflow: [String: Any]) {
@@ -324,14 +439,44 @@ final class WorkflowRunStore: ObservableObject {
                 fail(nodeID, error: error)
                 appendEvent(nodeID: nodeID, title: "Node failed", detail: error)
             }
+        case "workflow_cancelled":
+            for i in nodes.indices where nodes[i].status == .running {
+                nodes[i].status = .cancelled
+            }
+            isRunning = false
+            isPaused = false
+            statusMessage = "Workflow cancelled"
+            appendEvent(nodeID: nil, title: "Workflow cancelled", detail: selectedWorkflowID ?? "workflow")
+
+        case "workflow_paused":
+            isPaused = true
+            for i in nodes.indices where nodes[i].status == .running {
+                nodes[i].status = .paused
+            }
+            appendEvent(nodeID: nil, title: "Workflow paused", detail: "Waiting for next step")
+
+        case "node_skipped":
+            if let nodeID {
+                mark(nodeID, as: .skipped)
+                appendEvent(nodeID: nodeID, title: "Node skipped", detail: nodeTitle(nodeID))
+            }
+
         default:
             appendEvent(nodeID: nodeID, title: type, detail: displayString(for: event))
         }
     }
 
-    private func applyRunSummary(_ run: [String: Any]) {
-        guard let status = run["status"] as? String else { return }
-        statusMessage = "\(run["run_id"] as? String ?? "Run"): \(status)"
+    private func applyRunSummary(_ page: WorkflowEventsPage) {
+        guard let status = page.run["status"] as? String else { return }
+        statusMessage = "\(page.run["run_id"] as? String ?? "Run"): \(status)"
+        firstFailedNodeID = page.firstFailedNode
+        isResumable = page.resumable
+        if page.paused && !isPaused {
+            isPaused = true
+        }
+        if status == "completed" || status == "failed" || status == "cancelled" {
+            isRunning = false
+        }
     }
 
     private func resetNodes() {
