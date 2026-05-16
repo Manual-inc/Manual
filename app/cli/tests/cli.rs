@@ -94,6 +94,95 @@ fn rpc_errors_are_reported_with_nonzero_exit_status() {
     );
 }
 
+#[test]
+fn workflow_stop_sends_run_id_to_server() {
+    let temp = TestDir::new("manual-cli-stop");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+
+    let output = manual_cli()
+        .arg("--server-bin")
+        .arg(&server)
+        .arg("workflow")
+        .arg("stop")
+        .arg("run-42")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let request = fs::read_to_string(log).unwrap();
+    assert!(request.contains(r#""method":"workflow.stop""#));
+    assert!(request.contains(r#""run_id":"run-42""#));
+}
+
+#[test]
+fn workflow_resume_sends_run_id_to_server() {
+    let temp = TestDir::new("manual-cli-resume");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+
+    let output = manual_cli()
+        .arg("--server-bin")
+        .arg(&server)
+        .arg("workflow")
+        .arg("resume")
+        .arg("run-99")
+        .arg("--mode")
+        .arg("step")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let request = fs::read_to_string(log).unwrap();
+    assert!(request.contains(r#""method":"workflow.resume""#));
+    assert!(request.contains(r#""run_id":"run-99""#));
+    assert!(request.contains(r#""mode":"step""#));
+}
+
+#[test]
+fn workflow_start_passes_mode_and_flags() {
+    let temp = TestDir::new("manual-cli-start-flags");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+
+    let output = manual_cli()
+        .arg("--server-bin")
+        .arg(&server)
+        .arg("workflow")
+        .arg("start")
+        .arg("my-workflow")
+        .arg("--mode")
+        .arg("step")
+        .arg("--resume-from-failure")
+        .arg("--start-node")
+        .arg("node-2")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let request = fs::read_to_string(log).unwrap();
+    assert!(request.contains(r#""method":"workflow.start""#));
+    assert!(request.contains(r#""workflow_id":"my-workflow""#));
+    assert!(request.contains(r#""mode":"step""#));
+    assert!(request.contains(r#""resume_from_failure":true"#));
+    assert!(request.contains(r#""start_node_id":"node-2""#));
+}
+
 fn manual_cli() -> Command {
     Command::new(env!("CARGO_BIN_EXE_manual-cli"))
 }

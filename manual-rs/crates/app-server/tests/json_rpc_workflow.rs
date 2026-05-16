@@ -1008,13 +1008,197 @@ fn run_events_and_node_state_are_loaded_from_storage_after_server_restart() {
     );
 }
 
+#[test]
+fn workflow_stop_cancels_running_workflow() {
+    let server = AppServer::with_storage_dir(unique_storage_dir("stop-cancel"));
+    // Use two sequential nodes so cancel can be detected between stages.
+    // First node (quick) completes, then cancel is checked before the second (long delay) starts.
+    let workflow = json!({
+        "id": "delay-wf",
+        "nodes": [
+            {"id": "quick", "kind": "delay", "duration_ms": 150},
+            {"id": "slow", "kind": "delay", "duration_ms": 5000},
+        ],
+        "dependencies": [{"node": "slow", "depends_on": "quick"}]
+    });
+    let create_result: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0", "id": 1, "method": "workflow.create",
+                "params": {"workflow": workflow}
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    assert!(create_result["result"].is_object());
+
+    let start_result: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0", "id": 2, "method": "workflow.start",
+                "params": {"workflow_id": "delay-wf"}
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    let run_id = start_result["result"]["run_id"].as_str().unwrap().to_owned();
+
+    // Wait for quick node to start, then stop before slow node begins
+    poll_events_until(&server, &run_id, 0, |events| {
+        events["result"]["events"]
+            .as_array()
+            .map(|arr| arr.iter().any(|e| e["type"] == "node_started" && e["node_id"] == "quick"))
+            .unwrap_or(false)
+    });
+
+    let stop_result: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0", "id": 3, "method": "workflow.stop",
+                "params": {"run_id": run_id}
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    assert_eq!(stop_result["result"]["cancelled"], true);
+
+    // 실행 완료 대기 (cancelled 이벤트 수신) - give extra time for quick node to finish
+    let events = poll_events_until_timeout(&server, &run_id, 0, Duration::from_secs(5), |events| {
+        events["result"]["completed"].as_bool().unwrap_or(false)
+    });
+    let summary = &events["result"]["run"];
+    assert_eq!(summary["status"], "cancelled");
+}
+
+#[test]
+fn workflow_start_step_mode_pauses() {
+    let server = AppServer::with_storage_dir(unique_storage_dir("step-mode"));
+    let workflow = json!({
+        "id": "step-wf",
+        "nodes": [
+            {"id": "A", "kind": "constant", "value": 1},
+            {"id": "B", "kind": "constant", "value": 2},
+        ],
+        "dependencies": [{"node": "B", "depends_on": "A"}]
+    });
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0", "id": 1, "method": "workflow.create",
+            "params": {"workflow": workflow}
+        })
+        .to_string(),
+    );
+
+    let start_result: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0", "id": 2, "method": "workflow.start",
+                "params": {"workflow_id": "step-wf", "mode": "step"}
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    let run_id = start_result["result"]["run_id"].as_str().unwrap().to_owned();
+
+    // paused 이벤트 대기
+    let events = poll_events_until(&server, &run_id, 0, |events| {
+        events["result"]["run"]["paused"].as_bool().unwrap_or(false)
+    });
+    let summary = &events["result"]["run"];
+    assert_eq!(summary["paused"], true, "step 모드에서 paused=true 예상: {summary}");
+
+    // resume → A 실행
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0", "id": 4, "method": "workflow.resume",
+            "params": {"run_id": run_id}
+        })
+        .to_string(),
+    );
+
+    // A가 완료되고 다시 paused 또는 completed 대기
+    poll_events_until(&server, &run_id, 0, |events| {
+        let run = &events["result"]["run"];
+        run["nodes"]["A"]["status"] == "completed"
+    });
+
+    // resume → B 실행
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0", "id": 5, "method": "workflow.resume",
+            "params": {"run_id": run_id}
+        })
+        .to_string(),
+    );
+
+    let final_events = poll_events_until(&server, &run_id, 0, |events| {
+        events["result"]["completed"].as_bool().unwrap_or(false)
+    });
+    let summary = &final_events["result"]["run"];
+    assert_eq!(summary["status"], "completed");
+}
+
+#[test]
+fn run_summary_includes_first_failed_node_and_resumable() {
+    let server = AppServer::with_storage_dir(unique_storage_dir("fail-summary"));
+    let workflow = json!({
+        "id": "fail-wf",
+        "nodes": [
+            {"id": "A", "kind": "constant", "value": 1},
+            {"id": "B", "kind": "fail", "error": "boom"},
+        ],
+        "dependencies": [{"node": "B", "depends_on": "A"}]
+    });
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0", "id": 1, "method": "workflow.create",
+            "params": {"workflow": workflow}
+        })
+        .to_string(),
+    );
+
+    let start_result: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0", "id": 2, "method": "workflow.start",
+                "params": {"workflow_id": "fail-wf"}
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    let run_id = start_result["result"]["run_id"].as_str().unwrap().to_owned();
+
+    let events = poll_events_until(&server, &run_id, 0, |events| {
+        events["result"]["completed"].as_bool().unwrap_or(false)
+    });
+    let summary = &events["result"]["run"];
+    assert_eq!(summary["status"], "failed");
+    assert_eq!(summary["first_failed_node"], "B");
+    assert_eq!(summary["resumable"], true);
+}
+
 fn poll_events_until(
     server: &AppServer,
     run_id: &str,
     cursor: usize,
     predicate: impl Fn(&Value) -> bool,
 ) -> Value {
-    let deadline = Instant::now() + Duration::from_secs(1);
+    poll_events_until_timeout(server, run_id, cursor, Duration::from_secs(1), predicate)
+}
+
+fn poll_events_until_timeout(
+    server: &AppServer,
+    run_id: &str,
+    cursor: usize,
+    timeout: Duration,
+    predicate: impl Fn(&Value) -> bool,
+) -> Value {
+    let deadline = Instant::now() + timeout;
 
     loop {
         let events: Value = serde_json::from_str(

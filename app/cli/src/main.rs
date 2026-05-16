@@ -80,8 +80,32 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
                 client.request("workflow.delete", json!({ "workflow_id": workflow_id }))?;
             print_json(&result)
         }
-        WorkflowCommand::Start { workflow_id } => {
-            let result = client.request("workflow.start", json!({ "workflow_id": workflow_id }))?;
+        WorkflowCommand::Start {
+            workflow_id,
+            start_node,
+            resume_from_failure,
+            inputs,
+            mode,
+            resume_run_id,
+        } => {
+            let input_overrides = if let Some(path) = inputs {
+                read_json_file(&path)?
+            } else {
+                serde_json::Value::Object(serde_json::Map::new())
+            };
+            let mut params = json!({
+                "workflow_id": workflow_id,
+                "resume_from_failure": resume_from_failure,
+                "input_overrides": input_overrides,
+                "mode": mode,
+            });
+            if let Some(node) = start_node {
+                params["start_node_id"] = json!(node);
+            }
+            if let Some(rid) = resume_run_id {
+                params["resume_run_id"] = json!(rid);
+            }
+            let result = client.request("workflow.start", params)?;
             print_json(&result)
         }
         WorkflowCommand::Events {
@@ -93,9 +117,30 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
         WorkflowCommand::Run {
             workflow_id,
             interval_ms,
+            start_node,
+            resume_from_failure,
+            inputs,
+            mode,
+            resume_run_id,
         } => {
-            let started =
-                client.request("workflow.start", json!({ "workflow_id": workflow_id }))?;
+            let input_overrides = if let Some(path) = inputs {
+                read_json_file(&path)?
+            } else {
+                serde_json::Value::Object(serde_json::Map::new())
+            };
+            let mut params = json!({
+                "workflow_id": workflow_id,
+                "resume_from_failure": resume_from_failure,
+                "input_overrides": input_overrides,
+                "mode": mode,
+            });
+            if let Some(node) = start_node {
+                params["start_node_id"] = json!(node);
+            }
+            if let Some(rid) = resume_run_id {
+                params["resume_run_id"] = json!(rid);
+            }
+            let started = client.request("workflow.start", params)?;
             print_json(&started)?;
             let run_id = started
                 .get("run_id")
@@ -103,6 +148,34 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
                 .ok_or(CliError::InvalidResponse("missing run_id".to_owned()))?
                 .to_owned();
             print_events(client, run_id, 0, true, interval_ms)
+        }
+        WorkflowCommand::Stop { run_id } => {
+            let result = client.request("workflow.stop", json!({ "run_id": run_id }))?;
+            print_json(&result)
+        }
+        WorkflowCommand::Resume {
+            run_id,
+            start_node,
+            resume_from_failure,
+            inputs,
+            mode,
+        } => {
+            let input_overrides = if let Some(path) = inputs {
+                read_json_file(&path)?
+            } else {
+                serde_json::Value::Object(serde_json::Map::new())
+            };
+            let mut params = json!({
+                "run_id": run_id,
+                "resume_from_failure": resume_from_failure,
+                "input_overrides": input_overrides,
+                "mode": mode,
+            });
+            if let Some(node) = start_node {
+                params["start_node_id"] = json!(node);
+            }
+            let result = client.request("workflow.resume", params)?;
+            print_json(&result)
         }
     }
 }
@@ -189,7 +262,19 @@ enum WorkflowCommand {
     #[command(about = "Delete a stored workflow")]
     Delete { workflow_id: String },
     #[command(about = "Start a workflow and print the run id")]
-    Start { workflow_id: String },
+    Start {
+        workflow_id: String,
+        #[arg(long, value_name = "NODE_ID", help = "Start execution from this node")]
+        start_node: Option<String>,
+        #[arg(long, help = "Resume from the first failed node of a previous run")]
+        resume_from_failure: bool,
+        #[arg(long, value_name = "PATH", help = "JSON file with node_id -> value overrides")]
+        inputs: Option<PathBuf>,
+        #[arg(long, default_value = "auto", value_name = "MODE", help = "Execution mode: auto or step")]
+        mode: String,
+        #[arg(long, value_name = "RUN_ID", help = "Previous run ID to resume from")]
+        resume_run_id: Option<String>,
+    },
     #[command(about = "Fetch or watch workflow run events")]
     Events {
         run_id: String,
@@ -205,6 +290,30 @@ enum WorkflowCommand {
         workflow_id: String,
         #[arg(long, default_value_t = 100)]
         interval_ms: u64,
+        #[arg(long, value_name = "NODE_ID")]
+        start_node: Option<String>,
+        #[arg(long)]
+        resume_from_failure: bool,
+        #[arg(long, value_name = "PATH")]
+        inputs: Option<PathBuf>,
+        #[arg(long, default_value = "auto", value_name = "MODE")]
+        mode: String,
+        #[arg(long, value_name = "RUN_ID")]
+        resume_run_id: Option<String>,
+    },
+    #[command(about = "Stop a running workflow run")]
+    Stop { run_id: String },
+    #[command(about = "Resume a paused or failed workflow run")]
+    Resume {
+        run_id: String,
+        #[arg(long, value_name = "NODE_ID")]
+        start_node: Option<String>,
+        #[arg(long)]
+        resume_from_failure: bool,
+        #[arg(long, value_name = "PATH")]
+        inputs: Option<PathBuf>,
+        #[arg(long, default_value = "auto", value_name = "MODE")]
+        mode: String,
     },
 }
 

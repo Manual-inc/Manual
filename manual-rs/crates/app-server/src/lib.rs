@@ -11,7 +11,8 @@ use manual_node::{
     storybook_workflow,
 };
 use manual_worflow::{
-    DependencyDefinition, NodeDefinition, NodeKind, WorkflowDefinition, WorkflowError, WorkflowRun,
+    DependencyDefinition, ExecutionMode, ExecutionOptions, NodeDefinition, NodeKind, RunController,
+    WorkflowDefinition, WorkflowError, WorkflowRun,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -58,6 +59,7 @@ pub struct AppServer {
     node_templates: Arc<RwLock<BTreeMap<String, NodeTemplate>>>,
     node_runs: Arc<RwLock<BTreeMap<String, NodeRun>>>,
     next_node_run_number: Arc<Mutex<u64>>,
+    run_controllers: Arc<RwLock<BTreeMap<String, Arc<RunController>>>>,
 }
 
 impl AppServer {
@@ -83,6 +85,7 @@ impl AppServer {
             node_templates: Arc::new(RwLock::new(node_templates)),
             node_runs: Arc::new(RwLock::new(node_runs)),
             next_node_run_number: Arc::new(Mutex::new(next_node_run_number_val)),
+            run_controllers: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
@@ -104,6 +107,8 @@ impl AppServer {
             "workflow.patch" => self.patch_workflow(request.id, request.params),
             "workflow.delete" => self.delete_workflow(request.id, request.params),
             "workflow.start" => self.start_workflow(request.id, request.params),
+            "workflow.stop" => self.stop_workflow(request.id, request.params),
+            "workflow.resume" => self.resume_workflow(request.id, request.params),
             "workflow.events" => self.workflow_events(request.id, request.params),
             "node.create" => self.create_node_template(request.id, request.params),
             "node.get" => self.get_node_template(request.id, request.params),
@@ -330,6 +335,23 @@ impl AppServer {
             None => return rpc_error(id, -32000, "workflow not found"),
         };
 
+        // resume_run_id가 있으면 기존 run을 previous_run으로 사용
+        let previous_run = if let Some(ref resume_run_id) = params.resume_run_id {
+            let stored = self.workflow_store.load_run(resume_run_id);
+            if stored.is_none() {
+                // 메모리에서 찾기
+                self.runs
+                    .read()
+                    .expect("run state lock should not poison")
+                    .get(resume_run_id)
+                    .cloned()
+            } else {
+                stored
+            }
+        } else {
+            None
+        };
+
         let run_id = {
             let mut next_run_number = self
                 .next_run_number
@@ -351,22 +373,52 @@ impl AppServer {
         self.event_hub
             .publish(run_changed_event(&run_id, "created"));
 
+        let exec_mode = match params.mode {
+            StartWorkflowMode::Auto => ExecutionMode::Auto,
+            StartWorkflowMode::Step => ExecutionMode::Step,
+        };
+
+        let controller = Arc::new(RunController::new(&exec_mode));
+        self.run_controllers
+            .write()
+            .expect("run controller lock should not poison")
+            .insert(run_id.clone(), Arc::clone(&controller));
+
+        let input_overrides: BTreeMap<String, Value> =
+            params.input_overrides.into_iter().collect();
+
+        let opts = ExecutionOptions {
+            start_node_id: params.start_node_id,
+            resume_from_failure: params.resume_from_failure,
+            input_overrides,
+            mode: exec_mode,
+            previous_run,
+        };
+
         let runs = Arc::clone(&self.runs);
         let workflow_store = self.workflow_store.clone();
         let event_hub = self.event_hub.clone();
+        let run_controllers = Arc::clone(&self.run_controllers);
         let thread_run_id = run_id.clone();
 
         thread::spawn(move || {
-            let result = workflow.execute_with_events(&thread_run_id, |event| {
-                let mut runs = runs.write().expect("run state lock should not poison");
-                if let Some(run) = runs.get_mut(&thread_run_id) {
-                    run.record_event(event);
-                    if let Err(error) = workflow_store.save_run(&thread_run_id, run) {
-                        eprintln!("failed to persist workflow run {thread_run_id}: {error}");
+            let result =
+                workflow.execute_with_options(&thread_run_id, opts, Some(controller), |event| {
+                    let mut runs = runs.write().expect("run state lock should not poison");
+                    if let Some(run) = runs.get_mut(&thread_run_id) {
+                        run.record_event(event);
+                        if let Err(error) = workflow_store.save_run(&thread_run_id, run) {
+                            eprintln!("failed to persist workflow run {thread_run_id}: {error}");
+                        }
+                        event_hub.publish(run_changed_event(&thread_run_id, "event"));
                     }
-                    event_hub.publish(run_changed_event(&thread_run_id, "event"));
-                }
-            });
+                });
+
+            // 실행 완료 후 controller 제거
+            run_controllers
+                .write()
+                .expect("run controller lock should not poison")
+                .remove(&thread_run_id);
 
             if let Err(error) = result {
                 let mut runs = runs.write().expect("run state lock should not poison");
@@ -388,6 +440,96 @@ impl AppServer {
         });
 
         rpc_result(id, json!({ "run_id": run_id }))
+    }
+
+    fn stop_workflow(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<RunIdParams>(params) {
+            Ok(params) => params,
+            Err(error) => return rpc_error(id, -32602, error.to_string()),
+        };
+
+        let controllers = self
+            .run_controllers
+            .read()
+            .expect("run controller lock should not poison");
+
+        if let Some(ctrl) = controllers.get(&params.run_id) {
+            ctrl.cancel();
+            rpc_result(id, json!({ "run_id": params.run_id, "cancelled": true }))
+        } else {
+            // 이미 완료된 run이면 해당 run 존재 여부만 확인
+            drop(controllers);
+            let runs = self.runs.read().expect("run state lock should not poison");
+            if runs.contains_key(&params.run_id)
+                || self.workflow_store.load_run(&params.run_id).is_some()
+            {
+                rpc_result(
+                    id,
+                    json!({ "run_id": params.run_id, "cancelled": false, "message": "run already completed" }),
+                )
+            } else {
+                rpc_error(id, -32001, "run not found")
+            }
+        }
+    }
+
+    fn resume_workflow(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<ResumeWorkflowParams>(params) {
+            Ok(params) => params,
+            Err(error) => return rpc_error(id, -32602, error.to_string()),
+        };
+
+        // 활성 run의 controller가 있으면 (step 모드 대기 중) → request_step
+        let controllers = self
+            .run_controllers
+            .read()
+            .expect("run controller lock should not poison");
+
+        if let Some(ctrl) = controllers.get(&params.run_id) {
+            ctrl.request_step();
+            return rpc_result(id, json!({ "run_id": params.run_id, "resumed": true }));
+        }
+        drop(controllers);
+
+        // 활성 controller 없음 → 완료/실패된 run을 previous_run으로 새 실행 시작
+        let run = {
+            let stored = self.workflow_store.load_run(&params.run_id);
+            if let Some(run) = stored {
+                run
+            } else {
+                let runs = self.runs.read().expect("run state lock should not poison");
+                match runs.get(&params.run_id).cloned() {
+                    Some(run) => run,
+                    None => return rpc_error(id, -32001, "run not found"),
+                }
+            }
+        };
+
+        // workflow_id는 run 이벤트에서 추출
+        let workflow_id = run.events().iter().find_map(|e| {
+            if e["type"] == "workflow_started" {
+                e["workflow_id"].as_str().map(str::to_owned)
+            } else {
+                None
+            }
+        });
+
+        let workflow_id = match workflow_id {
+            Some(wid) => wid,
+            None => return rpc_error(id, -32001, "could not determine workflow_id from run"),
+        };
+
+        // 새 start 파라미터 조합
+        let new_params = json!({
+            "workflow_id": workflow_id,
+            "resume_run_id": params.run_id,
+            "resume_from_failure": params.resume_from_failure.unwrap_or(false),
+            "start_node_id": params.start_node_id,
+            "input_overrides": params.input_overrides.unwrap_or_default(),
+            "mode": params.mode.unwrap_or_else(|| "auto".to_owned()),
+        });
+
+        self.start_workflow(id, new_params)
     }
 
     fn workflow_events(&self, id: Value, params: Value) -> Value {
@@ -822,20 +964,33 @@ fn run_summary(run_id: &str, run: &WorkflowRun) -> Value {
     let mut nodes = Map::new();
     let mut workflow_id = Value::Null;
     let mut status = "pending";
+    let mut first_failed_node: Option<String> = None;
+    let mut paused = false;
 
     for event in run.events() {
         match event["type"].as_str() {
             Some("workflow_started") => {
                 status = "running";
+                paused = false;
                 workflow_id = event["workflow_id"].clone();
             }
             Some("workflow_completed") => {
                 status = "completed";
+                paused = false;
                 workflow_id = event["workflow_id"].clone();
             }
             Some("workflow_failed") => {
                 status = "failed";
+                paused = false;
                 workflow_id = event["workflow_id"].clone();
+            }
+            Some("workflow_cancelled") => {
+                status = "cancelled";
+                paused = false;
+                workflow_id = event["workflow_id"].clone();
+            }
+            Some("workflow_paused") => {
+                paused = true;
             }
             Some("node_started") => {
                 if let Some(node_id) = event["node_id"].as_str() {
@@ -862,17 +1017,30 @@ fn run_summary(run_id: &str, run: &WorkflowRun) -> Value {
                             "error": event["error"].clone(),
                         }),
                     );
+                    if first_failed_node.is_none() {
+                        first_failed_node = Some(node_id.to_owned());
+                    }
+                }
+            }
+            Some("node_skipped") => {
+                if let Some(node_id) = event["node_id"].as_str() {
+                    nodes.insert(node_id.to_owned(), json!({ "status": "skipped" }));
                 }
             }
             _ => {}
         }
     }
 
+    let resumable = matches!(status, "failed" | "cancelled") || paused;
+
     json!({
         "run_id": run_id,
         "workflow_id": workflow_id,
         "status": status,
         "nodes": nodes,
+        "first_failed_node": first_failed_node,
+        "resumable": resumable,
+        "paused": paused,
     })
 }
 
@@ -938,6 +1106,42 @@ enum WorkflowPatchOperation {
 #[derive(Deserialize)]
 struct StartWorkflowParams {
     workflow_id: String,
+    #[serde(default)]
+    start_node_id: Option<String>,
+    #[serde(default)]
+    resume_from_failure: bool,
+    #[serde(default)]
+    input_overrides: serde_json::Map<String, Value>,
+    #[serde(default)]
+    mode: StartWorkflowMode,
+    #[serde(default)]
+    resume_run_id: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+enum StartWorkflowMode {
+    #[default]
+    Auto,
+    Step,
+}
+
+#[derive(Deserialize)]
+struct RunIdParams {
+    run_id: String,
+}
+
+#[derive(Deserialize)]
+struct ResumeWorkflowParams {
+    run_id: String,
+    #[serde(default)]
+    start_node_id: Option<String>,
+    #[serde(default)]
+    resume_from_failure: Option<bool>,
+    #[serde(default)]
+    input_overrides: Option<serde_json::Map<String, Value>>,
+    #[serde(default)]
+    mode: Option<String>,
 }
 
 #[derive(Deserialize)]
