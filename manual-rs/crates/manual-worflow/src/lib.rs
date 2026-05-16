@@ -1,6 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Condvar;
 use std::thread;
 use std::time::Duration;
 
@@ -132,10 +135,29 @@ impl WorkflowDefinition {
     pub fn execute_with_events(
         &self,
         run_id: &str,
+        emit: impl FnMut(Value),
+    ) -> Result<(), WorkflowError> {
+        self.execute_with_options(run_id, ExecutionOptions::default(), None, emit)
+    }
+
+    pub fn execute_with_options(
+        &self,
+        run_id: &str,
+        opts: ExecutionOptions,
+        controller: Option<Arc<RunController>>,
         mut emit: impl FnMut(Value),
     ) -> Result<(), WorkflowError> {
         let mut sequence = 0;
-        let mut outputs = BTreeMap::new();
+
+        // 이전 run에서 완료된 노드 출력 복원 + input_overrides 병합
+        let mut outputs: BTreeMap<String, Value> = if let Some(ref prev) = opts.previous_run {
+            prev.completed_nodes()
+        } else {
+            BTreeMap::new()
+        };
+        for (node_id, value) in &opts.input_overrides {
+            outputs.insert(node_id.clone(), value.clone());
+        }
 
         emit_event(
             &mut sequence,
@@ -155,8 +177,26 @@ impl WorkflowDefinition {
             }
         };
 
+        let skippable = self.skippable_nodes(&opts, &outputs, &plan);
+
         for stage in plan.stages() {
-            let stage_nodes = stage
+            // cancel 체크
+            if let Some(ref ctrl) = controller {
+                if ctrl.is_cancelled() {
+                    emit_event(
+                        &mut sequence,
+                        &mut emit,
+                        json!({
+                            "run_id": run_id,
+                            "type": "workflow_cancelled",
+                            "workflow_id": self.id,
+                        }),
+                    );
+                    return Ok(());
+                }
+            }
+
+            let stage_nodes: Vec<&NodeDefinition> = stage
                 .iter()
                 .map(|node_id| {
                     self.nodes
@@ -164,9 +204,64 @@ impl WorkflowDefinition {
                         .find(|node| node.id == node_id.as_str())
                         .expect("execution plan should only include defined nodes")
                 })
-                .collect::<Vec<_>>();
+                .collect();
 
-            for node in &stage_nodes {
+            let (skip_nodes, run_nodes): (Vec<&&NodeDefinition>, Vec<&&NodeDefinition>) =
+                stage_nodes.iter().partition(|node| skippable.contains(&node.id));
+
+            for node in &skip_nodes {
+                emit_event(
+                    &mut sequence,
+                    &mut emit,
+                    json!({
+                        "run_id": run_id,
+                        "type": "node_skipped",
+                        "node_id": node.id,
+                    }),
+                );
+            }
+
+            if run_nodes.is_empty() {
+                continue;
+            }
+
+            // Step 모드: 스테이지 실행 전 대기
+            if let Some(ref ctrl) = controller {
+                let (lock, cvar) = &*ctrl.step_gate;
+                let mut state = lock.lock().expect("step gate lock should not poison");
+                if *state == StepState::AwaitingStep {
+                    emit_event(
+                        &mut sequence,
+                        &mut emit,
+                        json!({
+                            "run_id": run_id,
+                            "type": "workflow_paused",
+                            "workflow_id": self.id,
+                        }),
+                    );
+                    state = cvar
+                        .wait_while(state, |s| *s == StepState::AwaitingStep)
+                        .expect("step gate lock should not poison");
+                }
+                if *state == StepState::Cancelled || ctrl.is_cancelled() {
+                    drop(state);
+                    emit_event(
+                        &mut sequence,
+                        &mut emit,
+                        json!({
+                            "run_id": run_id,
+                            "type": "workflow_cancelled",
+                            "workflow_id": self.id,
+                        }),
+                    );
+                    return Ok(());
+                }
+                if *state == StepState::StepRequested {
+                    *state = StepState::AwaitingStep;
+                }
+            }
+
+            for node in &run_nodes {
                 emit_event(
                     &mut sequence,
                     &mut emit,
@@ -182,10 +277,9 @@ impl WorkflowDefinition {
             let (tx, rx) = mpsc::channel();
 
             let stage_error = thread::scope(|scope| {
-                for node in stage_nodes {
+                for node in &run_nodes {
                     let tx = tx.clone();
                     let stage_inputs = &stage_inputs;
-
                     scope.spawn(move || {
                         let result = execute_definition_node(node, stage_inputs);
                         tx.send((node.id.clone(), result))
@@ -196,12 +290,10 @@ impl WorkflowDefinition {
                 drop(tx);
 
                 let mut stage_error = None;
-
                 for (node_id, result) in rx {
                     match result {
                         Ok(result) => {
                             outputs.insert(node_id.clone(), result.clone());
-
                             emit_event(
                                 &mut sequence,
                                 &mut emit,
@@ -224,14 +316,12 @@ impl WorkflowDefinition {
                                     "error": workflow_error_message(&error),
                                 }),
                             );
-
                             if stage_error.is_none() {
                                 stage_error = Some(error);
                             }
                         }
                     }
                 }
-
                 stage_error
             });
 
@@ -252,6 +342,40 @@ impl WorkflowDefinition {
         );
 
         Ok(())
+    }
+
+    fn skippable_nodes(
+        &self,
+        opts: &ExecutionOptions,
+        completed_outputs: &BTreeMap<String, Value>,
+        plan: &ExecutionPlan,
+    ) -> std::collections::BTreeSet<String> {
+        let mut skippable = std::collections::BTreeSet::new();
+
+        if let Some(ref start_node_id) = opts.start_node_id {
+            let start_stage = plan
+                .stages()
+                .iter()
+                .position(|stage| stage.iter().any(|n| n.as_str() == start_node_id));
+            if let Some(start_idx) = start_stage {
+                for stage in plan.stages().iter().take(start_idx) {
+                    for node_id in stage {
+                        skippable.insert(node_id.as_str().to_owned());
+                    }
+                }
+            }
+        } else if opts.resume_from_failure {
+            for node_id in completed_outputs.keys() {
+                skippable.insert(node_id.clone());
+            }
+        }
+
+        // input_overrides가 있는 노드는 skip 제외
+        for node_id in opts.input_overrides.keys() {
+            skippable.remove(node_id);
+        }
+
+        skippable
     }
 }
 
@@ -318,11 +442,50 @@ impl WorkflowRun {
     }
 
     pub fn record_event(&mut self, event: Value) {
-        if event["type"] == "workflow_completed" || event["type"] == "workflow_failed" {
+        if matches!(
+            event["type"].as_str(),
+            Some("workflow_completed") | Some("workflow_failed") | Some("workflow_cancelled")
+        ) {
             self.completed = true;
         }
 
         self.events.push(event);
+    }
+
+    pub fn completed_nodes(&self) -> BTreeMap<String, Value> {
+        let mut map = BTreeMap::new();
+        for event in &self.events {
+            if event["type"] == "node_completed" {
+                if let Some(node_id) = event["node_id"].as_str() {
+                    map.insert(node_id.to_owned(), event["result"].clone());
+                }
+            }
+        }
+        map
+    }
+
+    pub fn first_failed_node(&self) -> Option<String> {
+        for event in &self.events {
+            if event["type"] == "node_failed" {
+                if let Some(node_id) = event["node_id"].as_str() {
+                    return Some(node_id.to_owned());
+                }
+            }
+        }
+        None
+    }
+
+    pub fn resumable(&self) -> bool {
+        for event in self.events.iter().rev() {
+            match event["type"].as_str() {
+                Some("workflow_failed") | Some("workflow_cancelled") | Some("workflow_paused") => {
+                    return true
+                }
+                Some("workflow_completed") => return false,
+                _ => {}
+            }
+        }
+        false
     }
 }
 
@@ -816,6 +979,97 @@ impl WorkflowOutput {
 
     pub fn values(&self) -> &BTreeMap<NodeId, WorkflowValue> {
         &self.values
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum ExecutionMode {
+    #[default]
+    Auto,
+    Step,
+}
+
+pub struct ExecutionOptions {
+    pub start_node_id: Option<String>,
+    pub resume_from_failure: bool,
+    pub input_overrides: BTreeMap<String, Value>,
+    pub mode: ExecutionMode,
+    pub previous_run: Option<WorkflowRun>,
+}
+
+impl Default for ExecutionOptions {
+    fn default() -> Self {
+        Self {
+            start_node_id: None,
+            resume_from_failure: false,
+            input_overrides: BTreeMap::new(),
+            mode: ExecutionMode::Auto,
+            previous_run: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum StepState {
+    Auto,
+    AwaitingStep,
+    StepRequested,
+    Cancelled,
+}
+
+pub struct RunController {
+    cancel: Arc<AtomicBool>,
+    step_gate: Arc<(Mutex<StepState>, Condvar)>,
+}
+
+impl RunController {
+    pub fn new(mode: &ExecutionMode) -> Self {
+        let initial = match mode {
+            ExecutionMode::Auto => StepState::Auto,
+            ExecutionMode::Step => StepState::AwaitingStep,
+        };
+        Self {
+            cancel: Arc::new(AtomicBool::new(false)),
+            step_gate: Arc::new((Mutex::new(initial), Condvar::new())),
+        }
+    }
+
+    pub fn cancel(&self) {
+        self.cancel.store(true, Ordering::SeqCst);
+        let (lock, cvar) = &*self.step_gate;
+        let mut state = lock.lock().expect("step gate lock should not poison");
+        *state = StepState::Cancelled;
+        cvar.notify_all();
+    }
+
+    pub fn request_step(&self) {
+        let (lock, cvar) = &*self.step_gate;
+        let mut state = lock.lock().expect("step gate lock should not poison");
+        if *state == StepState::AwaitingStep {
+            *state = StepState::StepRequested;
+            cvar.notify_one();
+        }
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancel.load(Ordering::SeqCst)
+    }
+}
+
+impl Default for NodeDefinition {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            kind: NodeKind::Constant,
+            value: Value::Null,
+            template: String::new(),
+            duration_ms: 0,
+            error: String::new(),
+            prompt: String::new(),
+            model: None,
+            cwd: None,
+            extra_args: Vec::new(),
+        }
     }
 }
 
