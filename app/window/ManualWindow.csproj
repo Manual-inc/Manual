@@ -12,6 +12,14 @@
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 
+  <!-- Exclude Tests folder — xUnit packages live only in Tests/ManualWindow.Tests.csproj -->
+  <ItemGroup>
+    <Compile Remove="Tests\**" />
+    <None Remove="Tests\**" />
+    <Content Remove="Tests\**" />
+    <EmbeddedResource Remove="Tests\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260204001" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />

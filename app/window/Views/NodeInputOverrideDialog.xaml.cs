@@ -8,9 +8,12 @@ public sealed partial class NodeInputOverrideDialog : ContentDialog
 {
     public JsonObject? Result { get; private set; }
 
-    public NodeInputOverrideDialog() { InitializeComponent(); }
+    public NodeInputOverrideDialog()
+    {
+        InitializeComponent();
+        PrimaryButtonClick += ValidateAndCapture;
+    }
 
-    // Pre-populate with existing override JSON
     public void SetInitialJson(JsonObject? existing)
     {
         if (existing is not null)
@@ -18,7 +21,7 @@ public sealed partial class NodeInputOverrideDialog : ContentDialog
                 new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
     }
 
-    protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
+    private void ValidateAndCapture(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         var text = JsonInput.Text.Trim();
         if (string.IsNullOrEmpty(text)) { text = "{}"; }
