@@ -1,4 +1,8 @@
 # language: ko
+# wiki: docs/wiki/systems/매뉴얼-시스템.md
+# wiki: docs/wiki/concepts/단일-에이전트-오케스트레이션.md
+# wiki: docs/wiki/systems/샌드박스-기능.md
+# wiki: docs/wiki/systems/매뉴얼-최적화-기능.md
 
 기능: 매뉴얼 관리
   Manual을 사용하는 사용자로서

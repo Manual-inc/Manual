@@ -1,4 +1,8 @@
 # language: ko
+# wiki: docs/wiki/systems/샌드박스-기능.md
+# wiki: docs/wiki/architecture/agent-sandboxing.md
+# wiki: docs/wiki/problems/실행-안전성-부족.md
+# wiki: docs/wiki/concepts/LLM-Harness.md
 
 기능: 샌드박스 기능
   AI 에이전트와 스크립트를 실행하는 사용자로서

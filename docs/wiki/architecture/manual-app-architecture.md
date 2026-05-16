@@ -2,9 +2,9 @@
 title: Manual 앱 아키텍처
 type: architecture
 tags: [architecture, app-server, cli, native-client, agent]
-sources: [wiki/sources/2026-05-11-manual-product-direction.md]
+sources: [2026-05-11-manual-product-direction.md]
 date_created: 2026-05-11
-date_updated: 2026-05-11
+date_updated: 2026-05-16
 ---
 
 # Manual 앱 아키텍처
@@ -40,9 +40,9 @@ Manual은 프로젝트 앱 서버를 중심에 두고 CLI와 네이티브 클라
 
 ## 관련 페이지
 
-- [[meetings/2026-05-11-manual-product-direction|2026-05-11 Manual 제품 방향 회의]]
-- [[features/partial-run-and-restart|부분 실행과 재시작]]
-- [[features/node-storybook|노드 Storybook]]
-- [[features/token-cost-observability|토큰 비용 관측]]
-- [[architecture/agent-sandboxing|에이전트 샌드박스]]
-- [[features/agent-skill-routing|에이전트 스킬 지정]]
+- [[2026-05-11-manual-product-direction|2026-05-11 Manual 제품 방향 회의]]
+- [[partial-run-and-restart|부분 실행과 재시작]]
+- [[node-storybook|노드 Storybook]]
+- [[token-cost-observability|토큰 비용 관측]]
+- [[agent-sandboxing|에이전트 샌드박스]]
+- [[agent-skill-routing|에이전트 스킬 지정]]

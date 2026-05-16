@@ -2,9 +2,9 @@
 title: 에이전트 샌드박스
 type: architecture
 tags: [sandbox, security, permissions, agent]
-sources: [wiki/sources/2026-05-11-manual-product-direction.md]
+sources: [2026-05-11-manual-product-direction.md]
 date_created: 2026-05-11
-date_updated: 2026-05-11
+date_updated: 2026-05-16
 ---
 
 # 에이전트 샌드박스
@@ -24,7 +24,7 @@ date_updated: 2026-05-11
 
 ## 제품 내 위치
 
-샌드박스는 중요하지만 MVP 발표의 첫 범위에서는 고급 옵션으로 둘 수 있다. 현재 우선순위는 [[features/partial-run-and-restart|부분 실행과 재시작]], [[features/node-storybook|노드 Storybook]], [[features/token-cost-observability|토큰 비용 관측]]이다.
+샌드박스는 중요하지만 MVP 발표의 첫 범위에서는 고급 옵션으로 둘 수 있다. 현재 우선순위는 [[partial-run-and-restart|부분 실행과 재시작]], [[node-storybook|노드 Storybook]], [[token-cost-observability|토큰 비용 관측]]이다.
 
 ## 열린 질문
 
@@ -34,6 +34,6 @@ date_updated: 2026-05-11
 
 ## 관련 페이지
 
-- [[architecture/manual-app-architecture|Manual 앱 아키텍처]]
-- [[decisions/2026-05-11-mvp-scope|2026-05-11 MVP 범위 결정]]
-- [[features/agent-skill-routing|에이전트 스킬 지정]]
+- [[manual-app-architecture|Manual 앱 아키텍처]]
+- [[2026-05-11-mvp-scope|2026-05-11 MVP 범위 결정]]
+- [[agent-skill-routing|에이전트 스킬 지정]]

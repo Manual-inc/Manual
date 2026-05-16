@@ -2,9 +2,9 @@
 title: 에이전트 스킬 지정
 type: feature
 tags: [agent, skill, routing, workflow]
-sources: [wiki/sources/2026-05-11-manual-product-direction.md]
+sources: [2026-05-11-manual-product-direction.md]
 date_created: 2026-05-11
-date_updated: 2026-05-11
+date_updated: 2026-05-16
 ---
 
 # 에이전트 스킬 지정
@@ -36,6 +36,6 @@ date_updated: 2026-05-11
 
 ## 관련 페이지
 
-- [[features/node-storybook|노드 Storybook]]
-- [[architecture/manual-app-architecture|Manual 앱 아키텍처]]
-- [[decisions/2026-05-11-mvp-scope|2026-05-11 MVP 범위 결정]]
+- [[node-storybook|노드 Storybook]]
+- [[manual-app-architecture|Manual 앱 아키텍처]]
+- [[2026-05-11-mvp-scope|2026-05-11 MVP 범위 결정]]

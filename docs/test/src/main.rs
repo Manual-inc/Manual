@@ -12,6 +12,8 @@ fn main() {
     });
 
     let docs = collect_markdown_docs(&repo_root);
+    validate_feature_wiki_links(&repo_root, &docs);
+
     let mut inbound: BTreeMap<PathBuf, usize> = docs.iter().map(|path| (path.clone(), 0)).collect();
     let by_stem = index_by_stem(&docs);
 
@@ -71,7 +73,21 @@ fn collect_markdown_docs(repo_root: &Path) -> BTreeSet<PathBuf> {
     docs
 }
 
+fn collect_feature_files(repo_root: &Path) -> BTreeSet<PathBuf> {
+    let mut features = BTreeSet::new();
+    collect_files_with_extension_in(&repo_root.join("docs/usecase"), "feature", &mut features);
+    features
+}
+
 fn collect_markdown_docs_in(dir: &Path, docs: &mut BTreeSet<PathBuf>) {
+    collect_files_with_extension_in(dir, "md", docs);
+}
+
+fn collect_files_with_extension_in(dir: &Path, extension: &str, files: &mut BTreeSet<PathBuf>) {
+    if !dir.exists() {
+        return;
+    }
+
     let entries = fs::read_dir(dir).unwrap_or_else(|err| {
         eprintln!("failed to read directory {}: {err}", dir.display());
         process::exit(2);
@@ -86,11 +102,65 @@ fn collect_markdown_docs_in(dir: &Path, docs: &mut BTreeSet<PathBuf>) {
             .path();
 
         if path.is_dir() {
-            collect_markdown_docs_in(&path, docs);
-        } else if path.extension().is_some_and(|ext| ext == "md") {
-            docs.insert(path);
+            collect_files_with_extension_in(&path, extension, files);
+        } else if path.extension().is_some_and(|ext| ext == extension) {
+            files.insert(path);
         }
     }
+}
+
+fn validate_feature_wiki_links(repo_root: &Path, docs: &BTreeSet<PathBuf>) {
+    let features = collect_feature_files(repo_root);
+    let mut failures = Vec::new();
+
+    for feature in features {
+        let text = fs::read_to_string(&feature).unwrap_or_else(|err| {
+            eprintln!("failed to read {}: {err}", display_path(repo_root, &feature));
+            process::exit(2);
+        });
+
+        let targets = feature_wiki_comment_targets(repo_root, &feature, &text);
+        if targets.is_empty() {
+            failures.push(format!(
+                "{}: missing # wiki: docs/wiki/... link",
+                display_path(repo_root, &feature)
+            ));
+            continue;
+        }
+
+        for target in targets {
+            if !docs.contains(&target) {
+                failures.push(format!(
+                    "{}: broken wiki link {}",
+                    display_path(repo_root, &feature),
+                    display_path(repo_root, &target)
+                ));
+            }
+        }
+    }
+
+    if !failures.is_empty() {
+        eprintln!("feature wiki link problems found:");
+        for failure in failures {
+            eprintln!("- {failure}");
+        }
+        process::exit(1);
+    }
+}
+
+fn feature_wiki_comment_targets(repo_root: &Path, source: &Path, text: &str) -> Vec<PathBuf> {
+    text.lines()
+        .filter_map(|line| line.trim().strip_prefix("# wiki:"))
+        .map(str::trim)
+        .filter(|target| !target.is_empty())
+        .map(|target| {
+            if let Some(relative) = target.strip_prefix("docs/") {
+                normalize_path(repo_root.join("docs").join(relative))
+            } else {
+                normalize_path(source.parent().unwrap_or(repo_root).join(target))
+            }
+        })
+        .collect()
 }
 
 fn index_by_stem(docs: &BTreeSet<PathBuf>) -> BTreeMap<String, Vec<PathBuf>> {

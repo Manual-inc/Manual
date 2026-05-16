@@ -2,9 +2,9 @@
 title: 부분 실행과 재시작
 type: feature
 tags: [workflow, execution, ux, mvp]
-sources: [wiki/sources/2026-05-11-manual-product-direction.md]
+sources: [2026-05-11-manual-product-direction.md]
 date_created: 2026-05-11
-date_updated: 2026-05-11
+date_updated: 2026-05-16
 ---
 
 # 부분 실행과 재시작
@@ -40,6 +40,6 @@ date_updated: 2026-05-11
 
 ## 관련 페이지
 
-- [[decisions/2026-05-11-mvp-scope|2026-05-11 MVP 범위 결정]]
-- [[features/node-storybook|노드 Storybook]]
-- [[features/token-cost-observability|토큰 비용 관측]]
+- [[2026-05-11-mvp-scope|2026-05-11 MVP 범위 결정]]
+- [[node-storybook|노드 Storybook]]
+- [[token-cost-observability|토큰 비용 관측]]

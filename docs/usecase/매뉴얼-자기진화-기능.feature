@@ -1,4 +1,8 @@
 # language: ko
+# wiki: docs/wiki/systems/매뉴얼-자기진화-기능.md
+# wiki: docs/wiki/systems/매뉴얼-최적화-기능.md
+# wiki: docs/wiki/features/Adaptive-Compute.md
+# wiki: docs/wiki/concepts/단일-에이전트-오케스트레이션.md
 
 기능: 매뉴얼 자기진화 기능
   Manual을 사용하는 사용자로서

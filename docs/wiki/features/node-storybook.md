@@ -2,9 +2,9 @@
 title: 노드 Storybook
 type: feature
 tags: [node, test-harness, ux, mvp]
-sources: [wiki/sources/2026-05-11-manual-product-direction.md]
+sources: [2026-05-11-manual-product-direction.md]
 date_created: 2026-05-11
-date_updated: 2026-05-11
+date_updated: 2026-05-16
 ---
 
 # 노드 Storybook
@@ -39,6 +39,6 @@ date_updated: 2026-05-11
 
 ## 관련 페이지
 
-- [[features/partial-run-and-restart|부분 실행과 재시작]]
-- [[architecture/manual-app-architecture|Manual 앱 아키텍처]]
-- [[features/agent-skill-routing|에이전트 스킬 지정]]
+- [[partial-run-and-restart|부분 실행과 재시작]]
+- [[manual-app-architecture|Manual 앱 아키텍처]]
+- [[agent-skill-routing|에이전트 스킬 지정]]
