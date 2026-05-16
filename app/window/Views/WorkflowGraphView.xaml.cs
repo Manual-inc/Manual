@@ -202,7 +202,7 @@ public sealed partial class WorkflowGraphView : UserControl
             {
                 var strokeStyle = new CanvasStrokeStyle
                 {
-                    DashStyle       = CanvasDashStyle.Custom,
+                    DashStyle       = (CanvasDashStyle)5, // Custom = 5 (D2D1_DASH_STYLE_CUSTOM)
                     CustomDashStyle = new float[] { 6f, 7f },
                     DashOffset      = _dashPhase,
                 };
