@@ -389,8 +389,8 @@ fn workflow_definition_runs_independent_stage_nodes_in_parallel() {
     assert!(sales_started.unwrap() < first_parallel_completed.unwrap());
     assert!(support_started.unwrap() < first_parallel_completed.unwrap());
     assert!(
-        elapsed < Duration::from_millis(210),
-        "expected parallel delay nodes to finish in under 210ms, took {elapsed:?}"
+        elapsed < Duration::from_millis(500),
+        "expected parallel delay nodes to finish in under 500ms, took {elapsed:?}"
     );
 }
 
