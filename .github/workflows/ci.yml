@@ -67,8 +67,6 @@ jobs:
   mac-app:
     name: "Mac App (Swift, macos-15)"
     runs-on: macos-15
-    # Package.swift가 .macOS(.v26)을 요구하므로 현재 러너에서 실패할 수 있음
-    continue-on-error: true
     defaults:
       run:
         working-directory: app/mac
