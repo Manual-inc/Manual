@@ -15,12 +15,14 @@ final class WorkflowRunStore: ObservableObject {
     @Published private(set) var rawWorkflowJSON = "{}"
 
     private let client: AppServerClient
+    private let executionIntent: WorkflowExecutionIntent
     private var currentWorkflow = BusinessWorkflowExample.jsonDefinition
     private var liveEventsTask: Task<Void, Never>?
     private var observedRunIDs = Set<String>()
 
     init(client: AppServerClient = AppServerClient()) {
         self.client = client
+        self.executionIntent = WorkflowExecutionIntent(client: client)
         syncDisplay(with: currentWorkflow)
         rawWorkflowJSON = prettyJSONString(currentWorkflow)
     }
@@ -249,12 +251,13 @@ final class WorkflowRunStore: ObservableObject {
 
     private func startViaJSONRPC(workflowID: String) async {
         do {
-            await persistCurrentWorkflow()
-            let runID = try await client.startWorkflow(id: workflowID)
-            self.runID = runID
-            observedRunIDs.insert(runID)
-            statusMessage = "Running \(runID)"
-            try await streamEvents(runID: runID)
+            let result = try await executionIntent.execute(workflow: currentWorkflow, knownWorkflows: workflows)
+            selectedWorkflowID = result.workflowID
+            await refreshWorkflows(createExampleIfMissing: false)
+            self.runID = result.runID
+            observedRunIDs.insert(result.runID)
+            statusMessage = "Running \(result.runID)"
+            try await streamEvents(runID: result.runID)
         } catch {
             appendEvent(nodeID: nil, title: "Workflow failed", detail: error.localizedDescription)
             statusMessage = error.localizedDescription

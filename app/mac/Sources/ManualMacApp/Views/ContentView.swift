@@ -1,12 +1,14 @@
 import SwiftUI
 
-struct ContentView: View {
+public struct ContentView: View {
     @StateObject private var store = WorkflowRunStore()
     @SceneStorage("ManualMac.sidebarVisible") private var sidebarVisible = true
     @SceneStorage("ManualMac.inspectorVisible") private var inspectorVisible = false
     @SceneStorage("ManualMac.bottomPanelVisible") private var bottomPanelVisible = false
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         ZStack {
             AppTheme.canvas.ignoresSafeArea()
 
@@ -482,6 +484,9 @@ private struct ExecuteButton: View {
         .buttonStyle(.plain)
         .disabled(isRunning)
         .keyboardShortcut("r", modifiers: [.command])
+        // See docs/wiki/architecture/manual-app-architecture.md for why mac UI controls need stable automation hooks.
+        .accessibilityIdentifier("execute-workflow-button")
+        .accessibilityLabel(isRunning ? "Running workflow" : "Execute workflow")
     }
 }
 

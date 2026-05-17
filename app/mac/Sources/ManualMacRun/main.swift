@@ -1,8 +1,10 @@
 import AppKit
+import ManualMacApp
 import SwiftUI
 
+// See docs/wiki/architecture/manual-app-architecture.md: executable entry stays thin so app behavior is testable headlessly.
 @main
-struct ManualMacApp: App {
+struct ManualMacRunApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -28,8 +30,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.appearance = NSAppearance(named: .darkAqua)
     }
-}
-
-extension Notification.Name {
-    static let startExampleWorkflow = Notification.Name("ManualMacStartExampleWorkflow")
 }
