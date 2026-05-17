@@ -661,9 +661,9 @@ async fn manual_records_restart_relationship(world: &mut ManualWorld) {
 
 #[given("워크플로우가 실행 중이다")]
 async fn workflow_is_running(world: &mut ManualWorld) {
-    // Two-node workflow: a short first node (100 ms) followed by a long second node
+    // Two-node workflow: a short first node (500 ms) followed by a long second node
     // (5 000 ms).  The cancel check runs between nodes, so after `workflow.stop`
-    // sets the cancel flag the workflow completes as soon as the 100 ms node
+    // sets the cancel flag the workflow completes as soon as the 500 ms node
     // finishes — well within `poll_until`'s 2-second deadline.
     rpc(
         world,
@@ -675,7 +675,7 @@ async fn workflow_is_running(world: &mut ManualWorld) {
                 "workflow": {
                     "id": "running-flow",
                     "nodes": [
-                        { "id": "short-delay", "kind": "delay", "duration_ms": 100 },
+                        { "id": "short-delay", "kind": "delay", "duration_ms": 500 },
                         { "id": "long-delay",  "kind": "delay", "duration_ms": 5000 }
                     ],
                     "dependencies": [
@@ -688,6 +688,18 @@ async fn workflow_is_running(world: &mut ManualWorld) {
     world.workflow_id = "running-flow".to_owned();
     let workflow_id = world.workflow_id.clone();
     let run_id = start_workflow(world, &workflow_id, json!({}));
+    // Wait for the first node to actually start executing before returning.
+    // This guarantees that `workflow.stop` (called in the `when` step) arrives
+    // while the workflow is mid-execution, so it gets `cancelled: true`.
+    poll_workflow_events_until(world, &run_id, 0, |events| {
+        events["result"]["events"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .any(|e| e["type"] == "node_started" && e["node_id"] == "short-delay")
+            })
+            .unwrap_or(false)
+    });
     world.current_run_id = Some(run_id);
 }
 
@@ -721,7 +733,7 @@ async fn later_steps_do_not_start_after_cancellation(world: &mut ManualWorld) {
             .as_array()
             .expect("events should exist")
             .iter()
-            .all(|event| event["node_id"] != "after-delay")
+            .all(|event| event["node_id"] != "long-delay")
     );
 }
 

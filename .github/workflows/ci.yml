@@ -30,7 +30,11 @@ jobs:
 
       - name: Install bubblewrap (Linux only)
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y bubblewrap
+        run: |
+          sudo apt-get install -y bubblewrap
+          # Ubuntu 23.10+ AppArmor restricts unprivileged user-namespace creation
+          # (needed by bwrap).  Disable the restriction for CI.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
 
       - name: 빌드
         run: cargo build --workspace
