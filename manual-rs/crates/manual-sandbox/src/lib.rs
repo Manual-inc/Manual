@@ -90,6 +90,8 @@ pub fn platform_backends() -> Value {
 pub fn current_backend_name() -> &'static str {
     if cfg!(target_os = "macos") {
         "sandbox-exec"
+    } else if cfg!(target_os = "linux") {
+        "bwrap"
     } else {
         "unsupported"
     }
@@ -103,6 +105,8 @@ pub fn sandboxed_command(
     let program = PathBuf::from(program.as_ref());
     if cfg!(target_os = "macos") {
         macos_sandboxed_command(sandbox, &program, args)
+    } else if cfg!(target_os = "linux") {
+        linux_sandboxed_command(sandbox, &program, args)
     } else {
         unsupported_sandbox_command(&program, args)
     }
@@ -145,6 +149,108 @@ fn unsupported_sandbox_command(program: &Path, args: &[String]) -> io::Result<Co
         io::ErrorKind::Unsupported,
         "no OS sandbox backend is implemented for this platform",
     ))
+}
+
+/// Linux sandbox implementation using bubblewrap (bwrap).
+/// Builds a minimal read-only filesystem exposing only allowed paths, then
+/// optionally isolates the network namespace. See docs/wiki/systems/샌드박스-기능.md.
+#[cfg(target_os = "linux")]
+fn linux_sandboxed_command(
+    sandbox: &Value,
+    program: &Path,
+    args: &[String],
+) -> io::Result<Command> {
+    let mut bwrap = Command::new("bwrap");
+
+    // Essential system directories (read-only). /usr provides binaries on
+    // modern Ubuntu (UsrMerge); /etc is needed for ld.so.cache and NSS.
+    for &dir in &["/usr", "/etc"] {
+        if Path::new(dir).is_dir() {
+            bwrap.args(["--ro-bind", dir, dir]);
+        }
+    }
+
+    // On UsrMerge distributions (Ubuntu 20+, Debian 12+), /bin /lib /sbin
+    // /lib64 are symlinks into /usr. Recreate them as symlinks so that
+    // shebang'd scripts and dynamic linkers resolve correctly inside bwrap.
+    for &(link, target) in &[
+        ("/bin", "usr/bin"),
+        ("/sbin", "usr/sbin"),
+        ("/lib", "usr/lib"),
+        ("/lib64", "usr/lib64"),
+    ] {
+        let link_path = Path::new(link);
+        match std::fs::symlink_metadata(link) {
+            Ok(m) if m.file_type().is_symlink() => {
+                bwrap.args(["--symlink", target, link]);
+            }
+            Ok(m) if m.file_type().is_dir() => {
+                bwrap.args(["--ro-bind", link, link]);
+            }
+            _ => {
+                // Path doesn't exist on this system – skip.
+                let _ = link_path;
+            }
+        }
+    }
+
+    // Proc and dev filesystems required for most programs.
+    bwrap.args(["--proc", "/proc"]);
+    bwrap.args(["--dev", "/dev"]);
+    // Empty /tmp so that paths outside the policy are invisible.
+    bwrap.args(["--tmpfs", "/tmp"]);
+
+    // Bind allowed-read paths read-only (absolute paths only; glob patterns
+    // used in policy evaluation are ignored here).
+    if let Some(reads) = sandbox["allow_read"].as_array() {
+        for entry in reads {
+            if let Some(p) = entry.as_str() {
+                if Path::new(p).exists() {
+                    bwrap.args(["--ro-bind", p, p]);
+                }
+            }
+        }
+    }
+
+    // Bind allowed-write paths read-write, overriding any earlier ro-bind on
+    // the same destination.
+    if let Some(writes) = sandbox["allow_write"].as_array() {
+        for entry in writes {
+            if let Some(p) = entry.as_str() {
+                if Path::new(p).exists() {
+                    bwrap.args(["--bind", p, p]);
+                }
+            }
+        }
+    }
+
+    // Unshare the network namespace when all network access is denied.
+    let deny_all = sandbox["deny_network"]
+        .as_array()
+        .map(|a| a.iter().any(|v| v.as_str() == Some("*")))
+        .unwrap_or(false);
+    let allow_empty = sandbox["allow_network"]
+        .as_array()
+        .map(|a| a.is_empty())
+        .unwrap_or(true);
+    if deny_all || allow_empty {
+        bwrap.arg("--unshare-net");
+    }
+
+    bwrap.arg("--");
+    bwrap.arg(program);
+    bwrap.args(args);
+
+    Ok(bwrap)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn linux_sandboxed_command(
+    _sandbox: &Value,
+    _program: &Path,
+    _args: &[String],
+) -> io::Result<Command> {
+    unreachable!("Linux sandbox command should only be used on Linux")
 }
 
 #[cfg(target_os = "macos")]

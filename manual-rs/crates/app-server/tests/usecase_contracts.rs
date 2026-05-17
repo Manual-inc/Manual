@@ -85,9 +85,18 @@ async fn main() {
         .canonicalize()
         .expect("docs/usecase should exist");
 
+    // Scenarios tagged @unix require OS-level sandboxing (bwrap / seatbelt)
+    // and Unix shell scripts.  Filter them out on non-Unix platforms so that
+    // Windows CI doesn't fail on unimplemented platform features.
     ManualWorld::cucumber()
         .fail_on_skipped()
-        .run_and_exit(features)
+        .filter_run_and_exit(features, |_, _, sc| {
+            if cfg!(not(unix)) {
+                !sc.tags.iter().any(|t| t.as_str() == "unix")
+            } else {
+                true
+            }
+        })
         .await;
 }
 
@@ -652,7 +661,30 @@ async fn manual_records_restart_relationship(world: &mut ManualWorld) {
 
 #[given("워크플로우가 실행 중이다")]
 async fn workflow_is_running(world: &mut ManualWorld) {
-    create_delay_workflow(world, "running-flow", 200);
+    // Two-node workflow: a short first node (100 ms) followed by a long second node
+    // (5 000 ms).  The cancel check runs between nodes, so after `workflow.stop`
+    // sets the cancel flag the workflow completes as soon as the 100 ms node
+    // finishes — well within `poll_until`'s 2-second deadline.
+    rpc(
+        world,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 16,
+            "method": "workflow.create",
+            "params": {
+                "workflow": {
+                    "id": "running-flow",
+                    "nodes": [
+                        { "id": "short-delay", "kind": "delay", "duration_ms": 100 },
+                        { "id": "long-delay",  "kind": "delay", "duration_ms": 5000 }
+                    ],
+                    "dependencies": [
+                        { "node": "long-delay", "depends_on": "short-delay" }
+                    ]
+                }
+            }
+        }),
+    );
     world.workflow_id = "running-flow".to_owned();
     let workflow_id = world.workflow_id.clone();
     let run_id = start_workflow(world, &workflow_id, json!({}));
@@ -2679,6 +2711,7 @@ async fn user_prepares_real_sandbox_probe_script(world: &mut ManualWorld) {
         ),
     )
     .expect("probe script should be written");
+    #[cfg(unix)]
     make_executable(&script);
 
     create_sandbox(

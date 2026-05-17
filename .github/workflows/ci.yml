@@ -28,6 +28,10 @@ jobs:
         with:
           workspaces: manual-rs
 
+      - name: Install bubblewrap (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y bubblewrap
+
       - name: 빌드
         run: cargo build --workspace
 
