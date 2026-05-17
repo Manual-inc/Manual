@@ -72,7 +72,12 @@ name = "app-server"
 version = "0.1.0"
 dependencies = [
  "cucumber",
+ "manual-agent",
+ "manual-core",
  "manual-node",
+ "manual-optimization",
+ "manual-sandbox",
+ "manual-skill",
  "manual-worflow",
  "serde",
  "serde_json",
@@ -516,6 +521,17 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 [[package]]
 name = "manual-agent"
 version = "0.1.0"
+dependencies = [
+ "manual-sandbox",
+ "serde_json",
+]
+
+[[package]]
+name = "manual-core"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "manual-node"
@@ -527,14 +543,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "manual-optimization"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "manual-sandbox"
 version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "manual-skill"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "manual-worflow"
 version = "0.1.0"
 dependencies = [
  "manual-agent",
+ "manual-sandbox",
  "serde",
  "serde_json",
 ]

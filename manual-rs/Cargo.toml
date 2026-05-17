@@ -5,5 +5,8 @@ members = [
     "crates/manual-worflow",
     "crates/manual-node",
     "crates/manual-sandbox",
+    "crates/manual-core",
+    "crates/manual-optimization",
+    "crates/manual-skill",
     "crates/app-server",
 ]

@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use serde_json::{Value, json};
+
 pub mod claude;
 pub mod codex;
 pub mod hermes;
@@ -49,6 +51,7 @@ pub struct CommandRequest {
     cwd: Option<PathBuf>,
     model: Option<String>,
     extra_args: Vec<String>,
+    sandbox_policy: Option<Value>,
 }
 
 impl CommandRequest {
@@ -58,6 +61,7 @@ impl CommandRequest {
             cwd: None,
             model: None,
             extra_args: Vec::new(),
+            sandbox_policy: None,
         }
     }
 
@@ -81,6 +85,10 @@ impl CommandRequest {
         &self.extra_args
     }
 
+    pub fn sandbox_policy(&self) -> Option<&Value> {
+        self.sandbox_policy.as_ref()
+    }
+
     pub fn with_cwd(mut self, cwd: impl Into<PathBuf>) -> Self {
         self.cwd = Some(cwd.into());
         self
@@ -93,6 +101,11 @@ impl CommandRequest {
 
     pub fn with_extra_arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_args.push(arg.into());
+        self
+    }
+
+    pub fn with_sandbox_policy(mut self, sandbox_policy: Value) -> Self {
+        self.sandbox_policy = Some(sandbox_policy);
         self
     }
 }
@@ -126,6 +139,88 @@ pub(crate) fn apply_cwd(command: &mut Command, request: &CommandRequest) {
     }
 }
 
+pub(crate) fn command_with_optional_sandbox(
+    request: &CommandRequest,
+    program: &str,
+    args: Vec<String>,
+) -> Command {
+    let mut command = if let Some(sandbox) = request.sandbox_policy() {
+        manual_sandbox::sandboxed_command(sandbox, program, &args)
+            .expect("sandbox command should be buildable")
+    } else {
+        let mut command = Command::new(program);
+        command.args(args);
+        command
+    };
+    apply_cwd(&mut command, request);
+    command
+}
+
+pub fn list_agent_availability(params: &Value) -> Value {
+    // Why this exists: docs/wiki/architecture/manual-app-architecture.md keeps
+    // local agent discovery in the agent crate while app-server only exposes it.
+    let candidates = string_array_param(params, "candidates").unwrap_or_else(|| {
+        ["claude", "codex", "pi", "hermes"]
+            .map(str::to_owned)
+            .to_vec()
+    });
+    let path_dirs = string_array_param(params, "path_dirs");
+    let agents = candidates
+        .into_iter()
+        .map(|name| {
+            let executable = command_path(&name, path_dirs.as_deref());
+            json!({
+                "name": name,
+                "available": executable.is_some(),
+                "path": executable,
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({ "agents": agents })
+}
+
+fn string_array_param(params: &Value, key: &str) -> Option<Vec<String>> {
+    params[key].as_array().map(|values| {
+        values
+            .iter()
+            .filter_map(|value| value.as_str().map(str::to_owned))
+            .collect()
+    })
+}
+
+fn command_path(command: &str, path_dirs: Option<&[String]>) -> Option<String> {
+    let dirs = path_dirs.map(|dirs| dirs.to_vec()).unwrap_or_else(|| {
+        std::env::var_os("PATH")
+            .map(split_paths)
+            .unwrap_or_default()
+    });
+    dirs.into_iter()
+        .map(|dir| Path::new(&dir).join(command))
+        .find(|path| is_executable_file(path))
+        .map(|path| path.display().to_string())
+}
+
+fn split_paths(paths: std::ffi::OsString) -> Vec<String> {
+    std::env::split_paths(&paths)
+        .map(|path| path.display().to_string())
+        .collect()
+}
+
+#[cfg(unix)]
+fn is_executable_file(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(path)
+        .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn is_executable_file(path: &Path) -> bool {
+    std::fs::metadata(path)
+        .map(|metadata| metadata.is_file())
+        .unwrap_or(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,6 +242,7 @@ mod tests {
         assert_eq!(request.cwd(), None);
         assert_eq!(request.model(), None);
         assert!(request.extra_args().is_empty());
+        assert!(request.sandbox_policy().is_none());
     }
 
     #[test]
@@ -154,11 +250,13 @@ mod tests {
         let request = CommandRequest::new("hello")
             .with_cwd("/tmp/manual")
             .with_model("fast-model")
-            .with_extra_arg("--flag");
+            .with_extra_arg("--flag")
+            .with_sandbox_policy(serde_json::json!({ "allow_network": [] }));
 
         assert_eq!(request.cwd(), Some("/tmp/manual"));
         assert_eq!(request.model(), Some("fast-model"));
         assert_eq!(request.extra_args(), ["--flag"]);
+        assert!(request.sandbox_policy().is_some());
     }
 
     #[test]
@@ -214,6 +312,20 @@ mod tests {
             command_args(&command),
             ["--print", "--model", "openai/gpt-4o", "hello"]
         );
+    }
+
+    #[test]
+    fn agent_availability_uses_supplied_path_dirs() {
+        let agents = list_agent_availability(&serde_json::json!({
+            "candidates": ["definitely-missing-manual-agent"],
+            "path_dirs": ["/tmp"]
+        }));
+
+        assert_eq!(
+            agents["agents"][0]["name"],
+            "definitely-missing-manual-agent"
+        );
+        assert_eq!(agents["agents"][0]["available"], false);
     }
 
     fn command_args(command: &std::process::Command) -> Vec<String> {

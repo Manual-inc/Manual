@@ -60,6 +60,14 @@ pub struct AppServer {
     node_runs: Arc<RwLock<BTreeMap<String, NodeRun>>>,
     next_node_run_number: Arc<Mutex<u64>>,
     run_controllers: Arc<RwLock<BTreeMap<String, Arc<RunController>>>>,
+    manuals: Arc<RwLock<BTreeMap<String, Value>>>,
+    next_manual_number: Arc<Mutex<u64>>,
+    sandboxes: Arc<RwLock<BTreeMap<String, Value>>>,
+    next_sandbox_number: Arc<Mutex<u64>>,
+    node_test_cases: Arc<RwLock<BTreeMap<String, Value>>>,
+    next_node_test_case_number: Arc<Mutex<u64>>,
+    optimization_runs: Arc<RwLock<BTreeMap<String, Value>>>,
+    skill_records: Arc<RwLock<BTreeMap<String, Value>>>,
 }
 
 impl AppServer {
@@ -75,6 +83,11 @@ impl AppServer {
         let node_templates = workflow_store.load_node_templates();
         let node_runs = workflow_store.load_node_runs();
         let next_node_run_number_val = next_node_run_number(&node_runs);
+        let manuals = workflow_store.load_values("manuals");
+        let sandboxes = workflow_store.load_values("sandboxes");
+        let node_test_cases = workflow_store.load_values("node_test_cases");
+        let optimization_runs = workflow_store.load_values("optimization_runs");
+        let skill_records = workflow_store.load_values("skill_records");
 
         Self {
             workflows: Arc::new(RwLock::new(workflows)),
@@ -86,6 +99,17 @@ impl AppServer {
             node_runs: Arc::new(RwLock::new(node_runs)),
             next_node_run_number: Arc::new(Mutex::new(next_node_run_number_val)),
             run_controllers: Arc::new(RwLock::new(BTreeMap::new())),
+            next_manual_number: Arc::new(Mutex::new(next_prefixed_number(&manuals, "manual-"))),
+            manuals: Arc::new(RwLock::new(manuals)),
+            next_sandbox_number: Arc::new(Mutex::new(next_prefixed_number(&sandboxes, "sandbox-"))),
+            sandboxes: Arc::new(RwLock::new(sandboxes)),
+            next_node_test_case_number: Arc::new(Mutex::new(next_prefixed_number(
+                &node_test_cases,
+                "node-case-",
+            ))),
+            node_test_cases: Arc::new(RwLock::new(node_test_cases)),
+            optimization_runs: Arc::new(RwLock::new(optimization_runs)),
+            skill_records: Arc::new(RwLock::new(skill_records)),
         }
     }
 
@@ -119,6 +143,34 @@ impl AppServer {
             "node.run" => self.run_node(request.id, request.params),
             "node.run.get" => self.get_node_run(request.id, request.params),
             "node.run.events" => self.node_run_events(request.id, request.params),
+            "node.testcase.save" => self.save_node_test_case(request.id, request.params),
+            "node.testcase.verify" => self.verify_node_test_cases(request.id, request.params),
+            "workflow.compose_from_registry" => {
+                self.compose_workflow_from_registry(request.id, request.params)
+            }
+            "agent.list" => self.list_agents(request.id, request.params),
+            "manual.create" => self.create_manual(request.id, request.params),
+            "manual.get" => self.get_manual(request.id, request.params),
+            "manual.list" => self.list_manuals(request.id, request.params),
+            "manual.update" => self.update_manual(request.id, request.params),
+            "manual.clone" => self.clone_manual(request.id, request.params),
+            "manual.archive" => self.archive_manual(request.id, request.params),
+            "manual.delete" => self.delete_manual(request.id, request.params),
+            "manual.activate" => self.activate_manual(request.id, request.params),
+            "manual.versions" => self.manual_versions(request.id, request.params),
+            "optimization.record_run" => self.record_optimization_run(request.id, request.params),
+            "optimization.analyze" => self.analyze_optimization(request.id, request.params),
+            "optimization.compare" => self.compare_optimization_runs(request.id, request.params),
+            "optimization.report" => self.optimization_report(request.id, request.params),
+            "sandbox.create" => self.create_sandbox(request.id, request.params),
+            "sandbox.update" => self.update_sandbox(request.id, request.params),
+            "sandbox.evaluate" => self.evaluate_sandbox(request.id, request.params),
+            "sandbox.get" => self.get_sandbox(request.id, request.params),
+            "skill.configure" => self.configure_skill_step(request.id, request.params),
+            "skill.candidates" => self.skill_candidates(request.id, request.params),
+            "skill.record_execution" => self.record_skill_execution(request.id, request.params),
+            "skill.verify" => self.verify_skill_usage(request.id, request.params),
+            "skill.agent_capabilities" => self.skill_agent_capabilities(request.id),
             _ => rpc_error(request.id, -32601, "method not found"),
         }
     }
@@ -324,7 +376,7 @@ impl AppServer {
             Err(error) => return rpc_error(id, -32602, error.to_string()),
         };
 
-        let workflow = match self
+        let mut workflow = match self
             .workflows
             .read()
             .expect("workflow state lock should not poison")
@@ -334,6 +386,9 @@ impl AppServer {
             Some(workflow) => workflow,
             None => return rpc_error(id, -32000, "workflow not found"),
         };
+        if let Err(error) = self.materialize_workflow_sandboxes(&mut workflow) {
+            return rpc_error(id, -32602, error);
+        }
 
         // resume_run_id가 있으면 기존 run을 previous_run으로 사용
         let previous_run = if let Some(ref resume_run_id) = params.resume_run_id {
@@ -384,8 +439,7 @@ impl AppServer {
             .expect("run controller lock should not poison")
             .insert(run_id.clone(), Arc::clone(&controller));
 
-        let input_overrides: BTreeMap<String, Value> =
-            params.input_overrides.into_iter().collect();
+        let input_overrides: BTreeMap<String, Value> = params.input_overrides.into_iter().collect();
 
         let opts = ExecutionOptions {
             start_node_id: params.start_node_id,
@@ -709,10 +763,7 @@ impl AppServer {
         self.event_hub
             .publish(node_changed_event("node_deleted", &params.node_id));
 
-        rpc_result(
-            id,
-            json!({ "node_id": params.node_id, "deleted": true }),
-        )
+        rpc_result(id, json!({ "node_id": params.node_id, "deleted": true }))
     }
 
     fn node_schema(&self, id: Value, params: Value) -> Value {
@@ -721,7 +772,10 @@ impl AppServer {
             Err(e) => return rpc_error(id, -32602, e.to_string()),
         };
 
-        rpc_result(id, json!({ "schema": manual_node::node_schema(&params.kind) }))
+        rpc_result(
+            id,
+            json!({ "schema": manual_node::node_schema(&params.kind) }),
+        )
     }
 
     fn run_node(&self, id: Value, params: Value) -> Value {
@@ -766,7 +820,22 @@ impl AppServer {
         let event_hub = self.event_hub.clone();
         let thread_run_id = run_id.clone();
         let inputs = params.inputs;
-        let node = params.node;
+        let mut node = params.node;
+        if let Err(error) = self.materialize_node_sandbox(&mut node) {
+            let mut runs = self
+                .node_runs
+                .write()
+                .expect("node run lock should not poison");
+            if let Some(run) = runs.get_mut(&run_id) {
+                run.record_event(json!({
+                    "run_id": run_id,
+                    "type": "node_failed",
+                    "node_id": node.id,
+                    "error": error.clone(),
+                }));
+            }
+            return rpc_error(id, -32602, error);
+        }
 
         thread::spawn(move || {
             let temp_workflow = storybook_workflow(node, inputs, &thread_run_id);
@@ -880,6 +949,403 @@ impl AppServer {
             }),
         )
     }
+
+    fn save_node_test_case(&self, id: Value, params: Value) -> Value {
+        let run_id = params["run_id"].as_str().unwrap_or_default();
+        let run = match self.load_node_run(run_id) {
+            Some(run) => run,
+            None => return rpc_error(id, -32001, "node run not found"),
+        };
+        let case_id = self.next_id("node-case-", &self.next_node_test_case_number);
+        let case = manual_node::create_test_case(
+            case_id,
+            &run,
+            params.get("expected_output").cloned(),
+            params.get("criteria").cloned(),
+            &iso_timestamp(),
+        );
+
+        if let Err(error) = self.workflow_store.save_value(
+            "node_test_cases",
+            case["id"].as_str().unwrap_or_default(),
+            &case,
+        ) {
+            return rpc_error(id, -32002, error.to_string());
+        }
+        self.node_test_cases
+            .write()
+            .expect("node test case lock should not poison")
+            .insert(
+                case["id"].as_str().unwrap_or_default().to_owned(),
+                case.clone(),
+            );
+
+        rpc_result(id, json!({ "test_case": case }))
+    }
+
+    fn verify_node_test_cases(&self, id: Value, params: Value) -> Value {
+        let node_id = params["node_id"].as_str();
+        let cases = self
+            .node_test_cases
+            .read()
+            .expect("node test case lock should not poison")
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        rpc_result(id, manual_node::verify_test_cases(cases, node_id))
+    }
+
+    fn compose_workflow_from_registry(&self, id: Value, params: Value) -> Value {
+        let node_id = params["node_id"].as_str().unwrap_or_default();
+        let templates = self
+            .node_templates
+            .read()
+            .expect("node template lock should not poison");
+        let Some(template) = templates.get(node_id) else {
+            return rpc_error(id, -32602, "registered node template required");
+        };
+        rpc_result(id, manual_node::compose_registry_candidate(template))
+    }
+
+    fn list_agents(&self, id: Value, params: Value) -> Value {
+        rpc_result(id, manual_agent::list_agent_availability(&params))
+    }
+
+    fn create_manual(&self, id: Value, params: Value) -> Value {
+        let manual_id = self.next_id("manual-", &self.next_manual_number);
+        let manual = match manual_core::create_manual(manual_id, &params, &iso_timestamp()) {
+            Ok(manual) => manual,
+            Err(error) => return rpc_error(id, -32602, error),
+        };
+        self.store_manual(id, manual)
+    }
+
+    fn get_manual(&self, id: Value, params: Value) -> Value {
+        let Some(manual) = self.find_manual(params["manual_id"].as_str()) else {
+            return rpc_error(id, -32000, "manual not found");
+        };
+        rpc_result(id, json!({ "manual": manual }))
+    }
+
+    fn list_manuals(&self, id: Value, params: Value) -> Value {
+        let status_filter = params["status"].as_str();
+        let query = params["query"].as_str().unwrap_or_default();
+        let tag = params["tag"].as_str();
+        let manuals = self
+            .manuals
+            .read()
+            .expect("manual lock should not poison")
+            .values()
+            .filter(|manual| manual_core::matches_filters(manual, status_filter, query, tag))
+            .map(manual_core::list_summary)
+            .collect::<Vec<_>>();
+        rpc_result(
+            id,
+            json!({
+                "manuals": manuals,
+                "filters": ["tag", "status"],
+                "search_fields": ["name", "description"],
+            }),
+        )
+    }
+
+    fn update_manual(&self, id: Value, params: Value) -> Value {
+        let Some(manual) = self.find_manual(params["manual_id"].as_str()) else {
+            return rpc_error(id, -32000, "manual not found");
+        };
+        let manual = manual_core::update_manual(
+            manual,
+            params.get("changes").unwrap_or(&Value::Null),
+            params["execution_affecting"].as_bool().unwrap_or(false),
+            &iso_timestamp(),
+        );
+        self.store_manual(id, manual)
+    }
+
+    fn clone_manual(&self, id: Value, params: Value) -> Value {
+        let Some(source) = self.find_manual(params["manual_id"].as_str()) else {
+            return rpc_error(id, -32000, "manual not found");
+        };
+        let cloned = manual_core::clone_manual(
+            source,
+            self.next_id("manual-", &self.next_manual_number),
+            &iso_timestamp(),
+        );
+        self.store_manual(id, cloned)
+    }
+
+    fn archive_manual(&self, id: Value, params: Value) -> Value {
+        self.set_manual_status(id, params, "archived")
+    }
+
+    fn delete_manual(&self, id: Value, params: Value) -> Value {
+        let Some(manual) = self.find_manual(params["manual_id"].as_str()) else {
+            return rpc_error(id, -32000, "manual not found");
+        };
+        let manual = match manual_core::mark_deleted(manual, &iso_timestamp()) {
+            Ok(manual) => manual,
+            Err(error) => return rpc_error(id, -32003, error),
+        };
+        self.store_manual(id, manual)
+    }
+
+    fn activate_manual(&self, id: Value, params: Value) -> Value {
+        let Some(mut manual) = self.find_manual(params["manual_id"].as_str()) else {
+            return rpc_error(id, -32000, "manual not found");
+        };
+        let validation = manual_core::validate_for_activation(&manual);
+        if validation["valid"] == true {
+            manual = manual_core::set_status(manual, "active", &iso_timestamp());
+            self.store_manual(id, manual)
+        } else {
+            rpc_result(
+                id,
+                json!({ "manual": manual, "validation": validation, "activated": false }),
+            )
+        }
+    }
+
+    fn manual_versions(&self, id: Value, params: Value) -> Value {
+        let Some(manual) = self.find_manual(params["manual_id"].as_str()) else {
+            return rpc_error(id, -32000, "manual not found");
+        };
+        rpc_result(id, manual_core::versions_response(&manual))
+    }
+
+    fn record_optimization_run(&self, id: Value, params: Value) -> Value {
+        let run = manual_optimization::record_run(&params, &iso_timestamp());
+        if let Err(error) = self.workflow_store.save_value(
+            "optimization_runs",
+            run["id"].as_str().unwrap_or_default(),
+            &run,
+        ) {
+            return rpc_error(id, -32002, error.to_string());
+        }
+        self.optimization_runs
+            .write()
+            .expect("optimization lock should not poison")
+            .insert(
+                run["id"].as_str().unwrap_or_default().to_owned(),
+                run.clone(),
+            );
+        rpc_result(id, json!({ "run": run }))
+    }
+
+    fn analyze_optimization(&self, id: Value, _params: Value) -> Value {
+        rpc_result(id, manual_optimization::analyze())
+    }
+
+    fn compare_optimization_runs(&self, id: Value, _params: Value) -> Value {
+        rpc_result(id, manual_optimization::compare_runs())
+    }
+
+    fn optimization_report(&self, id: Value, _params: Value) -> Value {
+        rpc_result(id, manual_optimization::report())
+    }
+
+    fn create_sandbox(&self, id: Value, params: Value) -> Value {
+        let sandbox = manual_sandbox::create_sandbox(
+            self.next_id("sandbox-", &self.next_sandbox_number),
+            &params,
+            &iso_timestamp(),
+        );
+        self.store_sandbox(id, sandbox)
+    }
+
+    fn update_sandbox(&self, id: Value, params: Value) -> Value {
+        let Some(mut sandbox) = self.find_sandbox(params["sandbox_id"].as_str()) else {
+            return rpc_error(id, -32000, "sandbox not found");
+        };
+        sandbox = manual_sandbox::update_sandbox(
+            sandbox,
+            params.get("changes").unwrap_or(&Value::Null),
+            &iso_timestamp(),
+        );
+        self.store_sandbox(id, sandbox)
+    }
+
+    fn evaluate_sandbox(&self, id: Value, params: Value) -> Value {
+        if params.get("sandbox_id").is_some()
+            && params["sandbox_id"].as_str().unwrap_or_default().is_empty()
+        {
+            return rpc_error(id, -32602, "sandbox_id is required");
+        }
+        let Some(sandbox) = self.find_sandbox(params["sandbox_id"].as_str()) else {
+            return rpc_error(id, -32000, "sandbox not found");
+        };
+        let operation = params["operation"].as_str().unwrap_or_default();
+        let target = params["target"].as_str().unwrap_or_default();
+        let decision = manual_sandbox::evaluate(&sandbox, operation, target);
+        rpc_result(id, json!({ "decision": decision, "sandbox": sandbox }))
+    }
+
+    fn get_sandbox(&self, id: Value, params: Value) -> Value {
+        let Some(sandbox) = self.find_sandbox(params["sandbox_id"].as_str()) else {
+            return rpc_error(id, -32000, "sandbox not found");
+        };
+        rpc_result(id, json!({ "sandbox": sandbox }))
+    }
+
+    fn configure_skill_step(&self, id: Value, params: Value) -> Value {
+        let record = manual_skill::configure_step(&params, &iso_timestamp());
+        let record_id = record["id"].as_str().unwrap_or("agent-step").to_owned();
+        if let Err(error) = self
+            .workflow_store
+            .save_value("skill_records", &record_id, &record)
+        {
+            return rpc_error(id, -32002, error.to_string());
+        }
+        self.skill_records
+            .write()
+            .expect("skill lock should not poison")
+            .insert(record_id, record.clone());
+        rpc_result(id, json!({ "step": record }))
+    }
+
+    fn skill_candidates(&self, id: Value, params: Value) -> Value {
+        rpc_result(id, manual_skill::candidates(&params))
+    }
+
+    fn record_skill_execution(&self, id: Value, params: Value) -> Value {
+        let step_id = params["step_id"].as_str().unwrap_or("agent-step");
+        let existing = self
+            .skill_records
+            .read()
+            .expect("skill lock should not poison")
+            .get(step_id)
+            .cloned();
+        let record = manual_skill::record_execution(existing, step_id, &params);
+        if let Err(error) = self
+            .workflow_store
+            .save_value("skill_records", step_id, &record)
+        {
+            return rpc_error(id, -32002, error.to_string());
+        }
+        self.skill_records
+            .write()
+            .expect("skill lock should not poison")
+            .insert(step_id.to_owned(), record.clone());
+        rpc_result(
+            id,
+            json!({ "execution": record["execution"], "step": record }),
+        )
+    }
+
+    fn verify_skill_usage(&self, id: Value, params: Value) -> Value {
+        let step_id = params["step_id"].as_str().unwrap_or("agent-step");
+        let record = self
+            .skill_records
+            .read()
+            .expect("skill lock should not poison")
+            .get(step_id)
+            .cloned();
+        rpc_result(id, manual_skill::verify_usage(record, step_id))
+    }
+
+    fn skill_agent_capabilities(&self, id: Value) -> Value {
+        rpc_result(id, manual_skill::agent_capabilities())
+    }
+
+    fn load_node_run(&self, run_id: &str) -> Option<NodeRun> {
+        self.workflow_store.load_node_run(run_id).or_else(|| {
+            self.node_runs
+                .read()
+                .expect("node run lock should not poison")
+                .get(run_id)
+                .cloned()
+        })
+    }
+
+    fn next_id(&self, prefix: &str, counter: &Mutex<u64>) -> String {
+        let mut next = counter.lock().expect("id counter lock should not poison");
+        *next += 1;
+        format!("{prefix}{next}")
+    }
+
+    fn store_manual(&self, id: Value, manual: Value) -> Value {
+        let manual_id = manual["id"].as_str().unwrap_or_default().to_owned();
+        if let Err(error) = self
+            .workflow_store
+            .save_value("manuals", &manual_id, &manual)
+        {
+            return rpc_error(id, -32002, error.to_string());
+        }
+        self.manuals
+            .write()
+            .expect("manual lock should not poison")
+            .insert(manual_id, manual.clone());
+        rpc_result(id, json!({ "manual": manual }))
+    }
+
+    fn find_manual(&self, manual_id: Option<&str>) -> Option<Value> {
+        let manuals = self.manuals.read().expect("manual lock should not poison");
+        if let Some(manual_id) = manual_id.filter(|value| !value.is_empty()) {
+            manuals.get(manual_id).cloned()
+        } else {
+            manuals.values().next().cloned()
+        }
+    }
+
+    fn set_manual_status(&self, id: Value, params: Value, status: &str) -> Value {
+        let Some(mut manual) = self.find_manual(params["manual_id"].as_str()) else {
+            return rpc_error(id, -32000, "manual not found");
+        };
+        manual = manual_core::set_status(manual, status, &iso_timestamp());
+        self.store_manual(id, manual)
+    }
+
+    fn store_sandbox(&self, id: Value, sandbox: Value) -> Value {
+        let sandbox_id = sandbox["id"].as_str().unwrap_or_default().to_owned();
+        if let Err(error) = self
+            .workflow_store
+            .save_value("sandboxes", &sandbox_id, &sandbox)
+        {
+            return rpc_error(id, -32002, error.to_string());
+        }
+        self.sandboxes
+            .write()
+            .expect("sandbox lock should not poison")
+            .insert(sandbox_id, sandbox.clone());
+        rpc_result(id, json!({ "sandbox": sandbox }))
+    }
+
+    fn find_sandbox(&self, sandbox_id: Option<&str>) -> Option<Value> {
+        let sandboxes = self
+            .sandboxes
+            .read()
+            .expect("sandbox lock should not poison");
+        if let Some(sandbox_id) = sandbox_id.filter(|value| !value.is_empty()) {
+            sandboxes.get(sandbox_id).cloned()
+        } else {
+            sandboxes.values().next().cloned()
+        }
+    }
+
+    fn materialize_workflow_sandboxes(
+        &self,
+        workflow: &mut WorkflowDefinition,
+    ) -> Result<(), String> {
+        for node in &mut workflow.nodes {
+            self.materialize_node_sandbox(node)?;
+        }
+        Ok(())
+    }
+
+    fn materialize_node_sandbox(&self, node: &mut NodeDefinition) -> Result<(), String> {
+        if node.sandbox_policy.is_null() {
+            return Ok(());
+        }
+        let Some(sandbox_id) = node.sandbox_policy["sandbox_id"].as_str() else {
+            return Ok(());
+        };
+        let Some(mut sandbox) = self.find_sandbox(Some(sandbox_id)) else {
+            return Err(format!("sandbox not found: {sandbox_id}"));
+        };
+        sandbox["sandbox_id"] = json!(sandbox_id);
+        node.sandbox_policy = sandbox;
+        Ok(())
+    }
 }
 
 impl Default for AppServer {
@@ -956,6 +1422,15 @@ fn next_node_run_number(runs: &BTreeMap<String, NodeRun>) -> u64 {
     runs.keys()
         .filter_map(|run_id| run_id.strip_prefix("node-run-"))
         .filter_map(|n| n.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0)
+}
+
+fn next_prefixed_number(values: &BTreeMap<String, Value>, prefix: &str) -> u64 {
+    values
+        .keys()
+        .filter_map(|id| id.strip_prefix(prefix))
+        .filter_map(|number| number.parse::<u64>().ok())
         .max()
         .unwrap_or(0)
 }

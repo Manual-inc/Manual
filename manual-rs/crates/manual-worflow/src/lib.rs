@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::path::Path;
+use std::sync::Condvar;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Condvar;
 use std::thread;
 use std::time::Duration;
 
@@ -168,6 +169,20 @@ impl WorkflowDefinition {
                 "workflow_id": self.id,
             }),
         );
+        for (node_id, value) in &opts.input_overrides {
+            // Why this exists: docs/wiki/features/partial-run-and-restart.md
+            // requires user-supplied intermediate inputs to remain auditable.
+            emit_event(
+                &mut sequence,
+                &mut emit,
+                json!({
+                    "run_id": run_id,
+                    "type": "input_override",
+                    "node_id": node_id,
+                    "value": value,
+                }),
+            );
+        }
 
         let plan = match self.execution_plan() {
             Ok(plan) => plan,
@@ -207,7 +222,9 @@ impl WorkflowDefinition {
                 .collect();
 
             let (skip_nodes, run_nodes): (Vec<&&NodeDefinition>, Vec<&&NodeDefinition>) =
-                stage_nodes.iter().partition(|node| skippable.contains(&node.id));
+                stage_nodes
+                    .iter()
+                    .partition(|node| skippable.contains(&node.id));
 
             for node in &skip_nodes {
                 emit_event(
@@ -370,11 +387,6 @@ impl WorkflowDefinition {
             }
         }
 
-        // input_overrides가 있는 노드는 skip 제외
-        for node_id in opts.input_overrides.keys() {
-            skippable.remove(node_id);
-        }
-
         skippable
     }
 }
@@ -399,6 +411,10 @@ pub struct NodeDefinition {
     pub cwd: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_args: Vec<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub script: String,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub sandbox_policy: Value,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -410,6 +426,7 @@ pub enum NodeKind {
     Delay,
     Fail,
     Pi,
+    Script,
     Template,
 }
 
@@ -479,7 +496,7 @@ impl WorkflowRun {
         for event in self.events.iter().rev() {
             match event["type"].as_str() {
                 Some("workflow_failed") | Some("workflow_cancelled") | Some("workflow_paused") => {
-                    return true
+                    return true;
                 }
                 Some("workflow_completed") => return false,
                 _ => {}
@@ -514,6 +531,7 @@ fn execute_definition_node(
         NodeKind::Claude => execute_claude_node(node, outputs),
         NodeKind::Codex => execute_codex_node(node, outputs),
         NodeKind::Pi => execute_pi_node(node, outputs),
+        NodeKind::Script => execute_script_definition_node(node),
         NodeKind::Template => Ok(render_template(&node.template, outputs).into()),
     }
 }
@@ -574,6 +592,10 @@ fn execute_agent_node(
         request = request.with_extra_arg(arg);
     }
 
+    if !node.sandbox_policy.is_null() {
+        request = request.with_sandbox_policy(node.sandbox_policy.clone());
+    }
+
     let output = agent
         .run(&request)
         .map_err(|error| WorkflowError::AgentCommandIo {
@@ -591,6 +613,43 @@ fn execute_agent_node(
         "status_code": output.status_code,
         "stdout": output.stdout,
         "stderr": output.stderr,
+    }))
+}
+
+fn execute_script_definition_node(node: &NodeDefinition) -> Result<Value, WorkflowError> {
+    if node.sandbox_policy.is_null() {
+        return Err(WorkflowError::NodeExecutionFailed {
+            node: NodeId::new(node.id.clone())?,
+            message: "script node requires sandbox_policy".to_owned(),
+        });
+    }
+
+    let (program, args) = if Path::new(&node.script).exists() {
+        (node.script.clone(), Vec::new())
+    } else {
+        (
+            "/bin/sh".to_owned(),
+            vec!["-c".to_owned(), node.script.clone()],
+        )
+    };
+    let output =
+        manual_sandbox::run_sandboxed(&node.sandbox_policy, program, &args).map_err(|error| {
+            WorkflowError::AgentCommandIo {
+                message: error.to_string(),
+            }
+        })?;
+
+    if output.status.code() != Some(0) {
+        return Err(WorkflowError::AgentCommandFailed {
+            status_code: output.status.code(),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        });
+    }
+
+    Ok(json!({
+        "status_code": output.status.code(),
+        "stdout": String::from_utf8_lossy(&output.stdout).into_owned(),
+        "stderr": String::from_utf8_lossy(&output.stderr).into_owned(),
     }))
 }
 
@@ -1069,6 +1128,8 @@ impl Default for NodeDefinition {
             model: None,
             cwd: None,
             extra_args: Vec::new(),
+            script: String::new(),
+            sandbox_policy: Value::Null,
         }
     }
 }

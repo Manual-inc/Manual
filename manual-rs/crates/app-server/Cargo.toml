@@ -4,7 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+manual-agent = { path = "../manual-agent" }
+manual-core = { path = "../manual-core" }
 manual-node = { path = "../manual-node" }
+manual-optimization = { path = "../manual-optimization" }
+manual-sandbox = { path = "../manual-sandbox" }
+manual-skill = { path = "../manual-skill" }
 manual-worflow = { path = "../manual-worflow" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

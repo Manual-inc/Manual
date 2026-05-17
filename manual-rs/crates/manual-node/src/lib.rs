@@ -112,6 +112,14 @@ pub fn node_schema(kind: &NodeKind) -> Value {
             ],
             "output_description": "Always fails with the provided error message",
         }),
+        NodeKind::Script => json!({
+            "kind": "script",
+            "inputs": [
+                { "name": "script", "type": "string", "required": true, "description": "Script path or shell snippet to run" },
+                { "name": "sandbox_policy", "type": "object", "required": true, "description": "Sandbox policy applied to the script process" },
+            ],
+            "output_description": "Object with status_code, stdout, and stderr fields from the sandboxed script process",
+        }),
     }
 }
 
@@ -174,6 +182,8 @@ pub fn storybook_workflow(node: NodeDefinition, inputs: Value, run_id: &str) -> 
                 model: None,
                 cwd: None,
                 extra_args: Vec::new(),
+                script: String::new(),
+                sandbox_policy: Value::Null,
             },
             node,
         ],
@@ -182,6 +192,91 @@ pub fn storybook_workflow(node: NodeDefinition, inputs: Value, run_id: &str) -> 
             depends_on: STORYBOOK_INPUT_NODE_ID.to_string(),
         }],
     }
+}
+
+pub fn node_run_result(run: &NodeRun) -> Value {
+    run.events()
+        .iter()
+        .rev()
+        .find(|event| {
+            event["type"] == "node_completed" && event["node_id"].as_str() == Some(&run.node.id)
+        })
+        .map(|event| event["result"].clone())
+        .unwrap_or(Value::Null)
+}
+
+pub fn create_test_case(
+    case_id: String,
+    run: &NodeRun,
+    expected_output: Option<Value>,
+    criteria: Option<Value>,
+    now: &str,
+) -> Value {
+    // Why this exists: docs/wiki/features/node-storybook.md defines reusable node
+    // examples as regression assets rather than mock-only UI fixtures.
+    json!({
+        "id": case_id,
+        "node_id": run.node.id,
+        "node": run.node,
+        "inputs": run.inputs,
+        "expected_output": expected_output.unwrap_or_else(|| node_run_result(run)),
+        "criteria": criteria.unwrap_or_else(|| json!({
+            "comparison": "json_equal",
+            "schema_match_required": true,
+        })),
+        "created_at": now,
+        "updated_at": now,
+    })
+}
+
+pub fn verify_test_cases(cases: Vec<Value>, node_id: Option<&str>) -> Value {
+    let mut results = Vec::new();
+    for case in cases
+        .into_iter()
+        .filter(|case| node_id.is_none_or(|needle| case["node_id"] == needle))
+    {
+        let Some(node) = serde_json::from_value::<NodeDefinition>(case["node"].clone()).ok() else {
+            continue;
+        };
+        let temp_workflow = storybook_workflow(node, case["inputs"].clone(), "verify");
+        let mut events = Vec::new();
+        let execution = temp_workflow.execute_with_events("verify", |event| events.push(event));
+        let actual = events
+            .iter()
+            .rev()
+            .find(|event| event["type"] == "node_completed" && event["node_id"] == case["node_id"])
+            .map(|event| event["result"].clone())
+            .unwrap_or(Value::Null);
+        let passed = execution.is_ok() && actual == case["expected_output"];
+        results.push(json!({
+            "test_case_id": case["id"],
+            "node_id": case["node_id"],
+            "passed": passed,
+            "expected_output": case["expected_output"],
+            "actual_output": actual,
+            "diff": if passed { Value::Null } else { json!({ "expected": case["expected_output"], "actual": actual }) },
+        }));
+    }
+
+    let failed = results
+        .iter()
+        .filter(|result| result["passed"] == false)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    json!({ "results": results, "failed": failed })
+}
+
+pub fn compose_registry_candidate(template: &NodeTemplate) -> Value {
+    json!({
+        "candidate": template,
+        "stage": {
+            "node": template.node,
+            "input_schema": node_schema(&template.node.kind)["inputs"],
+            "output_schema": node_schema(&template.node.kind)["output_description"],
+        },
+        "unregistered_allowed": false,
+    })
 }
 
 pub fn iso_timestamp() -> String {
@@ -230,4 +325,85 @@ fn is_leap_year(year: u64) -> bool {
 
 pub fn crate_name() -> &'static str {
     env!("CARGO_PKG_NAME")
+}
+
+#[cfg(test)]
+mod storybook_tests {
+    use manual_worflow::{NodeDefinition, NodeKind};
+    use serde_json::json;
+
+    use crate::{NodeRun, NodeTemplate};
+
+    fn constant_node() -> NodeDefinition {
+        NodeDefinition {
+            id: "digest".to_owned(),
+            kind: NodeKind::Constant,
+            value: json!("ok"),
+            template: String::new(),
+            duration_ms: 0,
+            error: String::new(),
+            prompt: String::new(),
+            model: None,
+            cwd: None,
+            extra_args: Vec::new(),
+            script: String::new(),
+            sandbox_policy: serde_json::Value::Null,
+        }
+    }
+
+    #[test]
+    fn saves_node_run_as_reusable_test_case() {
+        let mut run = NodeRun::pending("node-run-1".to_owned(), constant_node(), json!({}));
+        run.record_event(json!({
+            "type": "node_completed",
+            "node_id": "digest",
+            "result": "ok"
+        }));
+
+        let case = super::create_test_case(
+            "node-case-1".to_owned(),
+            &run,
+            None,
+            None,
+            "2026-05-17T00:00:00Z",
+        );
+
+        assert_eq!(case["id"], "node-case-1");
+        assert_eq!(case["expected_output"], "ok");
+        assert_eq!(case["criteria"]["comparison"], "json_equal");
+    }
+
+    #[test]
+    fn verifies_saved_storybook_cases() {
+        let case = json!({
+            "id": "node-case-1",
+            "node_id": "digest",
+            "node": constant_node(),
+            "inputs": {},
+            "expected_output": "ok",
+            "criteria": { "comparison": "json_equal" }
+        });
+
+        let report = super::verify_test_cases(vec![case], Some("digest"));
+
+        assert_eq!(report["failed"].as_array().unwrap().len(), 0);
+        assert_eq!(report["results"][0]["passed"], true);
+    }
+
+    #[test]
+    fn composes_registry_template_candidate() {
+        let template = NodeTemplate {
+            id: "digest-template".to_owned(),
+            name: "Digest".to_owned(),
+            description: "Summarize input".to_owned(),
+            node: constant_node(),
+            created_at: "2026-05-17T00:00:00Z".to_owned(),
+            updated_at: "2026-05-17T00:00:00Z".to_owned(),
+        };
+
+        let candidate = super::compose_registry_candidate(&template);
+
+        assert_eq!(candidate["unregistered_allowed"], false);
+        assert!(candidate["stage"]["input_schema"].is_array());
+    }
 }

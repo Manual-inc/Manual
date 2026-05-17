@@ -157,6 +157,33 @@ impl WorkflowStore {
         self.save_json(&self.node_run_path(run_id), run)
     }
 
+    pub(crate) fn load_values(&self, namespace: &str) -> BTreeMap<String, serde_json::Value> {
+        // Why this exists: docs/wiki/architecture/manual-app-architecture.md keeps
+        // app-server state file-backed so local clients share the same records.
+        load_json_map(
+            &self.storage_dir.join(namespace),
+            namespace,
+            |value: &serde_json::Value| {
+                value["id"]
+                    .as_str()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| "unknown".to_owned())
+            },
+        )
+    }
+
+    pub(crate) fn save_value(
+        &self,
+        namespace: &str,
+        id: &str,
+        value: &serde_json::Value,
+    ) -> io::Result<()> {
+        self.save_json(
+            &self.storage_dir.join(namespace).join(encoded_json_file(id)),
+            value,
+        )
+    }
+
     fn save_json<T: serde::Serialize>(&self, path: &Path, value: &T) -> io::Result<()> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -169,13 +196,11 @@ impl WorkflowStore {
     }
 
     fn workflow_path(&self, workflow_id: &str) -> PathBuf {
-        self.workflows_dir()
-            .join(format!("{}.json", hex_encode(workflow_id.as_bytes())))
+        self.workflows_dir().join(encoded_json_file(workflow_id))
     }
 
     fn run_path(&self, run_id: &str) -> PathBuf {
-        self.runs_dir()
-            .join(format!("{}.json", hex_encode(run_id.as_bytes())))
+        self.runs_dir().join(encoded_json_file(run_id))
     }
 
     fn workflows_dir(&self) -> PathBuf {
@@ -196,13 +221,16 @@ impl WorkflowStore {
 
     fn node_template_path(&self, template_id: &str) -> PathBuf {
         self.node_templates_dir()
-            .join(format!("{}.json", hex_encode(template_id.as_bytes())))
+            .join(encoded_json_file(template_id))
     }
 
     fn node_run_path(&self, run_id: &str) -> PathBuf {
-        self.node_runs_dir()
-            .join(format!("{}.json", hex_encode(run_id.as_bytes())))
+        self.node_runs_dir().join(encoded_json_file(run_id))
     }
+}
+
+fn encoded_json_file(id: &str) -> String {
+    format!("{}.json", hex_encode(id.as_bytes()))
 }
 
 pub(crate) fn default_workflow_storage_dir() -> PathBuf {

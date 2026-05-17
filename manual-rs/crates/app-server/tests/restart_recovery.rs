@@ -14,9 +14,7 @@ fn unique_storage_dir(name: &str) -> PathBuf {
         std::process::id(),
         std::thread::current().id()
     );
-    std::env::temp_dir()
-        .join("manual-rs-tests")
-        .join(unique)
+    std::env::temp_dir().join("manual-rs-tests").join(unique)
 }
 
 fn poll_events_until(
@@ -96,7 +94,10 @@ fn failure_run_can_be_resumed_after_server_restart() {
         let result = poll_events_until(&server_a, &run_id, 0, |events| {
             events["result"]["completed"].as_bool().unwrap_or(false)
         });
-        assert_eq!(result["result"]["run"]["status"], "failed", "A에서 실패 확인");
+        assert_eq!(
+            result["result"]["run"]["status"], "failed",
+            "A에서 실패 확인"
+        );
 
         run_id
     }; // server_a drop
@@ -117,7 +118,10 @@ fn failure_run_can_be_resumed_after_server_restart() {
             ),
         )
         .unwrap();
-        assert_eq!(result["result"]["run"]["status"], "failed", "B에서 실패 상태 복구 확인");
+        assert_eq!(
+            result["result"]["run"]["status"], "failed",
+            "B에서 실패 상태 복구 확인"
+        );
         assert_eq!(result["result"]["run"]["resumable"], true);
         assert_eq!(result["result"]["run"]["first_failed_node"], "B");
 

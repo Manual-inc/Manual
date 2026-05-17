@@ -1043,13 +1043,19 @@ fn workflow_stop_cancels_running_workflow() {
         ),
     )
     .unwrap();
-    let run_id = start_result["result"]["run_id"].as_str().unwrap().to_owned();
+    let run_id = start_result["result"]["run_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
 
     // Wait for quick node to start, then stop before slow node begins
     poll_events_until(&server, &run_id, 0, |events| {
         events["result"]["events"]
             .as_array()
-            .map(|arr| arr.iter().any(|e| e["type"] == "node_started" && e["node_id"] == "quick"))
+            .map(|arr| {
+                arr.iter()
+                    .any(|e| e["type"] == "node_started" && e["node_id"] == "quick")
+            })
             .unwrap_or(false)
     });
 
@@ -1102,14 +1108,20 @@ fn workflow_start_step_mode_pauses() {
         ),
     )
     .unwrap();
-    let run_id = start_result["result"]["run_id"].as_str().unwrap().to_owned();
+    let run_id = start_result["result"]["run_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
 
     // paused 이벤트 대기
     let events = poll_events_until(&server, &run_id, 0, |events| {
         events["result"]["run"]["paused"].as_bool().unwrap_or(false)
     });
     let summary = &events["result"]["run"];
-    assert_eq!(summary["paused"], true, "step 모드에서 paused=true 예상: {summary}");
+    assert_eq!(
+        summary["paused"], true,
+        "step 모드에서 paused=true 예상: {summary}"
+    );
 
     // resume → A 실행
     server.handle_json(
@@ -1171,7 +1183,10 @@ fn run_summary_includes_first_failed_node_and_resumable() {
         ),
     )
     .unwrap();
-    let run_id = start_result["result"]["run_id"].as_str().unwrap().to_owned();
+    let run_id = start_result["result"]["run_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
 
     let events = poll_events_until(&server, &run_id, 0, |events| {
         events["result"]["completed"].as_bool().unwrap_or(false)

@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use crate::{Agent, AgentCommand, CommandRequest, apply_cwd};
+use crate::{Agent, AgentCommand, CommandRequest, command_with_optional_sandbox};
 
 pub const BINARY: &str = "hermes";
 
@@ -21,16 +21,16 @@ impl AgentCommand for Hermes {
     }
 
     fn command(&self, request: &CommandRequest) -> Command {
-        let mut command = Command::new(BINARY);
-        command.args(["chat", "--quiet"]);
+        let mut args = vec!["chat".to_owned(), "--quiet".to_owned()];
 
         if let Some(model) = request.model() {
-            command.args(["--model", model]);
+            args.push("--model".to_owned());
+            args.push(model.to_owned());
         }
 
-        command.args(request.extra_args());
-        command.args(["--query", request.prompt()]);
-        apply_cwd(&mut command, request);
-        command
+        args.extend(request.extra_args().iter().cloned());
+        args.push("--query".to_owned());
+        args.push(request.prompt().to_owned());
+        command_with_optional_sandbox(request, BINARY, args)
     }
 }
