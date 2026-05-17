@@ -3,6 +3,7 @@ import SwiftUI
 public struct ContentView: View {
     @StateObject private var store = WorkflowRunStore()
     @SceneStorage("ManualMac.sidebarVisible") private var sidebarVisible = true
+    @SceneStorage("ManualMac.sandboxPanelVisible") private var sandboxPanelVisible = true
     @SceneStorage("ManualMac.inspectorVisible") private var inspectorVisible = false
     @SceneStorage("ManualMac.bottomPanelVisible") private var bottomPanelVisible = false
 
@@ -13,12 +14,18 @@ public struct ContentView: View {
             AppTheme.canvas.ignoresSafeArea()
 
             HStack(spacing: 0) {
-                LeftRail(sidebarVisible: $sidebarVisible)
+                LeftRail(sidebarVisible: $sidebarVisible, sandboxPanelVisible: $sandboxPanelVisible)
                     .frame(width: 56)
 
                 if sidebarVisible {
                     WorkflowSidebar(store: store)
                         .frame(width: 260)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+
+                if sandboxPanelVisible {
+                    SandboxPolicyPanel(store: store)
+                        .frame(width: 360)
                         .transition(.move(edge: .leading).combined(with: .opacity))
                 }
 
@@ -72,7 +79,7 @@ public struct ContentView: View {
                         if inspectorVisible {
                             Rectangle().fill(AppTheme.stroke).frame(width: 1)
                             NodeInspectorView(
-                                node: store.selectedNode,
+                                store: store,
                                 onClose: {
                                     withAnimation(.easeInOut(duration: 0.18)) {
                                         inspectorVisible = false
@@ -103,6 +110,7 @@ public struct ContentView: View {
 
 private struct LeftRail: View {
     @Binding var sidebarVisible: Bool
+    @Binding var sandboxPanelVisible: Bool
 
     var body: some View {
         VStack(spacing: 6) {
@@ -113,6 +121,11 @@ private struct LeftRail: View {
             RailButton(symbol: "square.grid.2x2.fill", isActive: sidebarVisible) {
                 withAnimation(.easeInOut(duration: 0.18)) {
                     sidebarVisible.toggle()
+                }
+            }
+            RailButton(symbol: "lock.shield.fill", isActive: sandboxPanelVisible) {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    sandboxPanelVisible.toggle()
                 }
             }
             /*

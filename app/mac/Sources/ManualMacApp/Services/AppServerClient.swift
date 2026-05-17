@@ -171,6 +171,39 @@ final class AppServerClient {
         }
     }
 
+    func sandboxes() async throws -> SandboxListResult {
+        let result = try await request(method: "sandbox.list", params: [:])
+        return try SandboxListResult(result)
+    }
+
+    func createSandbox(_ draft: SandboxPolicyDraft) async throws -> SandboxPolicyModel {
+        let result = try await request(method: "sandbox.create", params: draft.asParameters)
+        return try SandboxPolicyResult(result).sandbox
+    }
+
+    func updateSandbox(id sandboxID: String, draft: SandboxPolicyDraft) async throws -> SandboxPolicyModel {
+        let result = try await request(
+            method: "sandbox.update",
+            params: [
+                "sandbox_id": sandboxID,
+                "changes": draft.asParameters,
+            ]
+        )
+        return try SandboxPolicyResult(result).sandbox
+    }
+
+    func evaluateSandbox(id sandboxID: String, operation: String, target: String) async throws -> SandboxDecisionModel {
+        let result = try await request(
+            method: "sandbox.evaluate",
+            params: [
+                "sandbox_id": sandboxID,
+                "operation": operation,
+                "target": target,
+            ]
+        )
+        return try SandboxEvaluationResult(result).decision
+    }
+
     private func request(method: String, params: [String: Any]) async throws -> Any {
         try await ensureDaemon()
         guard let serverURL, let authToken else {
@@ -409,4 +442,58 @@ struct WorkflowEventsPage: @unchecked Sendable {
     let nextCursor: Int
     let completed: Bool
     let run: [String: Any]
+}
+
+struct SandboxListResult: @unchecked Sendable {
+    let sandboxes: [SandboxPolicyModel]
+    let backends: [String: [String]]
+    let currentBackend: String
+
+    init(_ result: Any) throws {
+        guard
+            let object = result as? [String: Any],
+            let sandboxObjects = object["sandboxes"] as? [[String: Any]]
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        self.sandboxes = try sandboxObjects.map(SandboxPolicyModel.init)
+        let backendObject = object["backends"] as? [String: Any] ?? [:]
+        self.backends = backendObject.reduce(into: [String: [String]]()) { partial, entry in
+            if let values = entry.value as? [Any] {
+                partial[entry.key] = values.compactMap { $0 as? String }
+            }
+        }
+        self.currentBackend = backendObject["current"] as? String ?? ""
+    }
+}
+
+private struct SandboxPolicyResult: Sendable {
+    let sandbox: SandboxPolicyModel
+
+    init(_ result: Any) throws {
+        guard
+            let object = result as? [String: Any],
+            let sandboxObject = object["sandbox"] as? [String: Any]
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        self.sandbox = try SandboxPolicyModel(sandboxObject)
+    }
+}
+
+private struct SandboxEvaluationResult: Sendable {
+    let decision: SandboxDecisionModel
+
+    init(_ result: Any) throws {
+        guard
+            let object = result as? [String: Any],
+            let decisionObject = object["decision"] as? [String: Any]
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        self.decision = try SandboxDecisionModel(decisionObject)
+    }
 }

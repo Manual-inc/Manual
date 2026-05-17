@@ -210,6 +210,46 @@ fn workflow_start_runs_in_background_and_events_can_poll_progress() {
 }
 
 #[test]
+fn json_rpc_lists_reusable_sandbox_policies_for_gui() {
+    let server = test_server();
+
+    let created: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sandbox.create",
+                "params": {
+                    "name": "Docs Writer",
+                    "allow_read": ["docs/**"],
+                    "allow_write": ["docs/wiki/**"]
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    let listed: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "sandbox.list",
+                "params": {}
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(created["result"]["sandbox"]["name"], "Docs Writer");
+    assert_eq!(listed["result"]["sandboxes"][0]["name"], "Docs Writer");
+    assert!(listed["result"]["backends"]["current"].is_string());
+    assert!(listed["result"]["backends"]["macos"].as_array().is_some());
+}
+
+#[test]
 fn workflow_events_reports_background_execution_failure() {
     let server = test_server();
 

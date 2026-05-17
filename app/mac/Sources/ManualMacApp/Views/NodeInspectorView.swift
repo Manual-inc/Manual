@@ -1,8 +1,12 @@
 import SwiftUI
 
 struct NodeInspectorView: View {
-    let node: WorkflowNodeModel?
+    @ObservedObject var store: WorkflowRunStore
     let onClose: () -> Void
+
+    private var node: WorkflowNodeModel? {
+        store.selectedNode
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -111,6 +115,53 @@ struct NodeInspectorView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(AppTheme.textMuted)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            InspectorRow(label: "SANDBOX") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: node.sandboxPolicyID == nil ? "exclamationmark.shield" : "lock.shield.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(node.sandboxPolicyID == nil ? AppTheme.statusColor(.failed) : AppTheme.accent)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(store.selectedNodeSandboxName)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppTheme.text)
+                                .lineLimit(1)
+                            Text(node.sandboxPolicyID == nil ? "Agent and script nodes require a reusable policy." : "Policy will be materialized by app-server on run.")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppTheme.textMuted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    if !store.sandboxes.isEmpty {
+                        Menu {
+                            ForEach(store.sandboxes) { sandbox in
+                                Button(sandbox.name) {
+                                    store.selectSandbox(sandbox.id)
+                                    store.assignSelectedSandboxToSelectedNode()
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text("Assign selected policy")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .foregroundStyle(AppTheme.text)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(AppTheme.panelElev))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 7).stroke(AppTheme.stroke, lineWidth: 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
 
             InspectorRow(label: "OUTPUT") {

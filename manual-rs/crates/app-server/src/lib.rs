@@ -166,6 +166,7 @@ impl AppServer {
             "sandbox.update" => self.update_sandbox(request.id, request.params),
             "sandbox.evaluate" => self.evaluate_sandbox(request.id, request.params),
             "sandbox.get" => self.get_sandbox(request.id, request.params),
+            "sandbox.list" => self.list_sandboxes(request.id),
             "skill.configure" => self.configure_skill_step(request.id, request.params),
             "skill.candidates" => self.skill_candidates(request.id, request.params),
             "skill.record_execution" => self.record_skill_execution(request.id, request.params),
@@ -1185,6 +1186,26 @@ impl AppServer {
             return rpc_error(id, -32000, "sandbox not found");
         };
         rpc_result(id, json!({ "sandbox": sandbox }))
+    }
+
+    fn list_sandboxes(&self, id: Value) -> Value {
+        // Why this exists: docs/wiki/systems/샌드박스-기능.md makes reusable
+        // sandbox types a first-class thing that the mac GUI can manage.
+        let sandboxes = self
+            .sandboxes
+            .read()
+            .expect("sandbox lock should not poison")
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        rpc_result(
+            id,
+            json!({
+                "sandboxes": sandboxes,
+                "backends": manual_sandbox::platform_backends(),
+            }),
+        )
     }
 
     fn configure_skill_step(&self, id: Value, params: Value) -> Value {

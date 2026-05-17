@@ -49,6 +49,7 @@ struct WorkflowNodeModel: Identifiable, Equatable {
     let subtitle: String
     let kind: WorkflowNodeKind
     let position: CGPoint
+    var sandboxPolicyID: String? = nil
     var status: WorkflowNodeStatus = .idle
     var result: String?
 }
@@ -93,7 +94,8 @@ enum WorkflowDisplayBuilder {
                 title: title(for: id),
                 subtitle: subtitle(for: object),
                 kind: WorkflowNodeKind.serverKind(serverKind),
-                position: positions[id] ?? fallbackPosition(offset: offset, count: max(nodeObjects.count, 1))
+                position: positions[id] ?? fallbackPosition(offset: offset, count: max(nodeObjects.count, 1)),
+                sandboxPolicyID: sandboxPolicyID(for: object)
             )
         }
 
@@ -193,6 +195,12 @@ enum WorkflowDisplayBuilder {
         default:
             return kind
         }
+    }
+
+    private static func sandboxPolicyID(for object: [String: Any]) -> String? {
+        // See docs/wiki/architecture/agent-sandboxing.md: node-level sandbox IDs are the bridge between workflow JSON and OS policy application.
+        guard let policy = object["sandbox_policy"] as? [String: Any] else { return nil }
+        return policy["sandbox_id"] as? String ?? policy["id"] as? String
     }
 }
 

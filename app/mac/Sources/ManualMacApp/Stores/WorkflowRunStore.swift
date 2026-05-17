@@ -13,6 +13,13 @@ final class WorkflowRunStore: ObservableObject {
     @Published private(set) var runID: String?
     @Published private(set) var statusMessage = "Ready"
     @Published private(set) var rawWorkflowJSON = "{}"
+    @Published private(set) var sandboxes: [SandboxPolicyModel] = []
+    @Published private(set) var selectedSandboxID: String?
+    @Published var sandboxDraft = SandboxPolicyDraft()
+    @Published private(set) var sandboxProbeOperation = "write_file"
+    @Published private(set) var sandboxProbeTarget = "src/main.rs"
+    @Published private(set) var sandboxDecision: SandboxDecisionModel?
+    @Published private(set) var currentSandboxBackend = ""
 
     private let client: AppServerClient
     private let executionIntent: WorkflowExecutionIntent
@@ -30,6 +37,16 @@ final class WorkflowRunStore: ObservableObject {
     var selectedNode: WorkflowNodeModel? {
         guard let selectedNodeID else { return nil }
         return nodes.first { $0.id == selectedNodeID }
+    }
+
+    var selectedSandbox: SandboxPolicyModel? {
+        guard let selectedSandboxID else { return nil }
+        return sandboxes.first { $0.id == selectedSandboxID }
+    }
+
+    var selectedNodeSandboxName: String {
+        guard let sandboxID = selectedNode?.sandboxPolicyID else { return "Required before run" }
+        return sandboxes.first { $0.id == sandboxID }?.name ?? sandboxID
     }
 
     var completedCount: Int {
@@ -61,6 +78,7 @@ final class WorkflowRunStore: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             await self.refreshWorkflows(createExampleIfMissing: true)
+            await self.refreshSandboxes(createDefaultIfMissing: true)
         }
     }
 
@@ -77,6 +95,89 @@ final class WorkflowRunStore: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             await self.loadWorkflow(id: workflowID)
+        }
+    }
+
+    func selectSandbox(_ id: String) {
+        selectedSandboxID = id
+        if let selectedSandbox {
+            sandboxDraft = SandboxPolicyDraft(policy: selectedSandbox)
+        }
+        sandboxDecision = nil
+    }
+
+    func updateSandboxDraft(_ update: (inout SandboxPolicyDraft) -> Void) {
+        update(&sandboxDraft)
+    }
+
+    func updateSandboxProbe(operation: String? = nil, target: String? = nil) {
+        if let operation {
+            sandboxProbeOperation = operation
+        }
+        if let target {
+            sandboxProbeTarget = target
+        }
+    }
+
+    func refreshSandboxes() {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.refreshSandboxes(createDefaultIfMissing: false)
+        }
+    }
+
+    func createSandbox() {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.createSandboxFromDraft()
+        }
+    }
+
+    func saveSelectedSandbox() {
+        guard let selectedSandboxID else {
+            createSandbox()
+            return
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.updateSandbox(id: selectedSandboxID)
+        }
+    }
+
+    func assignSelectedSandboxToSelectedNode() {
+        guard
+            let selectedSandboxID,
+            let selectedNodeID,
+            var nodeObjects = currentWorkflow["nodes"] as? [[String: Any]],
+            let index = nodeObjects.firstIndex(where: { $0["id"] as? String == selectedNodeID })
+        else {
+            statusMessage = "Select a node and sandbox first"
+            return
+        }
+
+        // See docs/wiki/architecture/agent-sandboxing.md: workflow nodes persist the sandbox ID so app-server can materialize it at execution time.
+        nodeObjects[index]["sandbox_policy"] = ["sandbox_id": selectedSandboxID]
+        currentWorkflow["nodes"] = nodeObjects
+        syncDisplay(with: currentWorkflow)
+        rawWorkflowJSON = prettyJSONString(currentWorkflow)
+        statusMessage = "Assigned \(selectedSandboxID) to \(selectedNodeID)"
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.persistCurrentWorkflow()
+        }
+    }
+
+    func evaluateSelectedSandbox() {
+        guard let selectedSandboxID else {
+            statusMessage = "Select a sandbox first"
+            return
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.evaluateSandbox(id: selectedSandboxID)
         }
     }
 
@@ -142,6 +243,71 @@ final class WorkflowRunStore: ObservableObject {
         } catch {
             statusMessage = error.localizedDescription
             appendEvent(nodeID: nil, title: "Refresh failed", detail: error.localizedDescription)
+        }
+    }
+
+    private func refreshSandboxes(createDefaultIfMissing: Bool) async {
+        do {
+            var result = try await client.sandboxes()
+
+            if createDefaultIfMissing && result.sandboxes.isEmpty {
+                _ = try await client.createSandbox(sandboxDraft)
+                result = try await client.sandboxes()
+            }
+
+            sandboxes = result.sandboxes.sorted { $0.name < $1.name }
+            currentSandboxBackend = result.currentBackend
+
+            if let selectedSandboxID, sandboxes.contains(where: { $0.id == selectedSandboxID }) {
+                selectSandbox(selectedSandboxID)
+            } else if let first = sandboxes.first {
+                selectSandbox(first.id)
+            }
+        } catch {
+            statusMessage = error.localizedDescription
+            appendEvent(nodeID: nil, title: "Sandbox refresh failed", detail: error.localizedDescription)
+        }
+    }
+
+    private func createSandboxFromDraft() async {
+        do {
+            let sandbox = try await client.createSandbox(sandboxDraft)
+            await refreshSandboxes(createDefaultIfMissing: false)
+            selectSandbox(sandbox.id)
+            statusMessage = "Created sandbox \(sandbox.name)"
+        } catch {
+            statusMessage = error.localizedDescription
+            appendEvent(nodeID: nil, title: "Sandbox create failed", detail: error.localizedDescription)
+        }
+    }
+
+    private func updateSandbox(id sandboxID: String) async {
+        do {
+            let sandbox = try await client.updateSandbox(id: sandboxID, draft: sandboxDraft)
+            await refreshSandboxes(createDefaultIfMissing: false)
+            selectSandbox(sandbox.id)
+            statusMessage = "Saved sandbox \(sandbox.name)"
+        } catch {
+            statusMessage = error.localizedDescription
+            appendEvent(nodeID: nil, title: "Sandbox save failed", detail: error.localizedDescription)
+        }
+    }
+
+    private func evaluateSandbox(id sandboxID: String) async {
+        do {
+            let decision = try await client.evaluateSandbox(
+                id: sandboxID,
+                operation: sandboxProbeOperation,
+                target: sandboxProbeTarget
+            )
+            sandboxDecision = decision
+            statusMessage = decision.allowed ? "Sandbox probe allowed" : "Sandbox probe blocked"
+            if decision.violation {
+                appendEvent(nodeID: selectedNodeID, title: "Sandbox violation", detail: "\(decision.target): \(decision.reason)")
+            }
+        } catch {
+            statusMessage = error.localizedDescription
+            appendEvent(nodeID: nil, title: "Sandbox probe failed", detail: error.localizedDescription)
         }
     }
 
