@@ -33,6 +33,9 @@ tar -C "${release_dir}/package" -czf "${release_dir}/manual-${platform}.tar.gz" 
 rendered_install="${work_dir}/install.sh"
 bash "${repo_root}/scripts/render-install.sh" "${tag}" "${rendered_install}"
 
+grep -q "release_default_version=\"${tag}\"" "${rendered_install}"
+grep -q 'if \[\[ "${release_default_version}" == "__MANUAL_RELEASE_VERSION__" \]\]; then' "${rendered_install}"
+
 MANUAL_INSTALL_BASE_URL="file://${release_dir}" \
 MANUAL_INSTALL_PLATFORM="${platform}" \
 MANUAL_INSTALL_BIN_DIR="${bin_dir}" \

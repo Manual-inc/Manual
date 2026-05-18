@@ -16,8 +16,8 @@ fi
 escaped_version="$(printf '%s' "${version}" | sed 's/[\/&]/\\&/g')"
 
 if [[ -n "${output_path}" ]]; then
-  sed "s/__MANUAL_RELEASE_VERSION__/${escaped_version}/g" "${template}" > "${output_path}"
+  sed "s/^release_default_version=\"__MANUAL_RELEASE_VERSION__\"$/release_default_version=\"${escaped_version}\"/" "${template}" > "${output_path}"
   chmod +x "${output_path}"
 else
-  sed "s/__MANUAL_RELEASE_VERSION__/${escaped_version}/g" "${template}"
+  sed "s/^release_default_version=\"__MANUAL_RELEASE_VERSION__\"$/release_default_version=\"${escaped_version}\"/" "${template}"
 fi
