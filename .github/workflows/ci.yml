@@ -101,6 +101,12 @@ jobs:
       - name: install.sh 도움말 검사
         run: bash install.sh --help
 
+      - name: 렌더된 install.sh 기본 버전 검사
+        run: |
+          for platform in ${{ matrix.platforms }}; do
+            bash scripts/test-rendered-install-default-version.sh "v-test" "${platform}"
+          done
+
       - name: 릴리스 아카이브 패키징
         run: |
           for platform in ${{ matrix.platforms }}; do

@@ -69,6 +69,9 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
+      - name: 릴리스용 install.sh 렌더링
+        run: bash scripts/render-install.sh "${{ github.ref_name }}" release-artifacts/install.sh
+
       - name: GitHub Release 생성
         uses: softprops/action-gh-release@v2
         with:
@@ -76,4 +79,4 @@ jobs:
           files: |
             release-artifacts/*.tar.gz
             release-artifacts/*.sha256
-            install.sh
+            release-artifacts/install.sh

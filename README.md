@@ -3,7 +3,7 @@
 Install the current verified release with:
 
 ```bash
-curl -fsSL https://github.com/Manual-inc/Manual/releases/download/v0.1.0-codex.2/install.sh | MANUAL_INSTALL_VERSION=v0.1.0-codex.2 bash
+curl -fsSL https://github.com/Manual-inc/Manual/releases/download/v0.1.0-codex.3/install.sh | bash
 ```
 
 The installer places `manual` and `manual-app-server` in `~/.local/bin` by default.

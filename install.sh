@@ -4,7 +4,11 @@
 set -euo pipefail
 
 repo_slug="${MANUAL_INSTALL_REPO:-Manual-inc/Manual}"
-version="${MANUAL_INSTALL_VERSION:-}"
+release_default_version="__MANUAL_RELEASE_VERSION__"
+if [[ "${release_default_version}" == "__MANUAL_RELEASE_VERSION__" ]]; then
+  release_default_version=""
+fi
+version="${MANUAL_INSTALL_VERSION:-${release_default_version}}"
 bin_dir="${MANUAL_INSTALL_BIN_DIR:-${HOME}/.local/bin}"
 base_url="${MANUAL_INSTALL_BASE_URL:-}"
 
@@ -38,16 +42,20 @@ download_file() {
   local output="$2"
 
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$output"
-    return
+    if curl -fsSL "$url" -o "$output"; then
+      return
+    fi
+  elif command -v wget >/dev/null 2>&1; then
+    if wget -qO "$output" "$url"; then
+      return
+    fi
   fi
 
-  if command -v wget >/dev/null 2>&1; then
-    wget -qO "$output" "$url"
-    return
+  if [[ -z "${version}" && "${url}" == *"/releases/latest/download/"* ]]; then
+    fail "latest release asset not found; GitHub latest ignores prereleases, so install a tagged release or pass --version <tag>"
   fi
 
-  fail "curl or wget is required"
+  fail "failed to download ${url}"
 }
 
 detect_platform() {
