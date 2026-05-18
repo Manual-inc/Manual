@@ -184,7 +184,7 @@ fn workflow_start_passes_mode_and_flags() {
 }
 
 fn manual_cli() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_manual-cli"))
+    Command::new(env!("CARGO_BIN_EXE_manual"))
 }
 
 fn fake_server(temp: &TestDir, log: &Path) -> PathBuf {

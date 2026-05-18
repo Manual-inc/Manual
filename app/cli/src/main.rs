@@ -211,7 +211,7 @@ fn print_events(
 }
 
 #[derive(Parser)]
-#[command(name = "manual-cli")]
+#[command(name = "manual")]
 #[command(about = "Command line client for the Manual app-server JSON-RPC API")]
 struct Cli {
     #[arg(long, value_name = "PATH")]
@@ -527,16 +527,48 @@ impl HttpAppServerClient {
 }
 
 fn resolve_server_bin(explicit: Option<&Path>) -> Result<PathBuf, CliError> {
+    let env_path = env::var_os("MANUAL_APP_SERVER_BIN").map(PathBuf::from);
+    let current_exe = env::current_exe().ok();
+    let cwd = env::current_dir().ok();
+    resolve_server_bin_from(
+        explicit,
+        env_path.as_deref(),
+        current_exe.as_deref(),
+        cwd.as_deref(),
+    )
+}
+
+fn resolve_server_bin_from(
+    explicit: Option<&Path>,
+    env_path: Option<&Path>,
+    current_exe: Option<&Path>,
+    cwd: Option<&Path>,
+) -> Result<PathBuf, CliError> {
     if let Some(path) = explicit {
         return Ok(path.to_owned());
     }
 
-    if let Ok(path) = env::var("MANUAL_APP_SERVER_BIN") {
-        return Ok(PathBuf::from(path));
+    if let Some(path) = env_path {
+        return Ok(path.to_owned());
     }
 
-    let cwd = env::current_dir()?;
+    if let Some(current_exe) = current_exe {
+        if let Some(bin_dir) = current_exe.parent() {
+            let sibling = bin_dir.join(server_binary_name());
+            if sibling.is_file() {
+                return Ok(sibling);
+            }
+        }
+    }
+
+    let Some(cwd) = cwd else {
+        return Err(CliError::ServerBinaryNotFound);
+    };
+
     let candidates = [
+        cwd.join("manual-rs/target/debug/manual-app-server"),
+        cwd.join("../manual-rs/target/debug/manual-app-server"),
+        cwd.join("../../manual-rs/target/debug/manual-app-server"),
         cwd.join("manual-rs/target/debug/app-server"),
         cwd.join("../manual-rs/target/debug/app-server"),
         cwd.join("../../manual-rs/target/debug/app-server"),
@@ -546,6 +578,14 @@ fn resolve_server_bin(explicit: Option<&Path>) -> Result<PathBuf, CliError> {
         .into_iter()
         .find(|candidate| candidate.is_file())
         .ok_or(CliError::ServerBinaryNotFound)
+}
+
+fn server_binary_name() -> &'static str {
+    if cfg!(windows) {
+        "manual-app-server.exe"
+    } else {
+        "manual-app-server"
+    }
 }
 
 struct Discovery {
@@ -607,16 +647,30 @@ fn launch_daemon(
 }
 
 fn default_discovery_file() -> PathBuf {
-    if let Ok(path) = env::var("MANUAL_APP_SERVER_DISCOVERY") {
-        return PathBuf::from(path);
+    // Why this exists: docs/wiki/architecture/manual-app-architecture.md documents
+    // that local Manual clients share one hidden home-directory state root by default.
+    default_discovery_file_from(
+        env::var("MANUAL_APP_SERVER_DISCOVERY").ok().map(PathBuf::from),
+        env::var("HOME").ok().as_deref().map(Path::new),
+        env::current_dir().ok().as_deref(),
+    )
+}
+
+fn default_discovery_file_from(
+    override_path: Option<PathBuf>,
+    home_dir: Option<&Path>,
+    current_dir: Option<&Path>,
+) -> PathBuf {
+    if let Some(path) = override_path {
+        return path;
     }
 
-    if let Ok(home) = env::var("HOME") {
-        return PathBuf::from(home)
-            .join("Library")
-            .join("Application Support")
-            .join("Manual")
-            .join("app-server.json");
+    if let Some(home) = home_dir {
+        return home.join(".manual").join("app-server.json");
+    }
+
+    if let Some(current_dir) = current_dir {
+        return current_dir.join(".manual").join("app-server.json");
     }
 
     env::temp_dir().join("manual-app-server.json")
@@ -649,6 +703,49 @@ fn parse_http_url(url: &str) -> Result<(String, u16), CliError> {
     }
 
     Ok((host.to_owned(), port))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn default_discovery_file_uses_hidden_manual_directory() {
+        let path = default_discovery_file_from(
+            None,
+            Some(Path::new("/Users/example")),
+            Some(Path::new("/workspace")),
+        );
+
+        assert_eq!(
+            path,
+            PathBuf::from("/Users/example/.manual/app-server.json")
+        );
+    }
+
+    #[test]
+    fn resolve_server_bin_prefers_sibling_manual_app_server() {
+        let temp = std::env::temp_dir().join(format!(
+            "manual-cli-sibling-server-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&temp).unwrap();
+
+        let cli = temp.join("manual");
+        let server = temp.join("manual-app-server");
+        fs::write(&cli, "").unwrap();
+        fs::write(&server, "").unwrap();
+
+        let resolved = resolve_server_bin_from(None, None, Some(&cli), Some(Path::new("/workspace")))
+            .unwrap();
+
+        assert_eq!(resolved, server);
+        fs::remove_dir_all(temp).unwrap();
+    }
 }
 
 fn read_json_file(path: &Path) -> Result<Value, CliError> {
@@ -693,7 +790,7 @@ impl fmt::Display for CliError {
             }
             CliError::ServerBinaryNotFound => write!(
                 formatter,
-                "app-server binary not found; pass --server-bin or set MANUAL_APP_SERVER_BIN"
+                "manual-app-server binary not found; pass --server-bin or set MANUAL_APP_SERVER_BIN"
             ),
             CliError::InvalidResponse(message) => write!(formatter, "{message}"),
             CliError::Rpc { code, message } => {
