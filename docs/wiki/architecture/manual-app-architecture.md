@@ -18,7 +18,7 @@ Manual은 프로젝트 앱 서버를 중심에 두고 CLI와 네이티브 클라
 ## 구성 요소
 
 - 앱 서버: 워크플로우, 노드, 실행 상태, 로그를 관리한다.
-- CLI: 워크플로우 생성, 조회, 실행 요청을 앱 서버에 보낸다.
+- CLI: `workflow`, `node`, `manual`, `optimization`, `sandbox`, `skill`, `agent` 전용 서브커맨드로 app-server의 전체 JSON-RPC 표면을 보낸다. 자세한 명령 구조는 [[manual-cli-command-surface|Manual CLI app-server 명령 표면]]에 정리한다.
 - macOS 앱: 워크플로우 그래프와 실행 로그를 보여준다.
 - Windows/macOS/Linux 클라이언트: 장기적으로 각 플랫폼 네이티브 클라이언트가 가능하다.
 - 에이전트 실행기: Codex, Claude, Pi, Hermes/Homecode 등 로컬 CLI 또는 실행 프로세스를 호출한다.
@@ -49,6 +49,7 @@ Manual은 프로젝트 앱 서버를 중심에 두고 CLI와 네이티브 클라
 
 - [[2026-05-11-manual-product-direction|2026-05-11 Manual 제품 방향 회의]]
 - [[cli-release-distribution|Manual CLI 릴리스 배포]]
+- [[manual-cli-command-surface|Manual CLI app-server 명령 표면]]
 - [[partial-run-and-restart|부분 실행과 재시작]]
 - [[node-storybook|노드 Storybook]]
 - [[token-cost-observability|토큰 비용 관측]]

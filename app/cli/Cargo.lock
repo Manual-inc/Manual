@@ -53,6 +53,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "app-server"
+version = "0.1.0"
+dependencies = [
+ "manual-agent",
+ "manual-core",
+ "manual-node",
+ "manual-optimization",
+ "manual-sandbox",
+ "manual-skill",
+ "manual-worflow",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "clap"
 version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -117,10 +132,66 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "manual-agent"
+version = "0.1.0"
+dependencies = [
+ "manual-sandbox",
+ "serde_json",
+]
+
+[[package]]
 name = "manual-cli"
 version = "0.1.0"
 dependencies = [
+ "app-server",
  "clap",
+ "serde_json",
+]
+
+[[package]]
+name = "manual-core"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "manual-node"
+version = "0.1.0"
+dependencies = [
+ "manual-worflow",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "manual-optimization"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "manual-sandbox"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "manual-skill"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
+name = "manual-worflow"
+version = "0.1.0"
+dependencies = [
+ "manual-agent",
+ "manual-sandbox",
+ "serde",
  "serde_json",
 ]
 
@@ -161,6 +232,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
+ "serde_derive",
 ]
 
 [[package]]
