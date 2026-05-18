@@ -4,7 +4,7 @@ type: architecture
 tags: [architecture, app-server, cli, native-client, agent]
 sources: [2026-05-11-manual-product-direction.md]
 date_created: 2026-05-11
-date_updated: 2026-05-16
+date_updated: 2026-05-18
 ---
 
 # Manual 앱 아키텍처
@@ -30,6 +30,13 @@ Manual은 프로젝트 앱 서버를 중심에 두고 CLI와 네이티브 클라
 - JSON API가 MVP에서는 더 단순하다.
 - 필요하면 나중에 MCP로 바꿀 수 있다.
 
+## 로컬 상태 저장
+
+- CLI discovery 파일과 app-server 상태 저장 기본 경로는 `~/.manual/` 아래에 둔다.
+- 기본 discovery 파일은 `~/.manual/app-server.json`을 사용한다.
+- app-server는 `~/.manual/` 아래에서 워크플로우, 실행 기록, 노드 실행 기록 같은 파일 기반 상태를 공유한다.
+- `MANUAL_APP_SERVER_DISCOVERY`와 `MANUAL_RS_WORKFLOW_DIR` 환경 변수로 기본 경로를 덮어쓸 수 있다.
+
 ## 실행 흐름 예시
 
 1. CLI 또는 UI가 앱 서버에 워크플로우 실행을 요청한다.
@@ -41,6 +48,7 @@ Manual은 프로젝트 앱 서버를 중심에 두고 CLI와 네이티브 클라
 ## 관련 페이지
 
 - [[2026-05-11-manual-product-direction|2026-05-11 Manual 제품 방향 회의]]
+- [[cli-release-distribution|Manual CLI 릴리스 배포]]
 - [[partial-run-and-restart|부분 실행과 재시작]]
 - [[node-storybook|노드 Storybook]]
 - [[token-cost-observability|토큰 비용 관측]]

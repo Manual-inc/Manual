@@ -1,0 +1,75 @@
+name: Release
+# Why this exists: docs/wiki/architecture/cli-release-distribution.md documents the
+# tag-driven GitHub Release contract for Manual CLI distribution.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-release-archives:
+    name: "Build release archive (${{ matrix.platform }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: macos-13
+            platform: darwin-x86_64
+          - os: macos-14
+            platform: darwin-aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust stable 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 빌드 캐시
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            app/cli
+            manual-rs
+
+      - name: 릴리스 아카이브 패키징
+        run: bash scripts/package-release.sh "${{ matrix.platform }}" dist
+
+      - name: SHA256 생성
+        run: shasum -a 256 "dist/manual-${{ matrix.platform }}.tar.gz" > "dist/manual-${{ matrix.platform }}.tar.gz.sha256"
+
+      - name: 아티팩트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            dist/manual-${{ matrix.platform }}.tar.gz
+            dist/manual-${{ matrix.platform }}.tar.gz.sha256
+
+  publish-github-release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-release-archives
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 릴리스 아티팩트 다운로드
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: GitHub Release 생성
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            release-artifacts/*.tar.gz
+            release-artifacts/*.sha256
+            install.sh

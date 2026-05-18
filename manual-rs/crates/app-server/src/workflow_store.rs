@@ -238,8 +238,6 @@ pub(crate) fn default_workflow_storage_dir() -> PathBuf {
         return default_workflow_storage_dir_from(
             Some(Path::new(&path)),
             &std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
-            macos_application_support_dir().as_deref(),
-            std::env::var_os("XDG_DATA_HOME").as_deref().map(Path::new),
             std::env::var_os("HOME").as_deref().map(Path::new),
         );
     }
@@ -247,8 +245,6 @@ pub(crate) fn default_workflow_storage_dir() -> PathBuf {
     default_workflow_storage_dir_from(
         None,
         &std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
-        macos_application_support_dir().as_deref(),
-        std::env::var_os("XDG_DATA_HOME").as_deref().map(Path::new),
         std::env::var_os("HOME").as_deref().map(Path::new),
     )
 }
@@ -256,43 +252,19 @@ pub(crate) fn default_workflow_storage_dir() -> PathBuf {
 fn default_workflow_storage_dir_from(
     override_dir: Option<&Path>,
     current_dir: &Path,
-    macos_application_support_dir: Option<&Path>,
-    xdg_data_home: Option<&Path>,
     home_dir: Option<&Path>,
 ) -> PathBuf {
     if let Some(path) = override_dir {
         return path.to_path_buf();
     }
 
-    if let Some(path) = macos_application_support_dir {
-        return path.join("Manual").join("workflows");
-    }
-
-    if let Some(path) = xdg_data_home {
-        return path.join("manual").join("workflows");
-    }
-
+    // Why this exists: docs/wiki/architecture/manual-app-architecture.md documents
+    // that app-server state lives under the shared hidden `~/.manual` root by default.
     if let Some(path) = home_dir {
-        return path
-            .join(".local")
-            .join("share")
-            .join("manual")
-            .join("workflows");
+        return path.join(".manual");
     }
 
-    current_dir.join(".manual-rs")
-}
-
-#[cfg(target_os = "macos")]
-fn macos_application_support_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .map(|home| home.join("Library").join("Application Support"))
-}
-
-#[cfg(not(target_os = "macos"))]
-fn macos_application_support_dir() -> Option<PathBuf> {
-    None
+    current_dir.join(".manual")
 }
 
 fn load_json_map<T>(
@@ -390,18 +362,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_storage_dir_uses_user_data_dir_when_env_override_is_absent() {
+    fn default_storage_dir_uses_hidden_manual_directory_when_home_exists() {
         let storage_dir = default_workflow_storage_dir_from(
             None,
             Path::new("/"),
-            Some(Path::new("/Users/example/Library/Application Support")),
-            None,
-            None,
+            Some(Path::new("/Users/example")),
         );
 
-        assert_eq!(
-            storage_dir,
-            PathBuf::from("/Users/example/Library/Application Support/Manual/workflows")
+        assert_eq!(storage_dir, PathBuf::from("/Users/example/.manual"));
+    }
+
+    #[test]
+    fn default_storage_dir_honors_env_override_when_present() {
+        let storage_dir = default_workflow_storage_dir_from(
+            Some(Path::new("/tmp/manual-state")),
+            Path::new("/"),
+            Some(Path::new("/Users/example")),
         );
+
+        assert_eq!(storage_dir, PathBuf::from("/tmp/manual-state"));
     }
 }

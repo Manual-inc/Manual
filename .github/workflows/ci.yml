@@ -1,8 +1,10 @@
 name: CI
+# Why this exists: docs/wiki/architecture/cli-release-distribution.md explains the
+# release smoke checks that keep the curl|bash installer aligned with shipped archives.
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**"]
+    branches: [main, "feat/**", "fix/**", "codex/**"]
   pull_request:
 
 jobs:
@@ -70,6 +72,42 @@ jobs:
       - name: 테스트
         if: runner.os != 'Windows'
         run: cargo test
+
+  # ── Release packaging / install smoke (Linux / macOS) ─────────────────────
+  release-smoke:
+    name: "Release smoke (${{ matrix.platform }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: macos-13
+            platform: darwin-x86_64
+          - os: macos-14
+            platform: darwin-aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust stable 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 빌드 캐시
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            app/cli
+            manual-rs
+
+      - name: install.sh 도움말 검사
+        run: bash install.sh --help
+
+      - name: 릴리스 아카이브 패키징
+        run: bash scripts/package-release.sh "${{ matrix.platform }}" dist
+
+      - name: 설치 스모크 테스트
+        run: bash scripts/test-install-smoke.sh "${{ matrix.platform }}" "dist/manual-${{ matrix.platform }}.tar.gz"
 
   # ── macOS 앱 (Swift Package) ─────────────────────────────────────────────
   mac-app:
