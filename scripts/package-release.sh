@@ -41,14 +41,28 @@ esac
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mkdir -p "${repo_root}/${dist_dir}"
 
+target_triple_for_platform() {
+  case "$1" in
+    linux-x86_64) printf 'x86_64-unknown-linux-gnu\n' ;;
+    darwin-x86_64) printf 'x86_64-apple-darwin\n' ;;
+    darwin-aarch64) printf 'aarch64-apple-darwin\n' ;;
+    *)
+      fail "no target triple mapping for $1"
+      ;;
+  esac
+}
+
+target_triple="$(target_triple_for_platform "${platform}")"
+
 (
   cd "${repo_root}"
-  cargo build --manifest-path app/cli/Cargo.toml --release --bin manual
-  cargo build --manifest-path manual-rs/Cargo.toml -p app-server --release --bin manual-app-server
+  rustup target add "${target_triple}"
+  cargo build --manifest-path app/cli/Cargo.toml --release --bin manual --target "${target_triple}"
+  cargo build --manifest-path manual-rs/Cargo.toml -p app-server --release --bin manual-app-server --target "${target_triple}"
 )
 
-cli_bin="${repo_root}/app/cli/target/release/manual"
-server_bin="${repo_root}/manual-rs/target/release/manual-app-server"
+cli_bin="${repo_root}/app/cli/target/${target_triple}/release/manual"
+server_bin="${repo_root}/manual-rs/target/${target_triple}/release/manual-app-server"
 archive_path="${repo_root}/${dist_dir}/manual-${platform}.tar.gz"
 stage_dir="$(mktemp -d)"
 

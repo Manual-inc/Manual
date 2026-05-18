@@ -16,6 +16,7 @@ Usage:
   install.sh [--version <tag>] [--bin-dir <path>] [--base-url <url>] [--help]
 
 Environment overrides:
+  MANUAL_INSTALL_PLATFORM
   MANUAL_INSTALL_VERSION
   MANUAL_INSTALL_BIN_DIR
   MANUAL_INSTALL_BASE_URL
@@ -51,6 +52,12 @@ download_file() {
 
 detect_platform() {
   local os arch
+
+  if [[ -n "${MANUAL_INSTALL_PLATFORM:-}" ]]; then
+    printf '%s\n' "${MANUAL_INSTALL_PLATFORM}"
+    return
+  fi
+
   os="$(uname -s)"
   arch="$(uname -m)"
 

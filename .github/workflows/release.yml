@@ -10,18 +10,16 @@ on:
 
 jobs:
   build-release-archives:
-    name: "Build release archive (${{ matrix.platform }})"
+    name: "Build release archive (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            platform: linux-x86_64
-          - os: macos-13
-            platform: darwin-x86_64
+            platforms: "linux-x86_64"
           - os: macos-14
-            platform: darwin-aarch64
+            platforms: "darwin-aarch64 darwin-x86_64"
     steps:
       - uses: actions/checkout@v4
 
@@ -36,18 +34,24 @@ jobs:
             manual-rs
 
       - name: 릴리스 아카이브 패키징
-        run: bash scripts/package-release.sh "${{ matrix.platform }}" dist
+        run: |
+          for platform in ${{ matrix.platforms }}; do
+            bash scripts/package-release.sh "${platform}" dist
+          done
 
       - name: SHA256 생성
-        run: shasum -a 256 "dist/manual-${{ matrix.platform }}.tar.gz" > "dist/manual-${{ matrix.platform }}.tar.gz.sha256"
+        run: |
+          for platform in ${{ matrix.platforms }}; do
+            shasum -a 256 "dist/manual-${platform}.tar.gz" > "dist/manual-${platform}.tar.gz.sha256"
+          done
 
       - name: 아티팩트 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.platform }}
+          name: release-${{ matrix.os }}
           path: |
-            dist/manual-${{ matrix.platform }}.tar.gz
-            dist/manual-${{ matrix.platform }}.tar.gz.sha256
+            dist/*.tar.gz
+            dist/*.sha256
 
   publish-github-release:
     name: Publish GitHub Release

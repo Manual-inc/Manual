@@ -55,12 +55,17 @@ EOF
 fi
 
 MANUAL_INSTALL_BASE_URL="file://${release_dir}" \
+MANUAL_INSTALL_PLATFORM="${platform}" \
 MANUAL_INSTALL_BIN_DIR="${bin_dir}" \
 MANUAL_INSTALL_VERSION="test" \
   bash "${install_script}"
 
 test -x "${bin_dir}/manual"
 test -x "${bin_dir}/manual-app-server"
+
+if [[ "${MANUAL_INSTALL_SKIP_EXEC:-0}" == "1" ]]; then
+  exit 0
+fi
 
 if [[ -n "${archive_path}" ]]; then
   "${bin_dir}/manual" --help >/dev/null

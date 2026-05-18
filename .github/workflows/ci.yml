@@ -75,18 +75,16 @@ jobs:
 
   # ── Release packaging / install smoke (Linux / macOS) ─────────────────────
   release-smoke:
-    name: "Release smoke (${{ matrix.platform }})"
+    name: "Release smoke (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            platform: linux-x86_64
-          - os: macos-13
-            platform: darwin-x86_64
+            platforms: "linux-x86_64"
           - os: macos-14
-            platform: darwin-aarch64
+            platforms: "darwin-aarch64 darwin-x86_64"
     steps:
       - uses: actions/checkout@v4
 
@@ -104,10 +102,20 @@ jobs:
         run: bash install.sh --help
 
       - name: 릴리스 아카이브 패키징
-        run: bash scripts/package-release.sh "${{ matrix.platform }}" dist
+        run: |
+          for platform in ${{ matrix.platforms }}; do
+            bash scripts/package-release.sh "${platform}" dist
+          done
 
       - name: 설치 스모크 테스트
-        run: bash scripts/test-install-smoke.sh "${{ matrix.platform }}" "dist/manual-${{ matrix.platform }}.tar.gz"
+        run: |
+          for platform in ${{ matrix.platforms }}; do
+            if [[ "${platform}" == "darwin-x86_64" ]]; then
+              MANUAL_INSTALL_SKIP_EXEC=1 bash scripts/test-install-smoke.sh "${platform}" "dist/manual-${platform}.tar.gz"
+            else
+              bash scripts/test-install-smoke.sh "${platform}" "dist/manual-${platform}.tar.gz"
+            fi
+          done
 
   # ── macOS 앱 (Swift Package) ─────────────────────────────────────────────
   mac-app:
