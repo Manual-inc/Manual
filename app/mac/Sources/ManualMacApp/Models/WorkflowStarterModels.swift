@@ -62,6 +62,12 @@ struct WorkflowStarterRecommendation: Equatable, Sendable {
     let reason: String
 }
 
+struct WorkflowStarterRecentEntry: Codable, Equatable, Sendable {
+    let presetID: String
+    let repositoryRootPath: String
+    let workflowID: String
+}
+
 enum WorkflowStarterDefinition {
     static let availablePresets: [WorkflowStarterPreset] = [
         WorkflowStarterPreset(
@@ -100,6 +106,32 @@ enum WorkflowStarterDefinition {
 
     static func repositoryDisplayName(repositoryRootPath: String) -> String {
         URL(fileURLWithPath: repositoryRootPath, isDirectory: true).lastPathComponent
+    }
+
+    static func recentEntries(from json: String) -> [WorkflowStarterRecentEntry] {
+        guard let data = json.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([WorkflowStarterRecentEntry].self, from: data)) ?? []
+    }
+
+    static func encodeRecentEntries(_ entries: [WorkflowStarterRecentEntry]) -> String {
+        guard let data = try? JSONEncoder().encode(entries),
+              let string = String(data: data, encoding: .utf8)
+        else {
+            return "[]"
+        }
+        return string
+    }
+
+    static func updatedRecentEntries(
+        _ entries: [WorkflowStarterRecentEntry],
+        with newEntry: WorkflowStarterRecentEntry,
+        limit: Int = 5
+    ) -> [WorkflowStarterRecentEntry] {
+        var updated = entries.filter {
+            !($0.presetID == newEntry.presetID && $0.repositoryRootPath == newEntry.repositoryRootPath)
+        }
+        updated.insert(newEntry, at: 0)
+        return Array(updated.prefix(limit))
     }
 
     static func preferredAgent(from agents: [AppServerAgentAvailability]) -> String? {

@@ -15,6 +15,30 @@ struct WorkflowStarterDefinitionTests {
         )
     }
 
+    @Test func recentStarterEntries_roundTripAndKeepNewestFirst() {
+        let first = WorkflowStarterRecentEntry(
+            presetID: "code-review",
+            repositoryRootPath: "/tmp/repo-a",
+            workflowID: "starter-repo-a-review"
+        )
+        let second = WorkflowStarterRecentEntry(
+            presetID: "test-plan",
+            repositoryRootPath: "/tmp/repo-b",
+            workflowID: "starter-repo-b-test-plan"
+        )
+
+        let updated = WorkflowStarterDefinition.updatedRecentEntries([], with: first)
+        let reordered = WorkflowStarterDefinition.updatedRecentEntries(updated, with: second)
+        let movedToFront = WorkflowStarterDefinition.updatedRecentEntries(reordered, with: first)
+        let encoded = WorkflowStarterDefinition.encodeRecentEntries(movedToFront)
+        let decoded = WorkflowStarterDefinition.recentEntries(from: encoded)
+
+        #expect(decoded.map(\.workflowID) == [
+            "starter-repo-a-review",
+            "starter-repo-b-test-plan",
+        ])
+    }
+
     @Test func recommendedPreset_prefersChangeSummaryForDocsOnlyChanges() {
         let recommendation = WorkflowStarterDefinition.recommendedPreset(
             forChangedFiles: ["docs/guide.md", "README.md"]

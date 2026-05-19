@@ -9,6 +9,7 @@ public struct ContentView: View {
     @SceneStorage("ManualMac.bottomPanelVisible") private var bottomPanelVisible = false
     @SceneStorage("ManualMac.bottomPanelTab") private var bottomPanelTabRawValue = BottomPanelTab.events.rawValue
     @SceneStorage("ManualMac.lastStarterRepositoryPath") private var lastStarterRepositoryPath = ""
+    @SceneStorage("ManualMac.recentStarterHistoryJSON") private var recentStarterHistoryJSON = "[]"
 
     public init() {}
 
@@ -25,7 +26,17 @@ public struct ContentView: View {
                         store: store,
                         onCreateRecommendedStarter: {
                             guard let repositoryURL = pickWorkflowStarterRepository(message: "Pick a git repository and Manual will choose the best starter.") else { return }
-                            lastStarterRepositoryPath = repositoryURL.path
+                            if let repositoryRootPath = try? WorkflowStarterDefinition.resolveRepositoryRootPath(from: repositoryURL.path),
+                               let recommendation = try? WorkflowStarterDefinition.recommendedPreset(repositoryRootPath: repositoryRootPath)
+                            {
+                                lastStarterRepositoryPath = repositoryRootPath
+                                rememberRecentStarter(
+                                    presetID: recommendation.preset.id,
+                                    repositoryRootPath: repositoryRootPath
+                                )
+                            } else {
+                                lastStarterRepositoryPath = repositoryURL.path
+                            }
                             presentOutputPanel()
                             store.createAndRunRecommendedStarter(selectedPath: repositoryURL.path)
                         },
@@ -35,9 +46,26 @@ public struct ContentView: View {
                             store.createAndRunRecommendedStarter(selectedPath: lastStarterRepositoryPath)
                         },
                         lastStarterRepositoryPath: lastStarterRepositoryPath.isEmpty ? nil : lastStarterRepositoryPath,
+                        recentStarters: recentStarterHistory,
+                        onRerunRecentStarter: { entry in
+                            lastStarterRepositoryPath = entry.repositoryRootPath
+                            presentOutputPanel()
+                            store.createAndRunStarter(
+                                presetID: entry.presetID,
+                                selectedPath: entry.repositoryRootPath
+                            )
+                        },
                         onCreateStarter: { preset in
                             guard let repositoryURL = pickWorkflowStarterRepository(for: preset) else { return }
-                            lastStarterRepositoryPath = repositoryURL.path
+                            if let repositoryRootPath = try? WorkflowStarterDefinition.resolveRepositoryRootPath(from: repositoryURL.path) {
+                                lastStarterRepositoryPath = repositoryRootPath
+                                rememberRecentStarter(
+                                    presetID: preset.id,
+                                    repositoryRootPath: repositoryRootPath
+                                )
+                            } else {
+                                lastStarterRepositoryPath = repositoryURL.path
+                            }
                             presentOutputPanel()
                             store.createAndRunStarter(presetID: preset.id, selectedPath: repositoryURL.path)
                         }
@@ -145,6 +173,10 @@ public struct ContentView: View {
         )
     }
 
+    private var recentStarterHistory: [WorkflowStarterRecentEntry] {
+        WorkflowStarterDefinition.recentEntries(from: recentStarterHistoryJSON)
+    }
+
     private func presentOptimizationPanel() {
         var panelState = WorkflowPanelState(
             isBottomPanelVisible: bottomPanelVisible,
@@ -185,6 +217,19 @@ public struct ContentView: View {
             bottomPanelVisible = panelState.isBottomPanelVisible
             bottomPanelTabRawValue = panelState.selectedTab.rawValue
         }
+    }
+
+    private func rememberRecentStarter(presetID: String, repositoryRootPath: String) {
+        let entry = WorkflowStarterRecentEntry(
+            presetID: presetID,
+            repositoryRootPath: repositoryRootPath,
+            workflowID: WorkflowStarterDefinition.suggestedWorkflowID(
+                repositoryRootPath: repositoryRootPath,
+                presetID: presetID
+            )
+        )
+        let updated = WorkflowStarterDefinition.updatedRecentEntries(recentStarterHistory, with: entry)
+        recentStarterHistoryJSON = WorkflowStarterDefinition.encodeRecentEntries(updated)
     }
 }
 
@@ -257,6 +302,8 @@ private struct WorkflowSidebar: View {
     let onCreateRecommendedStarter: () -> Void
     let onRerunRecommendedStarter: () -> Void
     let lastStarterRepositoryPath: String?
+    let recentStarters: [WorkflowStarterRecentEntry]
+    let onRerunRecentStarter: (WorkflowStarterRecentEntry) -> Void
     let onCreateStarter: (WorkflowStarterPreset) -> Void
 
     var body: some View {
@@ -288,6 +335,8 @@ private struct WorkflowSidebar: View {
                 onCreateRecommendedStarter: onCreateRecommendedStarter,
                 onRerunRecommendedStarter: onRerunRecommendedStarter,
                 lastStarterRepositoryPath: lastStarterRepositoryPath,
+                recentStarters: recentStarters,
+                onRerunRecentStarter: onRerunRecentStarter,
                 action: onCreateStarter
             )
                 .padding(10)
@@ -340,6 +389,8 @@ private struct QuickStartCard: View {
     let onCreateRecommendedStarter: () -> Void
     let onRerunRecommendedStarter: () -> Void
     let lastStarterRepositoryPath: String?
+    let recentStarters: [WorkflowStarterRecentEntry]
+    let onRerunRecentStarter: (WorkflowStarterRecentEntry) -> Void
     let action: (WorkflowStarterPreset) -> Void
 
     var body: some View {
@@ -388,6 +439,40 @@ private struct QuickStartCard: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("rerun-recommended-starter-button")
+                }
+            }
+
+            if !recentStarters.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Recent starters")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(AppTheme.textFaint)
+
+                    ForEach(recentStarters.prefix(3), id: \.workflowID) { entry in
+                        Button(action: { onRerunRecentStarter(entry) }) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(title(for: entry.presetID)) · \(WorkflowStarterDefinition.repositoryDisplayName(repositoryRootPath: entry.repositoryRootPath))")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("Run \(entry.workflowID) again")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(AppTheme.textMuted)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .foregroundStyle(AppTheme.text)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 9)
+                                    .fill(AppTheme.panel)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 9)
+                                    .stroke(AppTheme.stroke, lineWidth: 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("rerun-starter-\(entry.presetID)-button")
+                    }
                 }
             }
 
@@ -464,6 +549,10 @@ private struct QuickStartCard: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(AppTheme.stroke, lineWidth: 1)
         }
+    }
+
+    private func title(for presetID: String) -> String {
+        presets.first(where: { $0.id == presetID })?.title ?? presetID
     }
 }
 

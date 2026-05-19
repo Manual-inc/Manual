@@ -49,7 +49,7 @@ CLI에서는 `manual workflow starter`만 실행해 available preset catalog를 
 CLI는 마지막으로 성공적으로 해석한 저장소를 기억하고, `manual workflow starter --run`로 그 추천 starter를 다시 실행할 수 있다.
 CLI catalog는 recent starter history도 보여줘서, 직전에 어떤 starter를 어떤 repo에 썼는지와 `manual workflow run <workflow_id> --human` rerun 경로를 바로 다시 찾을 수 있다.
 
-mac app에서는 sidebar quick-start card에 starter catalog가 보이고, `Recommended Starter…` 버튼으로 현재 저장소 변경 유형을 보고 맞는 starter를 바로 고를 수 있다. 마지막으로 사용한 저장소는 기억해 두고 `Run Recommended Again`으로 빠르게 다시 실행할 수 있다. 개별 starter를 눌러 직접 실행할 수도 있다. 실행 중에는 bottom panel이 `Output` 탭으로 열려 결과가 completion 뒤 바로 보이게 한다.
+mac app에서는 sidebar quick-start card에 starter catalog가 보이고, `Recommended Starter…` 버튼으로 현재 저장소 변경 유형을 보고 맞는 starter를 바로 고를 수 있다. 마지막으로 사용한 저장소는 기억해 두고 `Run Recommended Again`으로 빠르게 다시 실행할 수 있다. 최근 starter 목록도 보여줘 exact preset rerun을 더 쉽게 한다. 개별 starter를 눌러 직접 실행할 수도 있다. 실행 중에는 bottom panel이 `Output` 탭으로 열려 결과가 completion 뒤 바로 보이게 한다.
 
 ### `code-review`
 
