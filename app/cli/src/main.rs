@@ -222,12 +222,27 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
             model,
             run,
         } => {
-            if list || preset.is_none() {
-                print_text(&render_workflow_starter_catalog(None))
+            if list {
+                print_text(&render_workflow_starter_catalog(repo.as_deref()))
+            } else if preset.is_none() && !run {
+                print_text(&render_workflow_starter_catalog(repo.as_deref()))
             } else {
+                let resolved_preset = if let Some(preset) = preset {
+                    preset
+                } else {
+                    let repository_root = resolve_git_repo_root(repo.as_deref())?;
+                    if let Some((preset_id, reason)) = recommend_starter_for_repo(&repository_root) {
+                        print_text(&format!(
+                            "Workflow Starter Recommendation\nRecommended now: {preset_id}\n{reason}\n"
+                        ))?;
+                        preset_id.to_owned()
+                    } else {
+                        "code-review".to_owned()
+                    }
+                };
                 run_workflow_starter(
                     client,
-                    preset.unwrap_or_default(),
+                    resolved_preset,
                     repo,
                     workflow_id,
                     agent,
@@ -1167,7 +1182,7 @@ fn starter_catalog_mode(command: &CommandGroup) -> Option<StarterCatalogMode<'_>
         CommandGroup::Workflow {
             command:
                 WorkflowCommand::Starter {
-                    preset: None,
+                    list: true,
                     repo,
                     ..
                 },
@@ -1178,7 +1193,8 @@ fn starter_catalog_mode(command: &CommandGroup) -> Option<StarterCatalogMode<'_>
         CommandGroup::Workflow {
             command:
                 WorkflowCommand::Starter {
-                    list: true,
+                    preset: None,
+                    run: false,
                     repo,
                     ..
                 },

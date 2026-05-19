@@ -483,6 +483,70 @@ fn workflow_starter_catalog_recommends_test_plan_for_code_changes_without_tests(
 }
 
 #[test]
+fn workflow_starter_run_without_explicit_preset_executes_recommended_change_summary() {
+    let temp = TestDir::new("manual-cli-starter-run-recommended-summary");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo_with_identity(&temp, "docs-repo");
+    write_file_and_commit(&repo, "docs/guide.md", "# guide\n");
+    std::fs::write(repo.join("docs/guide.md"), "# guide updated\n").unwrap();
+
+    let output = run_manual::<Vec<String>, String>(
+        &server,
+        vec![
+            "workflow".into(),
+            "starter".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+            "--run".into(),
+        ],
+    );
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Preset: change-summary"));
+    assert!(stdout.contains("Recommended now: change-summary"));
+    assert!(stdout.contains("Summary Output"));
+
+    let requests = fs::read_to_string(log).unwrap();
+    assert!(requests.contains(r#""method":"agent.list""#));
+    assert!(requests.contains(r#""method":"workflow.create""#));
+    assert!(requests.contains(r#""id":"summary""#));
+}
+
+#[test]
+fn workflow_starter_run_without_explicit_preset_executes_recommended_test_plan() {
+    let temp = TestDir::new("manual-cli-starter-run-recommended-tests");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo_with_identity(&temp, "code-repo");
+    write_file_and_commit(&repo, "src/lib.rs", "pub fn value() -> i32 { 1 }\n");
+    std::fs::write(repo.join("src/lib.rs"), "pub fn value() -> i32 { 2 }\n").unwrap();
+
+    let output = run_manual::<Vec<String>, String>(
+        &server,
+        vec![
+            "workflow".into(),
+            "starter".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+            "--run".into(),
+        ],
+    );
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Preset: test-plan"));
+    assert!(stdout.contains("Recommended now: test-plan"));
+    assert!(stdout.contains("Test Plan Output"));
+
+    let requests = fs::read_to_string(log).unwrap();
+    assert!(requests.contains(r#""method":"agent.list""#));
+    assert!(requests.contains(r#""method":"workflow.create""#));
+    assert!(requests.contains(r#""id":"test_plan""#));
+}
+
+#[test]
 fn workflow_starter_creates_change_summary_workflow() {
     let temp = TestDir::new("manual-cli-starter-summary");
     let log = temp.path().join("requests.jsonl");
@@ -1247,7 +1311,14 @@ for line in sys.stdin:
         response = {{"jsonrpc": "2.0", "id": request["id"], "result": result}}
     elif method == "workflow.start":
         workflow_id = request["params"].get("workflow_id", "workflow")
-        run_id = "starter-review-run" if workflow_id == "starter-review" else "run-1"
+        if workflow_id == "starter-review":
+            run_id = "starter-review-run"
+        elif workflow_id.endswith("-summary"):
+            run_id = workflow_id + "-run"
+        elif workflow_id.endswith("-test-plan"):
+            run_id = workflow_id + "-run"
+        else:
+            run_id = "run-1"
         response = {{
             "jsonrpc": "2.0",
             "id": request["id"],
@@ -1296,6 +1367,104 @@ for line in sys.stdin:
                         }},
                         "bottlenecks": {{
                             "token_waste": ["review"],
+                            "verification_gaps": [],
+                            "slow_steps": [],
+                            "unstable_tasks": []
+                        }},
+                        "suggestions": ["trim diff context"]
+                    }},
+                }},
+            }}
+        elif run_id.endswith("-summary-run"):
+            response = {{
+                "jsonrpc": "2.0",
+                "id": request["id"],
+                "result": {{
+                    "events": [
+                        {{"sequence": request["params"]["cursor"], "type": "workflow_completed"}}
+                    ],
+                    "next_cursor": request["params"]["cursor"] + 1,
+                    "completed": True,
+                    "run": {{
+                        "run_id": run_id,
+                        "status": "completed",
+                        "nodes": {{
+                            "summary": {{
+                                "status": "completed",
+                                "result": {{
+                                    "status_code": 0,
+                                    "stdout": "Changed docs and updated the reader-facing guide.",
+                                    "stderr": ""
+                                }}
+                            }}
+                        }}
+                    }},
+                    "optimization_report": {{
+                        "sections": ["Token Usage", "Verification", "Time"],
+                        "main_issue": "summary step used most tokens",
+                        "recommendations": ["trim diff context"],
+                        "measurement_mode": "derived",
+                        "measurement_note": "Estimated from workflow events."
+                    }},
+                    "optimization_analysis": {{
+                        "measurement_mode": "derived",
+                        "measurement_note": "Estimated from workflow events.",
+                        "regression": {{
+                            "possible": False,
+                            "step_id": "summary",
+                            "reason": "stable"
+                        }},
+                        "bottlenecks": {{
+                            "token_waste": ["summary"],
+                            "verification_gaps": [],
+                            "slow_steps": [],
+                            "unstable_tasks": []
+                        }},
+                        "suggestions": ["trim diff context"]
+                    }},
+                }},
+            }}
+        elif run_id.endswith("-test-plan-run"):
+            response = {{
+                "jsonrpc": "2.0",
+                "id": request["id"],
+                "result": {{
+                    "events": [
+                        {{"sequence": request["params"]["cursor"], "type": "workflow_completed"}}
+                    ],
+                    "next_cursor": request["params"]["cursor"] + 1,
+                    "completed": True,
+                    "run": {{
+                        "run_id": run_id,
+                        "status": "completed",
+                        "nodes": {{
+                            "test_plan": {{
+                                "status": "completed",
+                                "result": {{
+                                    "status_code": 0,
+                                    "stdout": "1. Run unit tests\\n2. Verify docs links\\n3. Smoke the changed workflow path",
+                                    "stderr": ""
+                                }}
+                            }}
+                        }}
+                    }},
+                    "optimization_report": {{
+                        "sections": ["Token Usage", "Verification", "Time"],
+                        "main_issue": "test plan step used most tokens",
+                        "recommendations": ["trim diff context"],
+                        "measurement_mode": "derived",
+                        "measurement_note": "Estimated from workflow events."
+                    }},
+                    "optimization_analysis": {{
+                        "measurement_mode": "derived",
+                        "measurement_note": "Estimated from workflow events.",
+                        "regression": {{
+                            "possible": False,
+                            "step_id": "test_plan",
+                            "reason": "stable"
+                        }},
+                        "bottlenecks": {{
+                            "token_waste": ["test_plan"],
                             "verification_gaps": [],
                             "slow_steps": [],
                             "unstable_tasks": []

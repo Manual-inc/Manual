@@ -25,6 +25,7 @@ bash scripts/demo-optimization.sh
 First real workflow after the demo:
 
 ```bash
+manual workflow starter --repo . --run
 manual workflow starter code-review --run
 manual workflow starter test-plan --run
 ```
