@@ -4,6 +4,8 @@ import Foundation
 public struct WorkflowExecutionIntentResult: Sendable {
     public let workflowID: String
     public let runID: String
+    public let starterPresetID: String?
+    public let starterRecommendationReason: String?
 }
 
 @MainActor
@@ -34,7 +36,12 @@ public final class WorkflowExecutionIntent {
         let workflowID = workflow["id"] as? String ?? BusinessWorkflowExample.workflowID
         try await upsert(workflow: workflow, workflowID: workflowID)
         let runID = try await client.startWorkflow(id: workflowID)
-        return WorkflowExecutionIntentResult(workflowID: workflowID, runID: runID)
+        return WorkflowExecutionIntentResult(
+            workflowID: workflowID,
+            runID: runID,
+            starterPresetID: nil,
+            starterRecommendationReason: nil
+        )
     }
 
     func execute(workflow: [String: Any], knownWorkflows: [WorkflowSummary]) async throws -> WorkflowExecutionIntentResult {
@@ -45,7 +52,12 @@ public final class WorkflowExecutionIntent {
             _ = try await client.createWorkflow(workflow)
         }
         let runID = try await client.startWorkflow(id: workflowID)
-        return WorkflowExecutionIntentResult(workflowID: workflowID, runID: runID)
+        return WorkflowExecutionIntentResult(
+            workflowID: workflowID,
+            runID: runID,
+            starterPresetID: nil,
+            starterRecommendationReason: nil
+        )
     }
 
     public func executeCodeReviewStarter(repositoryRootPath: String) async throws -> WorkflowExecutionIntentResult {
@@ -56,11 +68,24 @@ public final class WorkflowExecutionIntent {
         try await executeStarter(presetID: "change-summary", repositoryRootPath: repositoryRootPath)
     }
 
-    public func executeRecommendedStarter(repositoryRootPath: String) async throws -> WorkflowExecutionIntentResult {
-        let recommendation = try WorkflowStarterDefinition.recommendedPreset(repositoryRootPath: repositoryRootPath)
-        return try await executeStarter(
+    public func executeRecommendedStarter(
+        repositoryRootPath: String,
+        changedFiles: [String]? = nil
+    ) async throws -> WorkflowExecutionIntentResult {
+        let recommendation = if let changedFiles {
+            WorkflowStarterDefinition.recommendedPreset(forChangedFiles: changedFiles)
+        } else {
+            try WorkflowStarterDefinition.recommendedPreset(repositoryRootPath: repositoryRootPath)
+        }
+        let result = try await executeStarter(
             presetID: recommendation.preset.id,
             repositoryRootPath: repositoryRootPath
+        )
+        return WorkflowExecutionIntentResult(
+            workflowID: result.workflowID,
+            runID: result.runID,
+            starterPresetID: recommendation.preset.id,
+            starterRecommendationReason: recommendation.reason
         )
     }
 
@@ -102,7 +127,13 @@ public final class WorkflowExecutionIntent {
             throw WorkflowStarterError.unsupportedPreset(presetID)
         }
         let knownWorkflows = try await client.workflows()
-        return try await execute(workflow: workflow, knownWorkflows: knownWorkflows)
+        let result = try await execute(workflow: workflow, knownWorkflows: knownWorkflows)
+        return WorkflowExecutionIntentResult(
+            workflowID: result.workflowID,
+            runID: result.runID,
+            starterPresetID: presetID,
+            starterRecommendationReason: nil
+        )
     }
 
     private func upsert(workflow: [String: Any], workflowID: String) async throws {

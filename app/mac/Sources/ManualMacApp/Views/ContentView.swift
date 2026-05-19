@@ -342,11 +342,17 @@ private struct QuickStartCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Button(action: onCreateRecommendedStarter) {
-                HStack(spacing: 6) {
-                    Image(systemName: "wand.and.stars")
-                        .font(.system(size: 10, weight: .bold))
-                    Text("Recommended Starter…")
-                        .font(.system(size: 11, weight: .semibold))
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Recommended Starter…")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    Text("Manual will inspect changed files and choose the best-fit starter for this repository.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppTheme.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .foregroundStyle(AppTheme.text)

@@ -495,6 +495,15 @@ final class WorkflowRunStore: ObservableObject {
         do {
             let repositoryRootPath = try WorkflowStarterDefinition.resolveRepositoryRootPath(from: repositoryPath)
             let result = try await executionIntent.executeRecommendedStarter(repositoryRootPath: repositoryRootPath)
+            if let presetID = result.starterPresetID {
+                let reason = result.starterRecommendationReason ?? "Using the best-fit starter for the current repository changes."
+                appendEvent(
+                    nodeID: nil,
+                    title: "Recommended starter",
+                    detail: "\(presetID): \(reason)"
+                )
+                statusMessage = "Recommended \(presetID) starter"
+            }
             selectedWorkflowID = result.workflowID
             await refreshWorkflows(createExampleIfMissing: false)
             self.runID = result.runID

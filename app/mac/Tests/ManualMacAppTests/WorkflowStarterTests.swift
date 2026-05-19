@@ -159,6 +159,27 @@ struct WorkflowStarterIntentTests {
         let testPlan = try #require(nodes.first(where: { $0["id"] as? String == "test_plan" }))
         #expect(testPlan["kind"] as? String == "codex")
     }
+
+    @Test func executeRecommendedStarter_returnsPresetAndReasonMetadata() async throws {
+        let client = StubWorkflowExecutionClient(
+            workflows: [],
+            agents: [
+                AppServerAgentAvailability(name: "codex", available: true, path: "/usr/bin/codex"),
+            ],
+            nextRunID: "run-starter-4"
+        )
+        let intent = WorkflowExecutionIntent(client: client)
+
+        let result = try await intent.executeRecommendedStarter(
+            repositoryRootPath: "/tmp/docs-repo",
+            changedFiles: ["docs/guide.md", "README.md"]
+        )
+
+        #expect(result.workflowID == "starter-docs-repo-summary")
+        #expect(result.runID == "run-starter-4")
+        #expect(result.starterPresetID == "change-summary")
+        #expect(result.starterRecommendationReason?.contains("documentation") == true)
+    }
 }
 
 @MainActor
