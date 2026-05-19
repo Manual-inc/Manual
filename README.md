@@ -14,6 +14,8 @@ Before the first run, you can check local connectivity with:
 manual doctor
 ```
 
+If `manual doctor` reports action needed, follow its printed next steps. When it is healthy, jump straight to `manual demo optimization`.
+
 Repository demo wrapper:
 
 ```bash

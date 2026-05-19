@@ -365,6 +365,8 @@ fn doctor_reports_healthy_server_with_real_app_server() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Manual Doctor"));
     assert!(stdout.contains("Health: healthy"));
+    assert!(stdout.contains("Next steps"));
+    assert!(stdout.contains("manual demo optimization"));
 }
 
 #[test]

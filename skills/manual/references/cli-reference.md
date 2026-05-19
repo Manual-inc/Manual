@@ -43,6 +43,28 @@ CLI 시작 시 다음 순서로 서버 연결을 결정한다:
 
 ---
 
+## `doctor`
+
+로컬 연결 상태를 비파괴적으로 점검한다. 다음 항목을 함께 보여준다:
+
+- app-server 바이너리 존재 여부와 경로
+- discovery 파일 상태와 경로
+- 현재 서버 URL / auth token 유무
+- health 상태
+- 바로 이어서 실행할 `Next steps`
+
+```bash
+manual doctor
+```
+
+대표적인 안내:
+
+- 바이너리가 없으면 `cargo build --manifest-path manual-rs/Cargo.toml -p app-server --bin manual-app-server`
+- discovery 파일이 깨졌거나 stale하면 discovery 경로를 안내하고 `manual demo optimization` 재실행을 권장
+- 상태가 healthy이면 바로 `manual demo optimization`로 제품의 핵심 가치 경로를 이어 준다
+
+---
+
 ## workflow 명령어
 
 ### `workflow create <WORKFLOW_JSON>`

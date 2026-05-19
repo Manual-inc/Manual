@@ -34,6 +34,8 @@ curl -fsSL "https://github.com/Manual-inc/Manual/releases/download/${TAG}/instal
 manual doctor
 ```
 
+이 명령은 현재 상태뿐 아니라 다음 행동도 함께 알려준다. 건강한 상태라면 바로 `manual demo optimization`를 권장하고, 누락이나 stale discovery가 있으면 복구 힌트를 먼저 출력한다.
+
 설치된 CLI가 있다면:
 
 ```bash

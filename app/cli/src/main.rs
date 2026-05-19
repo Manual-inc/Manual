@@ -463,8 +463,17 @@ fn run_doctor(
     } else {
         "not checked"
     };
+    let next_steps = doctor_next_steps(
+        &server_probe,
+        discovery_status,
+        server_url.as_deref(),
+        auth_token_present,
+        health,
+        &discovery_file,
+    );
 
-    let lines = vec![
+    let server_url_display = server_url.unwrap_or_else(|| "not configured".to_owned());
+    let mut lines = vec![
         "Manual Doctor".to_owned(),
         String::new(),
         format!(
@@ -476,16 +485,18 @@ fn run_doctor(
         String::new(),
         format!("Discovery file: {discovery_status}"),
         format!("Path: {}", discovery_file.display()),
-        format!(
-            "Server URL: {}",
-            server_url.unwrap_or_else(|| "not configured".to_owned())
-        ),
+        format!("Server URL: {server_url_display}"),
         format!(
             "Auth token: {}",
             if auth_token_present { "present" } else { "missing" }
         ),
         format!("Health: {health}"),
     ];
+    if !next_steps.is_empty() {
+        lines.push(String::new());
+        lines.push("Next steps".to_owned());
+        lines.extend(next_steps.into_iter().map(|step| format!("- {step}")));
+    }
 
     print_text(&lines.join("\n"))
 }
@@ -1346,6 +1357,98 @@ struct ServerBinaryProbe {
     exists: bool,
 }
 
+fn doctor_next_steps(
+    server_probe: &ServerBinaryProbe,
+    discovery_status: &str,
+    server_url: Option<&str>,
+    auth_token_present: bool,
+    health: &str,
+    discovery_file: &Path,
+) -> Vec<String> {
+    // Why this exists: docs/wiki/analyses/2026-05-19-quick-start.md keeps the
+    // first-run path actionable after diagnostics, not just descriptive.
+    let mut steps = Vec::new();
+
+    if !server_probe.exists {
+        push_unique_step(
+            &mut steps,
+            "Build the app server: cargo build --manifest-path manual-rs/Cargo.toml -p app-server --bin manual-app-server".to_owned(),
+        );
+        push_unique_step(
+            &mut steps,
+            "Or point the CLI at an existing app server binary with --server-bin or MANUAL_APP_SERVER_BIN.".to_owned(),
+        );
+        push_unique_step(
+            &mut steps,
+            "After the binary is available, run `manual demo optimization` to verify the full workflow and optimization path.".to_owned(),
+        );
+    }
+
+    match discovery_status {
+        "missing" if server_probe.exists => push_unique_step(
+            &mut steps,
+            "Run `manual demo optimization` to let Manual start the local app server and create discovery automatically.".to_owned(),
+        ),
+        "invalid" => push_unique_step(
+            &mut steps,
+            format!(
+                "Delete the invalid discovery file at {} and rerun `manual demo optimization`.",
+                discovery_file.display()
+            ),
+        ),
+        _ => {}
+    }
+
+    if server_url.is_some() && !auth_token_present {
+        push_unique_step(
+            &mut steps,
+            "Provide an auth token with --auth-token or MANUAL_APP_SERVER_TOKEN before using a configured server URL.".to_owned(),
+        );
+    }
+
+    match health {
+        "healthy" => push_unique_step(
+            &mut steps,
+            "Run `manual demo optimization` to see workflow execution and optimization guidance end to end.".to_owned(),
+        ),
+        "unreachable" => {
+            push_unique_step(
+                &mut steps,
+                format!(
+                    "The configured app server did not answer the health check. If the discovery file is stale, delete {} and rerun `manual demo optimization`.",
+                    discovery_file.display()
+                ),
+            );
+            if server_url.is_some() {
+                push_unique_step(
+                    &mut steps,
+                    "If you are supplying --server-url manually, make sure the local app server is running and the auth token matches.".to_owned(),
+                );
+            }
+        }
+        "not checked" if steps.is_empty() => push_unique_step(
+            &mut steps,
+            "Run `manual demo optimization` to start the local app server and verify the full first-run path.".to_owned(),
+        ),
+        _ => {}
+    }
+
+    if steps.is_empty() {
+        push_unique_step(
+            &mut steps,
+            "Run `manual demo optimization` to see workflow execution and optimization guidance end to end.".to_owned(),
+        );
+    }
+
+    steps
+}
+
+fn push_unique_step(steps: &mut Vec<String>, step: String) {
+    if !steps.iter().any(|existing| existing == &step) {
+        steps.push(step);
+    }
+}
+
 fn probe_server_binary(
     explicit: Option<&Path>,
     env_path: Option<&Path>,
@@ -1616,6 +1719,51 @@ mod tests {
 
         assert_eq!(resolved, server);
         fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn doctor_next_steps_cover_invalid_discovery_and_stale_health() {
+        let probe = ServerBinaryProbe {
+            source: "workspace search",
+            path: PathBuf::from("/workspace/manual-app-server"),
+            exists: true,
+        };
+        let steps = doctor_next_steps(
+            &probe,
+            "invalid",
+            Some("http://127.0.0.1:1"),
+            true,
+            "unreachable",
+            Path::new("/tmp/manual/app-server.json"),
+        );
+
+        assert!(steps.iter().any(|step| step.contains("/tmp/manual/app-server.json")));
+        assert!(steps.iter().any(|step| step.contains("manual demo optimization")));
+        assert!(steps
+            .iter()
+            .any(|step| step.contains("did not answer the health check")));
+    }
+
+    #[test]
+    fn doctor_next_steps_require_auth_when_server_url_is_configured() {
+        let probe = ServerBinaryProbe {
+            source: "workspace search",
+            path: PathBuf::from("/workspace/manual-app-server"),
+            exists: true,
+        };
+        let steps = doctor_next_steps(
+            &probe,
+            "found",
+            Some("http://127.0.0.1:8080"),
+            false,
+            "healthy",
+            Path::new("/tmp/manual/app-server.json"),
+        );
+
+        assert!(steps
+            .iter()
+            .any(|step| step.contains("--auth-token") || step.contains("MANUAL_APP_SERVER_TOKEN")));
+        assert!(steps.iter().any(|step| step.contains("manual demo optimization")));
     }
 
     #[test]

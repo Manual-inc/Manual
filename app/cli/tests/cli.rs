@@ -140,6 +140,9 @@ fn doctor_reports_missing_binary_and_discovery_without_launching_server() {
     assert!(stdout.contains("Manual Doctor"));
     assert!(stdout.contains("Server binary: missing"));
     assert!(stdout.contains("Discovery file: missing"));
+    assert!(stdout.contains("Next steps"));
+    assert!(stdout.contains("cargo build --manifest-path manual-rs/Cargo.toml -p app-server --bin manual-app-server"));
+    assert!(stdout.contains("manual demo optimization"));
 }
 
 #[test]
