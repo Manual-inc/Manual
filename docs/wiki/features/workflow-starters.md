@@ -1,7 +1,7 @@
 ---
 title: 워크플로우 스타터
 type: feature
-tags: [workflow, starter, onboarding, cli]
+tags: [workflow, starter, onboarding, cli, mac]
 sources: []
 date_created: 2026-05-19
 date_updated: 2026-05-19
@@ -9,9 +9,9 @@ date_updated: 2026-05-19
 
 # 워크플로우 스타터
 
-워크플로우 스타터는 [[2026-05-19-demo-flow|데모 경로]] 다음 단계에서 사용자가 JSON 스키마를 먼저 배우지 않고도 자신의 저장소에서 첫 Manual workflow를 만들 수 있게 하는 CLI 진입점이다.
+워크플로우 스타터는 [[2026-05-19-demo-flow|데모 경로]] 다음 단계에서 사용자가 JSON 스키마를 먼저 배우지 않고도 자신의 저장소에서 첫 Manual workflow를 만들 수 있게 하는 진입점이다.
 
-현재 MVP의 첫 starter preset은 `code-review`이며, `manual workflow starter code-review`가 이를 생성한다.
+현재 MVP의 첫 starter preset은 `code-review`이며, CLI와 mac app quick-start action 모두 이 starter를 생성할 수 있다.
 
 ## 목적
 
@@ -22,7 +22,7 @@ date_updated: 2026-05-19
 
 ## 현재 동작
 
-`manual workflow starter code-review`는 다음을 수행한다.
+현재 starter path는 다음을 수행한다.
 
 1. 대상 저장소가 git repository인지 확인한다.
 2. `codex`, `claude`, `pi` 순서로 로컬 가용 에이전트를 탐색한다.
@@ -41,9 +41,10 @@ date_updated: 2026-05-19
 manual workflow starter code-review --run
 ```
 
+mac app에서는 sidebar의 `Code Review Starter…` quick-start action으로 같은 starter를 만들고 바로 실행할 수 있다.
+
 이 preset은 다음 흐름을 만든다.
 
-- `collect_diff` — 현재 working tree diff 또는 최근 commit diff를 수집한다.
 - `collect_diff` — 현재 working tree diff 또는 최근 commit diff를 수집하되, file summary와 잘린 patch preview만 넘긴다.
 - `review` — 로컬에서 사용 가능한 agent가 diff를 검토한다.
 

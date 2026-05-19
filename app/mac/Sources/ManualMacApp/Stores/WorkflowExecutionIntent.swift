@@ -7,14 +7,25 @@ public struct WorkflowExecutionIntentResult: Sendable {
 }
 
 @MainActor
+protocol WorkflowExecutionClient: AnyObject {
+    func workflows() async throws -> [WorkflowSummary]
+    func createWorkflow(_ workflow: [String: Any]) async throws -> WorkflowMutationResult
+    func updateWorkflow(id workflowID: String, workflow: [String: Any]) async throws -> WorkflowMutationResult
+    func startWorkflow(id workflowID: String) async throws -> String
+    func availableAgents() async throws -> [AppServerAgentAvailability]
+}
+
+extension AppServerClient: WorkflowExecutionClient {}
+
+@MainActor
 public final class WorkflowExecutionIntent {
-    private let client: AppServerClient
+    private let client: any WorkflowExecutionClient
 
     public convenience init() {
         self.init(client: AppServerClient())
     }
 
-    init(client: AppServerClient) {
+    init(client: any WorkflowExecutionClient) {
         self.client = client
     }
 
@@ -35,6 +46,23 @@ public final class WorkflowExecutionIntent {
         }
         let runID = try await client.startWorkflow(id: workflowID)
         return WorkflowExecutionIntentResult(workflowID: workflowID, runID: runID)
+    }
+
+    public func executeCodeReviewStarter(repositoryRootPath: String) async throws -> WorkflowExecutionIntentResult {
+        // See docs/wiki/features/workflow-starters.md: mac UI should offer the
+        // same first-success starter path as the CLI surface.
+        let workflowID = WorkflowStarterDefinition.suggestedWorkflowID(repositoryRootPath: repositoryRootPath)
+        let agents = try await client.availableAgents()
+        guard let agent = WorkflowStarterDefinition.preferredAgent(from: agents) else {
+            throw WorkflowStarterError.noAvailableAgent
+        }
+        let workflow = try WorkflowStarterDefinition.codeReviewWorkflow(
+            workflowID: workflowID,
+            repositoryRootPath: repositoryRootPath,
+            agent: agent
+        )
+        let knownWorkflows = try await client.workflows()
+        return try await execute(workflow: workflow, knownWorkflows: knownWorkflows)
     }
 
     private func upsert(workflow: [String: Any], workflowID: String) async throws {

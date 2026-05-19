@@ -93,6 +93,8 @@ macOS 앱 실행:
 bash app/mac/script/build_and_run.sh
 ```
 
+앱 안에서는 sidebar의 `Code Review Starter…` quick-start action으로 저장소를 고른 뒤 starter workflow를 바로 생성하고 실행할 수 있다.
+
 Windows shell:
 
 - 제품 shell은 `app/window/`에 있다.

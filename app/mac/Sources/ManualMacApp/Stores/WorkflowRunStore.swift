@@ -219,6 +219,21 @@ final class WorkflowRunStore: ObservableObject {
         }
     }
 
+    func createAndRunCodeReviewStarter(selectedPath: String) {
+        guard !isRunning else { return }
+
+        isRunning = true
+        runID = nil
+        events.removeAll()
+        resetNodes()
+        statusMessage = "Preparing starter workflow"
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.createAndRunCodeReviewStarter(repositoryPath: selectedPath)
+        }
+    }
+
     private func refreshWorkflows(createExampleIfMissing: Bool) async {
         isLoading = true
         defer { isLoading = false }
@@ -436,6 +451,23 @@ final class WorkflowRunStore: ObservableObject {
             try await streamEvents(runID: result.runID)
         } catch {
             appendEvent(nodeID: nil, title: "Workflow failed", detail: error.localizedDescription)
+            statusMessage = error.localizedDescription
+            isRunning = false
+        }
+    }
+
+    private func createAndRunCodeReviewStarter(repositoryPath: String) async {
+        do {
+            let repositoryRootPath = try WorkflowStarterDefinition.resolveRepositoryRootPath(from: repositoryPath)
+            let result = try await executionIntent.executeCodeReviewStarter(repositoryRootPath: repositoryRootPath)
+            selectedWorkflowID = result.workflowID
+            await refreshWorkflows(createExampleIfMissing: false)
+            self.runID = result.runID
+            observedRunIDs.insert(result.runID)
+            statusMessage = "Running \(result.runID)"
+            try await streamEvents(runID: result.runID)
+        } catch {
+            appendEvent(nodeID: nil, title: "Starter failed", detail: error.localizedDescription)
             statusMessage = error.localizedDescription
             isRunning = false
         }

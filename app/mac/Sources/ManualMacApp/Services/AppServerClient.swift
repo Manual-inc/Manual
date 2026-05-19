@@ -99,6 +99,19 @@ final class AppServerClient {
         return runID
     }
 
+    func availableAgents() async throws -> [AppServerAgentAvailability] {
+        let result = try await request(method: "agent.list", params: [:])
+
+        guard
+            let object = result as? [String: Any],
+            let agents = object["agents"] as? [[String: Any]]
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        return try agents.map(AppServerAgentAvailability.init)
+    }
+
     func events(runID: String, cursor: Int) async throws -> WorkflowEventsPage {
         let result = try await request(
             method: "workflow.events",
@@ -436,6 +449,11 @@ struct WorkflowSummary: Identifiable, Equatable, Sendable {
 struct WorkflowMutationResult: Sendable {
     let workflowID: String
     let nodeCount: Int
+
+    init(workflowID: String, nodeCount: Int) {
+        self.workflowID = workflowID
+        self.nodeCount = nodeCount
+    }
 
     init(_ result: Any) throws {
         guard

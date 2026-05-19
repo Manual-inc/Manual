@@ -202,6 +202,21 @@ enum CucumberFeatureAssertions {
                 file: file,
                 line: line
             )
+        case "UI starter workflow는 code review 단계와 diff 수집 단계를 가져야 한다":
+            let workflow = try result(world)["workflow"] as? [String: Any]
+            let nodes = workflow?["nodes"] as? [[String: Any]] ?? []
+            try expectStep(
+                nodes.contains { ($0["id"] as? String) == "collect_diff" && ($0["kind"] as? String) == "script" },
+                "starter workflow should include collect_diff script node",
+                file: file,
+                line: line
+            )
+            try expectStep(
+                nodes.contains { ($0["id"] as? String) == "review" && ["codex", "claude", "pi"].contains($0["kind"] as? String ?? "") },
+                "starter workflow should include review agent node",
+                file: file,
+                line: line
+            )
 
         default:
             try assertGenericServerBackedResult(world: world, step: step, file: file, line: line)

@@ -122,6 +122,7 @@ final class ManualWorld {
     var currentNodeID: String?
     var currentSandboxName: String?
     var currentRunID: String?
+    var currentWorkflowID: String?
     var lastResponse: [String: Any]?
     var latestNodeList: [String: Any]?
     var latestSchema: [String: Any]?

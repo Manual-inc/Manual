@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 public struct ContentView: View {
@@ -19,7 +20,13 @@ public struct ContentView: View {
                     .frame(width: 56)
 
                 if sidebarVisible {
-                    WorkflowSidebar(store: store)
+                    WorkflowSidebar(store: store) {
+                        guard let repositoryURL = pickWorkflowStarterRepository() else { return }
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            bottomPanelVisible = true
+                        }
+                        store.createAndRunCodeReviewStarter(selectedPath: repositoryURL.path)
+                    }
                         .frame(width: 260)
                         .transition(.move(edge: .leading).combined(with: .opacity))
                 }
@@ -133,6 +140,20 @@ public struct ContentView: View {
             bottomPanelTabRawValue = panelState.selectedTab.rawValue
         }
     }
+
+    private func pickWorkflowStarterRepository() -> URL? {
+        // See docs/wiki/features/workflow-starters.md: mac onboarding should let
+        // users pick a real repository before creating the starter workflow.
+        let panel = NSOpenPanel()
+        panel.title = "Choose a Repository"
+        panel.message = "Pick a git repository for the Code Review Starter."
+        panel.prompt = "Use Repository"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        return panel.runModal() == .OK ? panel.url : nil
+    }
 }
 
 // MARK: - Left rail
@@ -201,6 +222,7 @@ private struct BrandLogo: View {
 
 private struct WorkflowSidebar: View {
     @ObservedObject var store: WorkflowRunStore
+    let onCreateStarter: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -225,6 +247,9 @@ private struct WorkflowSidebar: View {
             .overlay(alignment: .bottom) {
                 Rectangle().fill(AppTheme.stroke).frame(height: 1)
             }
+
+            QuickStartCard(action: onCreateStarter)
+                .padding(10)
 
             ScrollView {
                 LazyVStack(spacing: 6) {
@@ -265,6 +290,61 @@ private struct WorkflowSidebar: View {
         .background(AppTheme.panel)
         .overlay(alignment: .trailing) {
             Rectangle().fill(AppTheme.stroke).frame(width: 1)
+        }
+    }
+}
+
+private struct QuickStartCard: View {
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Quick Start")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(AppTheme.textMuted)
+            Text("Create and run a Code Review Starter from a real git repository.")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(AppTheme.text)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Manual will build a runnable starter workflow, launch it, and stream events plus optimization into the bottom panel.")
+                .font(.system(size: 11))
+                .foregroundStyle(AppTheme.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: action) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles.rectangle.stack.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Code Review Starter…")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(
+                            LinearGradient(
+                                colors: [AppTheme.accent, Color(red: 0.95, green: 0.30, blue: 0.50)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+            // See docs/wiki/features/workflow-starters.md for why the app needs
+            // a stable automation hook for the first-success starter action.
+            .accessibilityIdentifier("create-starter-workflow-button")
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.panelElev)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppTheme.stroke, lineWidth: 1)
         }
     }
 }

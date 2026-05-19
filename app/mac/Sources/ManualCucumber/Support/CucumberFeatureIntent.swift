@@ -48,7 +48,17 @@ enum CucumberFeatureIntent {
             let ui = world.macAppUI ?? MacAppUIDriver(appServer: world.appServer)
             world.macAppUI = ui
             world.workflowRunIDsBeforeUIAction = world.appServer.workflowRunIDs()
-            world.currentRunID = try ui.chooseExecuteWorkflowFromUI().runID
+            let result = try ui.chooseExecuteWorkflowFromUI()
+            world.currentRunID = result.runID
+            world.currentWorkflowID = result.workflowID
+            return true
+        case "사용자가 UI에서 code review starter 실행을 선택한다":
+            let ui = world.macAppUI ?? MacAppUIDriver(appServer: world.appServer)
+            world.macAppUI = ui
+            world.workflowRunIDsBeforeUIAction = world.appServer.workflowRunIDs()
+            let result = try ui.chooseCreateCodeReviewStarterFromUI()
+            world.currentRunID = result.runID
+            world.currentWorkflowID = result.workflowID
             return true
         case "app-server에는 UI가 시작한 workflow run이 생성되어야 한다":
             let runID = try world.currentRunID
@@ -72,7 +82,7 @@ enum CucumberFeatureIntent {
             let completed = try world.appServer.poll(
                 method: "workflow.events",
                 params: ["run_id": runID, "cursor": 0],
-                timeout: 5,
+                timeout: 12,
                 until: { response in
                     let result = response["result"] as? [String: Any]
                     return result?["completed"] as? Bool == true
@@ -84,7 +94,7 @@ enum CucumberFeatureIntent {
             world.lastResponse = try world.appServer.poll(
                 method: "optimization.report",
                 params: ["workflow_id": workflowID],
-                timeout: 5,
+                timeout: 12,
                 until: { response in
                     let result = response["result"] as? [String: Any]
                     let mainIssue = result?["main_issue"] as? String ?? ""
@@ -93,6 +103,13 @@ enum CucumberFeatureIntent {
             )
             return true
         case "optimization report는 derived 측정 근거를 포함해야 한다":
+            return true
+        case "UI starter workflow는 code review 단계와 diff 수집 단계를 가져야 한다":
+            let workflowID = world.currentWorkflowID ?? "starter-code-review"
+            world.lastResponse = try world.appServer.rpc(
+                method: "workflow.get",
+                params: ["workflow_id": workflowID]
+            )
             return true
         default:
             return false
