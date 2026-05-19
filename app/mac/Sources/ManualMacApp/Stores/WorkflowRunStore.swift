@@ -534,7 +534,7 @@ final class WorkflowRunStore: ObservableObject {
             }
         case "node_completed":
             if let nodeID {
-                let result = displayString(for: event["result"])
+                let result = workflowOutputText(from: event["result"])
                 complete(nodeID, result: result)
                 appendEvent(nodeID: nodeID, title: "Node completed", detail: result)
             }
@@ -592,27 +592,7 @@ final class WorkflowRunStore: ObservableObject {
     }
 
     private func displayString(for value: Any?) -> String {
-        switch value {
-        case let value as String:
-            value
-        case let value as NSNumber:
-            value.stringValue
-        case let value as [String: Any]:
-            value
-                .keys
-                .sorted()
-                .compactMap { key in
-                    guard let nested = value[key] else { return nil }
-                    return "\(key)=\(displayString(for: nested))"
-                }
-                .joined(separator: ", ")
-        case let value as [Any]:
-            value.map { displayString(for: $0) }.joined(separator: ", ")
-        case .none:
-            "null"
-        default:
-            String(describing: value!)
-        }
+        workflowOutputText(from: value)
     }
 
     private func refreshOptimization(for workflowID: String) async {

@@ -48,7 +48,7 @@ Manual은 프로젝트 앱 서버를 중심에 두고 CLI와 네이티브 클라
 ## Native Client Notes
 
 - macOS 앱은 현재 workflow 실행, sandbox 관리, optimization pulse/패널까지 보여주는 가장 앞선 네이티브 표면이다.
-- macOS 앱은 sidebar quick-start action으로 `workflow-starters`의 `code-review` preset을 앱 안에서 바로 생성하고 실행할 수 있다.
+- macOS 앱은 sidebar quick-start action으로 `workflow-starters`의 `code-review` preset을 앱 안에서 바로 생성하고 실행할 수 있다. starter 실행 시 bottom panel의 `Output` 탭에서 review 결과를 바로 읽을 수 있게 한다.
 - Windows 앱은 아직 app-server live wiring 전이지만, 최소한 workflow run summary, optimization metric cards, regression risk, recommendation shell을 먼저 갖춘다.
 - Windows 개발은 실제 WinUI 빌드와 실행이 가능한 Windows 환경에서 마무리해야 한다. macOS에서는 XAML compiler가 실행되지 않으므로, 저장소에서는 XAML smoke 검증으로 구조 회귀를 확인한다.
 

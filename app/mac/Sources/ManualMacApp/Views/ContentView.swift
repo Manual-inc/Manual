@@ -22,8 +22,14 @@ public struct ContentView: View {
                 if sidebarVisible {
                     WorkflowSidebar(store: store) {
                         guard let repositoryURL = pickWorkflowStarterRepository() else { return }
+                        var panelState = WorkflowPanelState(
+                            isBottomPanelVisible: bottomPanelVisible,
+                            selectedTab: selectedBottomPanelTab
+                        )
+                        panelState.showOutput()
                         withAnimation(.easeInOut(duration: 0.18)) {
-                            bottomPanelVisible = true
+                            bottomPanelVisible = panelState.isBottomPanelVisible
+                            bottomPanelTabRawValue = panelState.selectedTab.rawValue
                         }
                         store.createAndRunCodeReviewStarter(selectedPath: repositoryURL.path)
                     }
@@ -66,6 +72,7 @@ public struct ContentView: View {
                                 if bottomPanelVisible {
                                     BottomPanel(
                                         events: store.events,
+                                        nodes: store.nodes,
                                         rawWorkflowJSON: store.rawWorkflowJSON,
                                         optimizationReport: store.optimizationReport,
                                         optimizationAnalysis: store.optimizationAnalysis,
@@ -685,6 +692,7 @@ private struct BottomToggle: View {
 
 private struct BottomPanel: View {
     let events: [WorkflowEventModel]
+    let nodes: [WorkflowNodeModel]
     let rawWorkflowJSON: String
     let optimizationReport: WorkflowOptimizationReport?
     let optimizationAnalysis: WorkflowOptimizationAnalysis?
@@ -700,6 +708,9 @@ private struct BottomPanel: View {
                 }
                 LogTab(label: "JSON", isActive: selectedTab == .json) {
                     selectedTab = .json
+                }
+                LogTab(label: "Output", isActive: selectedTab == .output) {
+                    selectedTab = .output
                 }
                 LogTab(label: "Optimization", isActive: selectedTab == .optimization) {
                     selectedTab = .optimization
@@ -737,6 +748,10 @@ private struct BottomPanel: View {
                         .padding(16)
                 }
                 .background(AppTheme.panel)
+            } else if selectedTab == .output {
+                WorkflowOutputsView(nodes: nodes)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AppTheme.panel)
             } else {
                 OptimizationSummaryView(
                     report: optimizationReport,
@@ -747,6 +762,74 @@ private struct BottomPanel: View {
             }
         }
         .background(AppTheme.panel)
+    }
+}
+
+private struct WorkflowOutputsView: View {
+    let nodes: [WorkflowNodeModel]
+
+    private var completedOutputs: [WorkflowNodeModel] {
+        nodes.filter { $0.result != nil }
+    }
+
+    var body: some View {
+        if completedOutputs.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "text.append")
+                    .font(.system(size: 26))
+                    .foregroundStyle(AppTheme.textFaint)
+                Text("No node outputs yet")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppTheme.textMuted)
+                Text("Starter review results and script outputs will appear here as soon as nodes finish.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.textFaint)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(completedOutputs) { node in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Text(node.title)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(AppTheme.text)
+                                Spacer()
+                                Text(node.kind.rawValue)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(AppTheme.textMuted)
+                            }
+
+                            Text(node.result ?? "")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(AppTheme.text)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10).fill(AppTheme.canvas)
+                                )
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(AppTheme.stroke, lineWidth: 1)
+                                }
+                        }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14).fill(AppTheme.panelElev)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(AppTheme.stroke, lineWidth: 1)
+                        }
+                    }
+                }
+                .padding(16)
+            }
+        }
     }
 }
 

@@ -3,6 +3,7 @@
 enum BottomPanelTab: String, Equatable, Sendable {
     case events
     case json
+    case output
     case optimization
 }
 
@@ -13,5 +14,10 @@ struct WorkflowPanelState: Equatable, Sendable {
     mutating func showOptimization() {
         isBottomPanelVisible = true
         selectedTab = .optimization
+    }
+
+    mutating func showOutput() {
+        isBottomPanelVisible = true
+        selectedTab = .output
     }
 }

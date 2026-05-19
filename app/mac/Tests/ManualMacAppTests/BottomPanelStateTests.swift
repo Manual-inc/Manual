@@ -14,4 +14,16 @@ struct BottomPanelStateTests {
         #expect(state.isBottomPanelVisible)
         #expect(state.selectedTab == .optimization)
     }
+
+    @Test func showOutput_makesPanelVisible_andSelectsOutputTab() {
+        var state = WorkflowPanelState(
+            isBottomPanelVisible: false,
+            selectedTab: .events
+        )
+
+        state.showOutput()
+
+        #expect(state.isBottomPanelVisible)
+        #expect(state.selectedTab == .output)
+    }
 }

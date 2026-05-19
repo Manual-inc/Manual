@@ -41,7 +41,7 @@ date_updated: 2026-05-19
 manual workflow starter code-review --run
 ```
 
-mac app에서는 sidebar의 `Code Review Starter…` quick-start action으로 같은 starter를 만들고 바로 실행할 수 있다.
+mac app에서는 sidebar의 `Code Review Starter…` quick-start action으로 같은 starter를 만들고 바로 실행할 수 있다. 실행 중에는 bottom panel이 `Output` 탭으로 열려 review 결과가 completion 뒤 바로 보이게 한다.
 
 이 preset은 다음 흐름을 만든다.
 
