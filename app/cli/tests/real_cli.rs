@@ -370,6 +370,57 @@ fn doctor_reports_healthy_server_with_real_app_server() {
 }
 
 #[test]
+fn workflow_starter_creates_code_review_workflow_against_real_app_server() {
+    let harness = RealHarness::new("manual-cli-starter-real");
+    let repo = init_git_repo(harness.temp.path().join("starter-repo"));
+
+    let output = harness.run(vec![
+        "workflow".to_owned(),
+        "starter".to_owned(),
+        "code-review".to_owned(),
+        "--repo".to_owned(),
+        repo.display().to_string(),
+        "--workflow-id".to_owned(),
+        "starter-review".to_owned(),
+        "--agent".to_owned(),
+        "codex".to_owned(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Workflow Starter"));
+    assert!(stdout.contains("Workflow ID: starter-review"));
+    assert!(stdout.contains("Agent: codex"));
+    let canonical_repo = fs::canonicalize(&repo).unwrap();
+
+    let fetched = harness.run_jsons([
+        "workflow".into(),
+        "get".into(),
+        "starter-review".into(),
+    ]);
+    assert_eq!(fetched[0]["workflow"]["id"], "starter-review");
+    assert_eq!(fetched[0]["workflow"]["nodes"][0]["id"], "collect_diff");
+    assert_eq!(fetched[0]["workflow"]["nodes"][0]["kind"], "script");
+    assert_eq!(fetched[0]["workflow"]["nodes"][1]["id"], "review");
+    assert_eq!(fetched[0]["workflow"]["nodes"][1]["kind"], "codex");
+    assert_eq!(
+        fetched[0]["workflow"]["nodes"][1]["cwd"],
+        canonical_repo.display().to_string()
+    );
+    assert_eq!(
+        fetched[0]["workflow"]["dependencies"][0],
+        json!({
+            "node": "review",
+            "depends_on": "collect_diff"
+        })
+    );
+}
+
+#[test]
 fn manual_sandbox_skill_optimization_and_agent_commands_work_against_real_app_server() {
     let harness = RealHarness::new("manual-cli-real-manual");
 
@@ -984,6 +1035,18 @@ fn unique_suffix() -> u128 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos()
+}
+
+fn init_git_repo(path: PathBuf) -> PathBuf {
+    fs::create_dir_all(&path).unwrap();
+    let status = Command::new("git")
+        .arg("init")
+        .arg("-q")
+        .arg(&path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    path
 }
 
 struct TestDir {

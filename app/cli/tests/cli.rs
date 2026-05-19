@@ -361,6 +361,90 @@ fn workflow_extended_commands_send_expected_requests() {
 }
 
 #[test]
+fn workflow_starter_auto_selects_agent_and_creates_code_review_workflow() {
+    let temp = TestDir::new("manual-cli-starter");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo(&temp, "repo");
+    let canonical_repo = fs::canonicalize(&repo).unwrap();
+
+    let output = run_manual(
+        &server,
+        [
+            "workflow".into(),
+            "starter".into(),
+            "code-review".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+            "--workflow-id".into(),
+            "starter-review".into(),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Workflow Starter"));
+    assert!(stdout.contains("Preset: code-review"));
+    assert!(stdout.contains("Workflow ID: starter-review"));
+    assert!(stdout.contains("Agent: codex"));
+    assert!(stdout.contains("manual workflow run starter-review --human"));
+
+    let requests = fs::read_to_string(log).unwrap();
+    assert!(requests.contains(r#""method":"agent.list""#));
+    assert!(requests.contains(r#""method":"workflow.create""#));
+    assert!(requests.contains(r#""id":"starter-review""#));
+    assert!(requests.contains(r#""kind":"codex""#));
+    assert!(requests.contains(&format!(r#""cwd":"{}""#, canonical_repo.display())));
+    assert!(requests.contains(r#""node":"review""#));
+    assert!(requests.contains(r#""depends_on":"collect_diff""#));
+}
+
+#[test]
+fn workflow_starter_run_prints_review_output_after_completion() {
+    let temp = TestDir::new("manual-cli-starter-run");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo(&temp, "repo");
+
+    let output = run_manual(
+        &server,
+        [
+            "workflow".into(),
+            "starter".into(),
+            "code-review".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+            "--workflow-id".into(),
+            "starter-review".into(),
+            "--agent".into(),
+            "codex".into(),
+            "--run".into(),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Workflow Starter"));
+    assert!(stdout.contains("Started workflow run starter-review-run"));
+    assert!(stdout.contains("Workflow Events"));
+    assert!(stdout.contains("Review Output"));
+    assert!(stdout.contains("Looks good overall."));
+
+    let requests = fs::read_to_string(log).unwrap();
+    assert!(requests.contains(r#""method":"workflow.create""#));
+    assert!(requests.contains(r#""method":"workflow.start""#));
+    assert!(requests.contains(r#""method":"workflow.events""#));
+}
+
+#[test]
 fn node_commands_send_expected_requests() {
     let temp = TestDir::new("manual-cli-node");
     let log = temp.path().join("requests.jsonl");
@@ -925,6 +1009,19 @@ fn write_temp_json(temp: &TestDir, name: &str, contents: &str) -> PathBuf {
     path
 }
 
+fn init_git_repo(temp: &TestDir, name: &str) -> PathBuf {
+    let repo = temp.path().join(name);
+    fs::create_dir_all(&repo).unwrap();
+    let status = Command::new("git")
+        .arg("init")
+        .arg("-q")
+        .arg(&repo)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    repo
+}
+
 fn fake_server(temp: &TestDir, log: &Path) -> PathBuf {
     let server = temp.path().join("fake_app_server.py");
     fs::write(
@@ -946,38 +1043,109 @@ for line in sys.stdin:
         workflow = request["params"]["workflow"]
         result = {{"workflow_id": workflow["id"], "node_count": len(workflow["nodes"])}}
         response = {{"jsonrpc": "2.0", "id": request["id"], "result": result}}
+    elif method == "workflow.start":
+        workflow_id = request["params"].get("workflow_id", "workflow")
+        run_id = "starter-review-run" if workflow_id == "starter-review" else "run-1"
+        response = {{
+            "jsonrpc": "2.0",
+            "id": request["id"],
+            "result": {{"run_id": run_id}}
+        }}
     elif method == "workflow.events":
+        run_id = request["params"]["run_id"]
+        if run_id == "starter-review-run":
+            response = {{
+                "jsonrpc": "2.0",
+                "id": request["id"],
+                "result": {{
+                    "events": [
+                        {{"sequence": request["params"]["cursor"], "type": "workflow_completed"}}
+                    ],
+                    "next_cursor": request["params"]["cursor"] + 1,
+                    "completed": True,
+                    "run": {{
+                        "run_id": run_id,
+                        "status": "completed",
+                        "nodes": {{
+                            "review": {{
+                                "status": "completed",
+                                "result": {{
+                                    "status_code": 0,
+                                    "stdout": "Looks good overall.",
+                                    "stderr": ""
+                                }}
+                            }}
+                        }}
+                    }},
+                    "optimization_report": {{
+                        "sections": ["Token Usage", "Verification", "Time"],
+                        "main_issue": "review step used most tokens",
+                        "recommendations": ["trim diff context"],
+                        "measurement_mode": "derived",
+                        "measurement_note": "Estimated from workflow events."
+                    }},
+                    "optimization_analysis": {{
+                        "measurement_mode": "derived",
+                        "measurement_note": "Estimated from workflow events.",
+                        "regression": {{
+                            "possible": False,
+                            "step_id": "review",
+                            "reason": "stable"
+                        }},
+                        "bottlenecks": {{
+                            "token_waste": ["review"],
+                            "verification_gaps": [],
+                            "slow_steps": [],
+                            "unstable_tasks": []
+                        }},
+                        "suggestions": ["trim diff context"]
+                    }},
+                }},
+            }}
+        else:
+            response = {{
+                "jsonrpc": "2.0",
+                "id": request["id"],
+                "result": {{
+                    "events": [{{"sequence": request["params"]["cursor"], "type": "workflow_completed"}}],
+                    "next_cursor": request["params"]["cursor"] + 1,
+                    "completed": True,
+                    "run": {{"run_id": request["params"]["run_id"], "status": "completed"}},
+                    "optimization_report": {{
+                        "sections": ["Token Usage", "Verification", "Time"],
+                        "main_issue": "implementation step used most tokens",
+                        "recommendations": ["preprocess file discovery"],
+                        "measurement_mode": "derived",
+                        "measurement_note": "Estimated from workflow events."
+                    }},
+                    "optimization_analysis": {{
+                        "measurement_mode": "derived",
+                        "measurement_note": "Estimated from workflow events.",
+                        "regression": {{
+                            "possible": True,
+                            "step_id": "implement",
+                            "reason": "tokens and time increased while success rate fell"
+                        }},
+                        "bottlenecks": {{
+                            "token_waste": ["implement"],
+                            "verification_gaps": ["review"],
+                            "slow_steps": ["implement"],
+                            "unstable_tasks": ["implement"]
+                        }},
+                        "suggestions": ["preprocess file discovery"]
+                    }},
+                }},
+            }}
+    elif method == "agent.list":
         response = {{
             "jsonrpc": "2.0",
             "id": request["id"],
             "result": {{
-                "events": [{{"sequence": request["params"]["cursor"], "type": "workflow_completed"}}],
-                "next_cursor": request["params"]["cursor"] + 1,
-                "completed": True,
-                "run": {{"run_id": request["params"]["run_id"], "status": "completed"}},
-                "optimization_report": {{
-                    "sections": ["Token Usage", "Verification", "Time"],
-                    "main_issue": "implementation step used most tokens",
-                    "recommendations": ["preprocess file discovery"],
-                    "measurement_mode": "derived",
-                    "measurement_note": "Estimated from workflow events."
-                }},
-                "optimization_analysis": {{
-                    "measurement_mode": "derived",
-                    "measurement_note": "Estimated from workflow events.",
-                    "regression": {{
-                        "possible": True,
-                        "step_id": "implement",
-                        "reason": "tokens and time increased while success rate fell"
-                    }},
-                    "bottlenecks": {{
-                        "token_waste": ["implement"],
-                        "verification_gaps": ["review"],
-                        "slow_steps": ["implement"],
-                        "unstable_tasks": ["implement"]
-                    }},
-                    "suggestions": ["preprocess file discovery"]
-                }},
+                "agents": [
+                    {{"name": "codex", "available": True, "path": "/usr/bin/codex"}},
+                    {{"name": "claude", "available": False, "path": None}},
+                    {{"name": "pi", "available": False, "path": None}}
+                ]
             }},
         }}
     elif method == "workflow.get":

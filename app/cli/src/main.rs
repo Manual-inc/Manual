@@ -205,6 +205,14 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
             "workflow.compose_from_registry",
             json!({ "node_id": node_id }),
         ),
+        WorkflowCommand::Starter {
+            preset,
+            repo,
+            workflow_id,
+            agent,
+            model,
+            run,
+        } => run_workflow_starter(client, preset, repo, workflow_id, agent, model, run),
     }
 }
 
@@ -616,6 +624,69 @@ fn run_demo_optimization(client: &mut AppServerClient) -> Result<(), CliError> {
     print_events(client, run_id, 0, true, 10, true)
 }
 
+fn run_workflow_starter(
+    client: &mut AppServerClient,
+    preset: String,
+    repo: Option<PathBuf>,
+    workflow_id: String,
+    agent: Option<String>,
+    model: Option<String>,
+    run: bool,
+) -> Result<(), CliError> {
+    // Why this exists: docs/wiki/features/workflow-starters.md defines the
+    // shortest path from demo value to a user's first real workflow.
+    let repo_root = resolve_git_repo_root(repo.as_deref())?;
+    let selected_agent = resolve_workflow_starter_agent(client, agent.as_deref())?;
+    let workflow = build_workflow_starter_definition(
+        &preset,
+        &workflow_id,
+        &repo_root,
+        &selected_agent,
+        model.as_deref(),
+    )?;
+
+    client.request("workflow.create", json!({ "workflow": workflow }))?;
+    print_text(&render_workflow_starter_summary(
+        &preset,
+        &workflow_id,
+        &repo_root,
+        &selected_agent,
+        run,
+    ))?;
+
+    if !run {
+        return Ok(());
+    }
+
+    let started = client.request(
+        "workflow.start",
+        json!({
+            "workflow_id": workflow_id,
+            "resume_from_failure": false,
+            "input_overrides": {},
+            "mode": "auto",
+        }),
+    )?;
+    let run_id = started
+        .get("run_id")
+        .and_then(Value::as_str)
+        .ok_or(CliError::InvalidResponse("missing run_id".to_owned()))?
+        .to_owned();
+
+    print_text(&format!("Started workflow run {run_id}"))?;
+    print_events(client, run_id.clone(), 0, true, 100, true)?;
+    let final_result = client.request("workflow.events", json!({ "run_id": run_id, "cursor": 0 }))?;
+    if let Some(failure_output) = workflow_starter_failure_output(&final_result) {
+        print_text(&format!("\nStarter Failure\n{failure_output}"))?;
+        return Ok(());
+    }
+    if let Some(review_output) = workflow_starter_review_output(&final_result) {
+        print_text(&format!("\nReview Output\n{review_output}"))?;
+    }
+
+    Ok(())
+}
+
 fn demo_optimization_workflow() -> Value {
     json!({
         "id": "demo-optimization",
@@ -642,6 +713,232 @@ fn demo_optimization_workflow() -> Value {
             }
         ]
     })
+}
+
+fn build_workflow_starter_definition(
+    preset: &str,
+    workflow_id: &str,
+    repo_root: &Path,
+    agent: &str,
+    model: Option<&str>,
+) -> Result<Value, CliError> {
+    match preset {
+        "code-review" => Ok(code_review_starter_workflow(
+            workflow_id,
+            repo_root,
+            agent,
+            model,
+        )),
+        other => Err(CliError::InvalidResponse(format!(
+            "unknown workflow starter preset: {other}"
+        ))),
+    }
+}
+
+fn code_review_starter_workflow(
+    workflow_id: &str,
+    repo_root: &Path,
+    agent: &str,
+    model: Option<&str>,
+) -> Value {
+    let mut review_node = Map::new();
+    review_node.insert("id".to_owned(), json!("review"));
+    review_node.insert("kind".to_owned(), json!(agent));
+    review_node.insert("prompt".to_owned(), json!(code_review_starter_prompt()));
+    review_node.insert("cwd".to_owned(), json!(repo_root.display().to_string()));
+    if let Some(model) = model.filter(|model| !model.is_empty()) {
+        review_node.insert("model".to_owned(), json!(model));
+    }
+
+    json!({
+        "id": workflow_id,
+        "nodes": [
+            {
+                "id": "collect_diff",
+                "kind": "script",
+                "script": code_review_starter_script(repo_root),
+                "sandbox_policy": code_review_starter_sandbox(repo_root),
+            },
+            Value::Object(review_node)
+        ],
+        "dependencies": [
+            {
+                "node": "review",
+                "depends_on": "collect_diff"
+            }
+        ]
+    })
+}
+
+fn code_review_starter_prompt() -> &'static str {
+    "Review the repository changes described in Input.collect_diff.stdout.\nFocus on correctness bugs, regressions, risky assumptions, and missing tests.\nKeep the answer concise and actionable."
+}
+
+fn code_review_starter_script(repo_root: &Path) -> String {
+    let repo = shell_quote(repo_root.to_string_lossy().as_ref());
+    format!(
+        "set -eu\ncd {repo}\nif ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n  echo \"starter code-review requires a git repository\" >&2\n  exit 1\nfi\nif ! git diff --quiet -- . || ! git diff --cached --quiet -- .; then\n  git --no-pager diff -- . || true\n  if ! git diff --cached --quiet -- .; then\n    printf '\\n\\n--- STAGED CHANGES ---\\n'\n    git --no-pager diff --cached -- .\n  fi\nelif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then\n  git --no-pager diff HEAD~1 -- .\nelif git rev-parse --verify HEAD >/dev/null 2>&1; then\n  git --no-pager show --stat --patch --format=medium HEAD -- .\nelse\n  echo \"No commits or working tree changes available to review.\"\nfi"
+    )
+}
+
+fn code_review_starter_sandbox(repo_root: &Path) -> Value {
+    let git_path = find_command_in_path("git").unwrap_or_else(|| PathBuf::from("/usr/bin/git"));
+    json!({
+        "scope_root": repo_root.display().to_string(),
+        "allow_read": [repo_root.display().to_string()],
+        "allow_write": [],
+        "allow_commands": [
+            "/bin/sh",
+            "/bin/bash",
+            git_path.display().to_string()
+        ],
+        "allow_network": [],
+        "deny_network": ["*"],
+        "tmp_write": [],
+        "cache_write": []
+    })
+}
+
+fn resolve_workflow_starter_agent(
+    client: &mut AppServerClient,
+    explicit_agent: Option<&str>,
+) -> Result<String, CliError> {
+    if let Some(agent) = explicit_agent {
+        validate_workflow_starter_agent(agent)?;
+        return Ok(agent.to_owned());
+    }
+
+    let availability = client.request("agent.list", Value::Null)?;
+    pick_workflow_starter_agent(&availability).ok_or_else(|| {
+        CliError::InvalidResponse(
+            "no supported local agent found; install codex, claude, or pi, or pass --agent"
+                .to_owned(),
+        )
+    })
+}
+
+fn validate_workflow_starter_agent(agent: &str) -> Result<(), CliError> {
+    match agent {
+        "codex" | "claude" | "pi" => Ok(()),
+        other => Err(CliError::InvalidResponse(format!(
+            "unsupported workflow starter agent: {other}"
+        ))),
+    }
+}
+
+fn pick_workflow_starter_agent(availability: &Value) -> Option<String> {
+    for candidate in ["codex", "claude", "pi"] {
+        if availability["agents"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|agent| agent["name"] == candidate && agent["available"] == true)
+        {
+            return Some(candidate.to_owned());
+        }
+    }
+    None
+}
+
+fn resolve_git_repo_root(repo: Option<&Path>) -> Result<PathBuf, CliError> {
+    let repo = repo
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let repo = fs::canonicalize(&repo).map_err(|error| {
+        CliError::InvalidResponse(format!("starter repository is unavailable: {error}"))
+    })?;
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(&repo)
+        .arg("rev-parse")
+        .arg("--show-toplevel")
+        .output()?;
+    if !output.status.success() {
+        return Err(CliError::InvalidResponse(format!(
+            "starter preset requires a git repository: {}",
+            repo.display()
+        )));
+    }
+
+    let repo_root = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    if repo_root.is_empty() {
+        return Err(CliError::InvalidResponse(
+            "starter repository root could not be resolved".to_owned(),
+        ));
+    }
+    Ok(PathBuf::from(repo_root))
+}
+
+fn render_workflow_starter_summary(
+    preset: &str,
+    workflow_id: &str,
+    repo_root: &Path,
+    agent: &str,
+    run: bool,
+) -> String {
+    let mut lines = vec![
+        "Workflow Starter".to_owned(),
+        format!("Preset: {preset}"),
+        format!("Workflow ID: {workflow_id}"),
+        format!("Repository: {}", repo_root.display()),
+        format!("Agent: {agent}"),
+    ];
+    lines.push(String::new());
+    lines.push("Next steps".to_owned());
+    if run {
+        lines.push("- Starter workflow is running now.".to_owned());
+        lines.push(format!(
+            "- Re-run later with: manual workflow run {workflow_id} --human"
+        ));
+    } else {
+        lines.push(format!(
+            "- Run `manual workflow run {workflow_id} --human` to execute the starter workflow."
+        ));
+    }
+    lines.push(format!(
+        "- Inspect the saved workflow with `manual workflow get {workflow_id}`."
+    ));
+    lines.join("\n")
+}
+
+fn workflow_starter_review_output(result: &Value) -> Option<String> {
+    result["run"]["nodes"]["review"]["result"]["stdout"]
+        .as_str()
+        .map(str::to_owned)
+}
+
+fn workflow_starter_failure_output(result: &Value) -> Option<String> {
+    if result["run"]["status"] != "failed" {
+        return None;
+    }
+
+    let node_id = result["run"]["first_failed_node"]
+        .as_str()
+        .unwrap_or("unknown");
+    let error = result["run"]["nodes"][node_id]["error"]
+        .as_str()
+        .or_else(|| result["events"].as_array().into_iter().flatten().find_map(|event| {
+            (event["type"] == "node_failed" && event["node_id"] == node_id)
+                .then(|| event["error"].as_str())
+                .flatten()
+        }))
+        .unwrap_or("workflow failed without a detailed node error");
+
+    Some(format!(
+        "Failed node: {}\n{error}",
+        humanize_identifier(node_id)
+    ))
+}
+
+fn find_command_in_path(command: &str) -> Option<PathBuf> {
+    let path = env::var_os("PATH")?;
+    env::split_paths(&path)
+        .map(|dir| dir.join(command))
+        .find(|candidate| candidate.is_file())
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
 fn read_optional_json(path: Option<&PathBuf>) -> Result<Value, CliError> {
@@ -927,6 +1224,20 @@ enum WorkflowCommand {
     },
     #[command(about = "Compose a workflow candidate from a registered node template")]
     ComposeFromRegistry { node_id: String },
+    #[command(about = "Create a starter workflow preset for a local repository")]
+    Starter {
+        preset: String,
+        #[arg(long, value_name = "PATH")]
+        repo: Option<PathBuf>,
+        #[arg(long, default_value = "starter-code-review", value_name = "WORKFLOW_ID")]
+        workflow_id: String,
+        #[arg(long, value_name = "AGENT")]
+        agent: Option<String>,
+        #[arg(long, value_name = "MODEL")]
+        model: Option<String>,
+        #[arg(long, help = "Start the starter workflow immediately after creating it")]
+        run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1764,6 +2075,43 @@ mod tests {
             .iter()
             .any(|step| step.contains("--auth-token") || step.contains("MANUAL_APP_SERVER_TOKEN")));
         assert!(steps.iter().any(|step| step.contains("manual demo optimization")));
+    }
+
+    #[test]
+    fn code_review_starter_sandbox_allows_shell_variant_used_by_macos_backend() {
+        let sandbox = code_review_starter_sandbox(Path::new("/workspace/repo"));
+        let commands = sandbox["allow_commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>();
+
+        assert!(commands.contains(&"/bin/sh"));
+        assert!(commands.contains(&"/bin/bash"));
+        assert_eq!(sandbox["scope_root"], "/workspace/repo");
+    }
+
+    #[test]
+    fn workflow_starter_failure_output_reports_failed_node_and_error() {
+        let rendered = workflow_starter_failure_output(&json!({
+            "events": [
+                { "type": "node_failed", "node_id": "collect_diff", "error": "sandbox denied" }
+            ],
+            "run": {
+                "status": "failed",
+                "first_failed_node": "collect_diff",
+                "nodes": {
+                    "collect_diff": {
+                        "error": "sandbox denied"
+                    }
+                }
+            }
+        }))
+        .unwrap();
+
+        assert!(rendered.contains("Collect Diff"));
+        assert!(rendered.contains("sandbox denied"));
     }
 
     #[test]

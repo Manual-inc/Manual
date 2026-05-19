@@ -22,6 +22,12 @@ Repository demo wrapper:
 bash scripts/demo-optimization.sh
 ```
 
+First real workflow after the demo:
+
+```bash
+manual workflow starter code-review --run
+```
+
 Start here for setup and product entry points:
 
 - [Quick Start](docs/wiki/analyses/2026-05-19-quick-start.md)

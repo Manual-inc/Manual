@@ -67,6 +67,37 @@ manual doctor
 
 ## workflow 명령어
 
+### `workflow starter code-review`
+
+데모 다음에 가장 빨리 실제 저장소용 workflow를 만들기 위한 starter preset.
+
+```bash
+manual workflow starter code-review --run
+manual workflow starter code-review --repo /path/to/repo --workflow-id repo-review
+manual workflow starter code-review --agent codex
+```
+
+현재 동작:
+
+- git repository 여부를 확인한다
+- 로컬에서 사용 가능한 `codex`, `claude`, `pi` 중 하나를 자동 선택한다
+- `collect_diff` script 노드와 `review` agent 노드가 있는 workflow를 생성한다
+- `--run`이면 workflow 실행, optimization follow-through, review output까지 이어서 보여준다
+
+옵션:
+
+| 옵션 | 설명 |
+|------|------|
+| `--repo <PATH>` | starter workflow를 만들 대상 저장소 경로 (기본값: 현재 디렉터리) |
+| `--workflow-id <ID>` | 저장할 workflow ID (기본값: `starter-code-review`) |
+| `--agent <NAME>` | 사용할 agent를 직접 지정 (`codex`, `claude`, `pi`) |
+| `--model <MODEL>` | review agent 노드에 넣을 model override |
+| `--run` | 생성 후 즉시 workflow를 실행 |
+
+이 명령은 raw app-server 메서드가 아니라 CLI-side preset이며, 내부적으로 `agent.list`, `workflow.create`, 필요 시 `workflow.start` + `workflow.events`를 사용한다.
+
+---
+
 ### `workflow create <WORKFLOW_JSON>`
 
 JSON 파일을 읽어 `workflow.create` RPC를 호출한다.

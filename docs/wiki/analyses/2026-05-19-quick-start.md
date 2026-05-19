@@ -55,6 +55,16 @@ bash scripts/demo-optimization.sh
 3. optimization report
 4. optimization analysis
 
+## 데모 다음 첫 실제 워크플로우
+
+데모 다음에는 JSON을 직접 쓰지 않고 starter preset으로 첫 workflow를 만드는 경로를 권장한다.
+
+```bash
+manual workflow starter code-review --run
+```
+
+이 명령은 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 code review workflow를 생성한 뒤 즉시 실행까지 이어 준다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
+
 ## 소스에서 빌드
 
 CLI 빌드:
