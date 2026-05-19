@@ -1,4 +1,5 @@
 import Foundation
+import ManualMacApp
 
 // See docs/wiki/systems/기능-계약-테스트.md: feature intents translate cucumber language into app-server calls.
 enum CucumberFeatureIntent {
@@ -65,6 +66,33 @@ enum CucumberFeatureIntent {
                     return events.contains { $0["type"] as? String == "workflow_started" }
                 }
             )
+            return true
+        case "UI workflow 완료 후 optimization report가 준비되어야 한다":
+            guard let runID = world.currentRunID else { throw StepError.assertion("workflow run id가 필요함") }
+            let completed = try world.appServer.poll(
+                method: "workflow.events",
+                params: ["run_id": runID, "cursor": 0],
+                timeout: 5,
+                until: { response in
+                    let result = response["result"] as? [String: Any]
+                    return result?["completed"] as? Bool == true
+                }
+            )
+            let workflowID =
+                ((completed["result"] as? [String: Any])?["run"] as? [String: Any])?["workflow_id"] as? String
+                ?? "business-pipeline-health"
+            world.lastResponse = try world.appServer.poll(
+                method: "optimization.report",
+                params: ["workflow_id": workflowID],
+                timeout: 5,
+                until: { response in
+                    let result = response["result"] as? [String: Any]
+                    let mainIssue = result?["main_issue"] as? String ?? ""
+                    return !mainIssue.isEmpty && !mainIssue.contains("insufficient run history")
+                }
+            )
+            return true
+        case "optimization report는 derived 측정 근거를 포함해야 한다":
             return true
         default:
             return false

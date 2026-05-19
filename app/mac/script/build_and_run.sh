@@ -8,7 +8,7 @@ MIN_SYSTEM_VERSION="26.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
-APP_SERVER_BIN="$REPO_ROOT/manual-rs/target/debug/app-server"
+APP_SERVER_BIN="$REPO_ROOT/manual-rs/target/debug/manual-app-server"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"

@@ -12,3 +12,10 @@
     만일 사용자가 UI에서 예제 워크플로우 실행을 선택한다
     그러면 app-server에는 UI가 시작한 workflow run이 생성되어야 한다
     그리고 run 이벤트는 workflow_started를 포함해야 한다
+
+  시나리오: UI intent 실행 후 optimization report를 확인한다
+    조건 mac UI intent가 테스트 app-server discovery를 사용한다
+    만일 사용자가 UI에서 예제 워크플로우 실행을 선택한다
+    그러면 app-server에는 UI가 시작한 workflow run이 생성되어야 한다
+    그리고 UI workflow 완료 후 optimization report가 준비되어야 한다
+    그리고 optimization report는 derived 측정 근거를 포함해야 한다

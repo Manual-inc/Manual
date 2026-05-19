@@ -8,6 +8,33 @@ on:
   pull_request:
 
 jobs:
+  # ── Docs / Demo / Static UI smoke ───────────────────────────────────────
+  docs-and-demo:
+    name: "Docs and demo smoke"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust stable 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 빌드 캐시
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            app/cli
+            manual-rs
+            docs/test
+
+      - name: 문서 규칙 테스트
+        run: cargo run --manifest-path docs/test/Cargo.toml
+
+      - name: Demo smoke 테스트
+        run: bash scripts/test-demo-smoke.sh
+
+      - name: Windows UI XAML smoke 테스트
+        run: bash scripts/test-window-ui-smoke.sh
+
   # ── Rust: manual-rs 워크스페이스 (Ubuntu / macOS / Windows) ──────────────
   rust-workspace:
     name: "Rust workspace (${{ matrix.os }})"
@@ -130,8 +157,11 @@ jobs:
       - name: Swift 버전 확인
         run: swift --version
 
-      - name: 빌드
-        run: swift build
+      - name: 테스트
+        run: swift test
+
+      - name: Cucumber feature 검증
+        run: swift run manual-cucumber
 
   # ── Windows 앱 (WinUI 3 / .NET 10) ──────────────────────────────────────
   windows-app:

@@ -20,6 +20,9 @@ final class WorkflowRunStore: ObservableObject {
     @Published private(set) var sandboxProbeTarget = "src/main.rs"
     @Published private(set) var sandboxDecision: SandboxDecisionModel?
     @Published private(set) var currentSandboxBackend = ""
+    @Published private(set) var optimizationReport: WorkflowOptimizationReport?
+    @Published private(set) var optimizationAnalysis: WorkflowOptimizationAnalysis?
+    @Published private(set) var optimizationLoading = false
 
     private let client: AppServerClient
     private let executionIntent: WorkflowExecutionIntent
@@ -67,6 +70,10 @@ final class WorkflowRunStore: ObservableObject {
 
     var hasSelectedWorkflow: Bool {
         selectedWorkflowID != nil
+    }
+
+    var selectedWorkflowTitle: String {
+        workflowTitle(from: selectedWorkflowID ?? BusinessWorkflowExample.workflowID)
     }
 
     func selectNode(_ id: String) {
@@ -237,6 +244,8 @@ final class WorkflowRunStore: ObservableObject {
                 currentWorkflow = BusinessWorkflowExample.jsonDefinition
                 syncDisplay(with: currentWorkflow)
                 rawWorkflowJSON = prettyJSONString(currentWorkflow)
+                optimizationReport = nil
+                optimizationAnalysis = nil
             }
 
             statusMessage = "\(summaries.count) workflow\(summaries.count == 1 ? "" : "s") loaded"
@@ -364,6 +373,7 @@ final class WorkflowRunStore: ObservableObject {
             selectedWorkflowID = workflow["id"] as? String ?? workflowID
             syncDisplay(with: workflow)
             rawWorkflowJSON = prettyJSONString(workflow)
+            await refreshOptimization(for: selectedWorkflowID ?? workflowID)
             statusMessage = "Loaded \(workflowID)"
         } catch {
             statusMessage = error.localizedDescription
@@ -444,12 +454,21 @@ final class WorkflowRunStore: ObservableObject {
                 applyServerEvent(event)
             }
             applyRunSummary(page.run)
+            if let optimizationReport = page.optimizationReport {
+                self.optimizationReport = optimizationReport
+            }
+            if let optimizationAnalysis = page.optimizationAnalysis {
+                self.optimizationAnalysis = optimizationAnalysis
+            }
 
             if !completed {
                 try? await Task.sleep(for: .milliseconds(350))
             }
         }
 
+        if optimizationReport == nil, let selectedWorkflowID {
+            await refreshOptimization(for: selectedWorkflowID)
+        }
         statusMessage = "Completed \(runID)"
         isRunning = false
     }
@@ -561,6 +580,24 @@ final class WorkflowRunStore: ObservableObject {
             "null"
         default:
             String(describing: value!)
+        }
+    }
+
+    private func refreshOptimization(for workflowID: String) async {
+        // See docs/wiki/systems/매뉴얼-최적화-기능.md: the mac workflow screen
+        // should surface optimization insight right after load or execution.
+        optimizationLoading = true
+        defer { optimizationLoading = false }
+
+        do {
+            async let report = client.optimizationReport(workflowID: workflowID)
+            async let analysis = client.optimizationAnalysis(workflowID: workflowID)
+            optimizationReport = try await report
+            optimizationAnalysis = try await analysis
+        } catch {
+            optimizationReport = nil
+            optimizationAnalysis = nil
+            appendEvent(nodeID: nil, title: "Optimization unavailable", detail: error.localizedDescription)
         }
     }
 }

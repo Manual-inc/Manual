@@ -3587,17 +3587,14 @@ fn evaluate_sandbox(world: &mut ManualWorld, operation: &str, target: &str) {
 }
 
 fn record_optimization_run(world: &mut ManualWorld, run_id: &str, status: &str) {
+    let params = optimization_run_params(run_id, status);
     let recorded = rpc(
         world,
         json!({
             "jsonrpc": "2.0",
             "id": 65,
             "method": "optimization.record_run",
-            "params": {
-                "run_id": run_id,
-                "status": status,
-                "workflow_id": "ai-workflow"
-            }
+            "params": params
         }),
     );
     world.optimization_run_id = recorded["result"]["run"]["id"].as_str().map(str::to_owned);
@@ -3611,9 +3608,165 @@ fn compare_optimization(world: &mut ManualWorld) {
             "jsonrpc": "2.0",
             "id": 66,
             "method": "optimization.compare",
-            "params": {}
+            "params": { "workflow_id": "ai-workflow" }
         }),
     ));
+}
+
+fn optimization_run_params(run_id: &str, status: &str) -> Value {
+    match run_id {
+        "before" => json!({
+            "run_id": "before",
+            "workflow_id": "ai-workflow",
+            "status": "completed",
+            "token_usage": {
+                "total": 1800,
+                "by_step": [
+                    { "step_id": "plan", "tokens": 1800, "budget": 2500, "over_budget": false, "over_by": 0, "over_ratio": 0.0 }
+                ],
+                "by_model": [
+                    { "model": "gpt-5.4-mini", "tokens": 1800, "cost": 0.04 }
+                ],
+                "hotspots": ["plan"]
+            },
+            "verification": {
+                "requirements_satisfied": 0.94,
+                "pass_rate": 0.94,
+                "items": [
+                    { "name": "contract tests", "status": "passed", "evidence": ["cargo test log"] }
+                ],
+                "missing": [],
+                "risks": []
+            },
+            "time": {
+                "total_ms": 700,
+                "by_step": [
+                    { "step_id": "plan", "duration_ms": 700, "retries": 0 }
+                ],
+                "review_ms": 0
+            },
+            "model_calls": [
+                { "step_id": "plan", "model": "gpt-5.4-mini", "tokens": 1800, "cost": 0.04, "reason": "lightweight planning" }
+            ],
+            "tool_calls": [{ "tool": "rg", "count": 1 }],
+            "context_sources": [{ "source": "docs/wiki/목차.md", "summary": "wiki navigation" }]
+        }),
+        "after" | "worse-run" => json!({
+            "run_id": run_id,
+            "workflow_id": "ai-workflow",
+            "status": status,
+            "token_usage": {
+                "total": 6200,
+                "by_step": [
+                    { "step_id": "plan", "tokens": 1000, "budget": 1500, "over_budget": false, "over_by": 0, "over_ratio": 0.0 },
+                    { "step_id": "implement", "tokens": 5200, "budget": 3200, "over_budget": true, "over_by": 2000, "over_ratio": 0.625 }
+                ],
+                "by_model": [
+                    { "model": "gpt-5.5", "tokens": 5200, "cost": 0.52 }
+                ],
+                "hotspots": ["implement"]
+            },
+            "verification": {
+                "requirements_satisfied": 0.78,
+                "pass_rate": 0.7,
+                "items": [
+                    { "name": "contract tests", "status": "passed", "evidence": ["cargo test log"] },
+                    { "name": "review", "status": "unknown", "evidence": [] }
+                ],
+                "missing": ["review"],
+                "risks": ["review evidence missing"]
+            },
+            "time": {
+                "total_ms": 3100,
+                "by_step": [
+                    { "step_id": "plan", "duration_ms": 400, "retries": 0 },
+                    { "step_id": "implement", "duration_ms": 2700, "retries": 2 }
+                ],
+                "review_ms": 400
+            },
+            "model_calls": [
+                { "step_id": "implement", "model": "gpt-5.5", "tokens": 5200, "cost": 0.52, "reason": "high-risk implementation" }
+            ],
+            "tool_calls": [{ "tool": "rg", "count": 3 }],
+            "context_sources": [{ "source": "docs/wiki/목차.md", "summary": "wiki navigation" }]
+        }),
+        "failed" => json!({
+            "run_id": "failed",
+            "workflow_id": "ai-workflow",
+            "status": "failed",
+            "token_usage": {
+                "total": 4200,
+                "by_step": [
+                    { "step_id": "implement", "tokens": 4200, "budget": 3000, "over_budget": true, "over_by": 1200, "over_ratio": 0.4 }
+                ],
+                "by_model": [
+                    { "model": "gpt-5.5", "tokens": 4200, "cost": 0.42 }
+                ],
+                "hotspots": ["implement"]
+            },
+            "verification": {
+                "requirements_satisfied": 0.65,
+                "pass_rate": 0.6,
+                "items": [
+                    { "name": "contract tests", "status": "failed", "evidence": ["cargo test log"] }
+                ],
+                "missing": ["review"],
+                "risks": ["execution failed"]
+            },
+            "time": {
+                "total_ms": 2300,
+                "by_step": [
+                    { "step_id": "implement", "duration_ms": 2300, "retries": 1 }
+                ],
+                "review_ms": 0
+            },
+            "model_calls": [
+                { "step_id": "implement", "model": "gpt-5.5", "tokens": 4200, "cost": 0.42, "reason": "high-risk implementation" }
+            ]
+        }),
+        "successful" => json!({
+            "run_id": "successful",
+            "workflow_id": "ai-workflow",
+            "status": "completed",
+            "token_usage": {
+                "total": 3300,
+                "by_step": [
+                    { "step_id": "plan", "tokens": 900, "budget": 1500, "over_budget": false, "over_by": 0, "over_ratio": 0.0 },
+                    { "step_id": "implement", "tokens": 2400, "budget": 3000, "over_budget": false, "over_by": 0, "over_ratio": 0.0 }
+                ],
+                "by_model": [
+                    { "model": "gpt-5.4-mini", "tokens": 900, "cost": 0.05 },
+                    { "model": "gpt-5.5", "tokens": 2400, "cost": 0.31 }
+                ],
+                "hotspots": ["implement"]
+            },
+            "verification": {
+                "requirements_satisfied": 0.92,
+                "pass_rate": 0.92,
+                "items": [
+                    { "name": "contract tests", "status": "passed", "evidence": ["cargo test log"] }
+                ],
+                "missing": [],
+                "risks": []
+            },
+            "time": {
+                "total_ms": 1500,
+                "by_step": [
+                    { "step_id": "plan", "duration_ms": 400, "retries": 0 },
+                    { "step_id": "implement", "duration_ms": 1100, "retries": 0 }
+                ],
+                "review_ms": 100
+            },
+            "model_calls": [
+                { "step_id": "implement", "model": "gpt-5.5", "tokens": 2400, "cost": 0.31, "reason": "high-risk implementation" }
+            ]
+        }),
+        _ => json!({
+            "run_id": run_id,
+            "status": status,
+            "workflow_id": "ai-workflow"
+        }),
+    }
 }
 
 fn configure_skill_step(world: &mut ManualWorld, skills: Value) {

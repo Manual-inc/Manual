@@ -288,6 +288,23 @@ fn workflow_and_node_commands_work_against_real_app_server() {
     assert!(workflow_run_docs[0]["run_id"].is_string());
     assert_eq!(workflow_run_docs.last().unwrap()["completed"], true);
 
+    let workflow_run_human = harness.run::<Vec<String>, String>(vec![
+        "workflow".into(),
+        "run".into(),
+        "wf-main".into(),
+        "--interval-ms".into(),
+        "10".into(),
+        "--human".into(),
+    ]);
+    assert!(workflow_run_human.status.success());
+    let workflow_human_stdout = String::from_utf8_lossy(&workflow_run_human.stdout);
+    assert!(workflow_human_stdout.contains("Started workflow run"));
+    assert!(workflow_human_stdout.contains("Workflow Events"));
+    assert!(workflow_human_stdout.contains("Optimization Report"));
+    assert!(workflow_human_stdout.contains("Optimization Analysis"));
+    assert!(workflow_human_stdout.contains("Measurements"));
+    assert_eq!(workflow_human_stdout.matches("Workflow Events").count(), 1);
+
     let workflow_stop_created = harness.run_jsons([
         "workflow".into(),
         "create".into(),
@@ -378,12 +395,84 @@ fn manual_sandbox_skill_optimization_and_agent_commands_work_against_real_app_se
             "allow_write": ["/tmp/**", "/var/tmp/**"]
         }),
     );
-    let optimization_json = harness.write_json(
-        "optimization.json",
+    let optimization_before_json = harness.write_json(
+        "optimization-before.json",
         &json!({
-            "run_id": "opt-1",
+            "run_id": "opt-before",
             "workflow_id": "wf-main",
-            "status": "completed"
+            "status": "completed",
+            "token_usage": {
+                "total": 1800,
+                "by_step": [
+                    { "step_id": "plan", "tokens": 1800, "budget": 2500, "over_budget": false, "over_by": 0, "over_ratio": 0.0 }
+                ],
+                "by_model": [
+                    { "model": "gpt-5.4-mini", "tokens": 1800, "cost": 0.04 }
+                ],
+                "hotspots": ["plan"]
+            },
+            "verification": {
+                "requirements_satisfied": 0.94,
+                "pass_rate": 0.94,
+                "items": [],
+                "missing": [],
+                "risks": []
+            },
+            "time": {
+                "total_ms": 700,
+                "by_step": [{ "step_id": "plan", "duration_ms": 700, "retries": 0 }],
+                "review_ms": 0
+            }
+        }),
+    );
+    let optimization_after_json = harness.write_json(
+        "optimization-after.json",
+        &json!({
+            "run_id": "opt-after",
+            "workflow_id": "wf-main",
+            "status": "completed",
+            "token_usage": {
+                "total": 6200,
+                "by_step": [
+                    { "step_id": "plan", "tokens": 1000, "budget": 1500, "over_budget": false, "over_by": 0, "over_ratio": 0.0 },
+                    { "step_id": "implement", "tokens": 5200, "budget": 3200, "over_budget": true, "over_by": 2000, "over_ratio": 0.625 }
+                ],
+                "by_model": [
+                    { "model": "gpt-5.5", "tokens": 5200, "cost": 0.52 }
+                ],
+                "hotspots": ["implement"]
+            },
+            "verification": {
+                "requirements_satisfied": 0.78,
+                "pass_rate": 0.7,
+                "items": [
+                    { "name": "review", "status": "unknown", "evidence": [] }
+                ],
+                "missing": ["review"],
+                "risks": ["review evidence missing"]
+            },
+            "time": {
+                "total_ms": 3100,
+                "by_step": [{ "step_id": "implement", "duration_ms": 3100, "retries": 2 }],
+                "review_ms": 400
+            },
+            "model_calls": [
+                { "step_id": "implement", "model": "gpt-5.5", "tokens": 5200, "cost": 0.52, "reason": "high-risk implementation" }
+            ]
+        }),
+    );
+    let optimization_analyze_json = harness.write_json(
+        "optimization-analyze.json",
+        &json!({
+            "workflow_id": "wf-main"
+        }),
+    );
+    let optimization_compare_json = harness.write_json(
+        "optimization-compare.json",
+        &json!({
+            "workflow_id": "wf-main",
+            "before_run_id": "opt-before",
+            "after_run_id": "opt-after"
         }),
     );
     let skill_json = harness.write_json(
@@ -537,24 +626,89 @@ fn manual_sandbox_skill_optimization_and_agent_commands_work_against_real_app_se
     ]);
     assert_eq!(sandbox_evaluated[0]["decision"]["allowed"], true);
 
-    let optimization_recorded = harness.run_jsons([
+    let optimization_before_recorded = harness.run_jsons([
         "optimization".into(),
         "record-run".into(),
-        optimization_json.display().to_string(),
+        optimization_before_json.display().to_string(),
     ]);
-    assert_eq!(optimization_recorded[0]["run"]["id"], "opt-1");
+    assert_eq!(optimization_before_recorded[0]["run"]["id"], "opt-before");
 
-    let optimization_analysis = harness.run_jsons(["optimization".into(), "analyze".into()]);
+    let optimization_after_recorded = harness.run_jsons([
+        "optimization".into(),
+        "record-run".into(),
+        optimization_after_json.display().to_string(),
+    ]);
+    assert_eq!(optimization_after_recorded[0]["run"]["id"], "opt-after");
+
+    let optimization_analysis = harness.run_jsons([
+        "optimization".into(),
+        "analyze".into(),
+        "--params".into(),
+        optimization_analyze_json.display().to_string(),
+    ]);
     assert!(optimization_analysis[0]["candidates"].is_array());
+    assert_eq!(optimization_analysis[0]["regression"]["possible"], true);
 
-    let optimization_compare = harness.run_jsons(["optimization".into(), "compare".into()]);
-    assert!(optimization_compare[0]["token_delta"].is_number());
+    let optimization_analysis_human = harness.run([
+        "optimization".into(),
+        "analyze".into(),
+        "--params".into(),
+        optimization_analyze_json.display().to_string(),
+        "--human".into(),
+    ]);
+    assert!(optimization_analysis_human.status.success());
+    let analysis_stdout = String::from_utf8_lossy(&optimization_analysis_human.stdout);
+    assert!(analysis_stdout.contains("Optimization Analysis"));
+    assert!(analysis_stdout.contains("Regression"));
+    assert!(analysis_stdout.contains("Implement"));
+    assert!(analysis_stdout.contains("Measurements"));
 
-    let optimization_report = harness.run_jsons(["optimization".into(), "report".into()]);
+    let optimization_compare = harness.run_jsons([
+        "optimization".into(),
+        "compare".into(),
+        "--params".into(),
+        optimization_compare_json.display().to_string(),
+    ]);
+    assert_eq!(optimization_compare[0]["token_delta"], 4400);
+
+    let optimization_compare_human = harness.run([
+        "optimization".into(),
+        "compare".into(),
+        "--params".into(),
+        optimization_compare_json.display().to_string(),
+        "--human".into(),
+    ]);
+    assert!(optimization_compare_human.status.success());
+    let compare_stdout = String::from_utf8_lossy(&optimization_compare_human.stdout);
+    assert!(compare_stdout.contains("Optimization Comparison"));
+    assert!(compare_stdout.contains("Token Delta"));
+    assert!(compare_stdout.contains("4400"));
+    assert!(compare_stdout.contains("Measurements"));
+
+    let optimization_report = harness.run_jsons([
+        "optimization".into(),
+        "report".into(),
+        "--params".into(),
+        optimization_analyze_json.display().to_string(),
+    ]);
     assert_eq!(
         optimization_report[0]["main_issue"],
         "implementation step used most tokens"
     );
+
+    let optimization_report_human = harness.run([
+        "optimization".into(),
+        "report".into(),
+        "--params".into(),
+        optimization_analyze_json.display().to_string(),
+        "--human".into(),
+    ]);
+    assert!(optimization_report_human.status.success());
+    let human_stdout = String::from_utf8_lossy(&optimization_report_human.stdout);
+    assert!(human_stdout.contains("Optimization Report"));
+    assert!(human_stdout.contains("Main Issue"));
+    assert!(human_stdout.contains("implementation step used most tokens"));
+    assert!(human_stdout.contains("Recommendations"));
 
     let configured_skill = harness.run_jsons([
         "skill".into(),
@@ -608,6 +762,50 @@ fn manual_sandbox_skill_optimization_and_agent_commands_work_against_real_app_se
     assert_eq!(listed_agents[0]["agents"][0]["name"], "codex");
     assert_eq!(listed_agents[0]["agents"][0]["available"], true);
     assert_eq!(listed_agents[0]["agents"][1]["available"], false);
+}
+
+#[test]
+fn demo_optimization_command_runs_end_to_end_flow() {
+    let harness = RealHarness::new("manual-cli-demo");
+
+    let output = harness.run(vec![
+        "demo".to_owned(),
+        "optimization".to_owned(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Started workflow run"));
+    assert!(stdout.contains("Workflow Events"));
+    assert!(stdout.contains("Optimization Report"));
+    assert!(stdout.contains("Optimization Analysis"));
+    assert!(stdout.contains("Digest step used most tokens"));
+    assert_eq!(stdout.matches("Workflow Events").count(), 1);
+    assert_eq!(stdout.matches("Optimization Report").count(), 1);
+    assert_eq!(stdout.matches("Optimization Analysis").count(), 1);
+
+    let second_output = harness.run(vec![
+        "demo".to_owned(),
+        "optimization".to_owned(),
+    ]);
+    assert!(
+        second_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&second_output.stderr)
+    );
+
+    let workflows = harness.run_jsons(["workflow".into(), "list".into()]);
+    let demo_count = workflows[0]["workflows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|workflow| workflow["workflow_id"] == "demo-optimization")
+        .count();
+    assert_eq!(demo_count, 1);
 }
 
 struct RealHarness {

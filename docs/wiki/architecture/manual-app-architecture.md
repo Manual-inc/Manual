@@ -4,7 +4,7 @@ type: architecture
 tags: [architecture, app-server, cli, native-client, agent]
 sources: [2026-05-11-manual-product-direction.md]
 date_created: 2026-05-11
-date_updated: 2026-05-18
+date_updated: 2026-05-19
 ---
 
 # Manual 앱 아키텍처
@@ -44,6 +44,12 @@ Manual은 프로젝트 앱 서버를 중심에 두고 CLI와 네이티브 클라
 3. 에이전트 노드는 로컬 CLI를 비대화형으로 호출한다.
 4. 실행 로그와 결과 스트림이 앱 서버에 쌓인다.
 5. UI가 앱 서버에서 상태를 받아 그래프와 타임라인에 반영한다.
+
+## Native Client Notes
+
+- macOS 앱은 현재 workflow 실행, sandbox 관리, optimization pulse/패널까지 보여주는 가장 앞선 네이티브 표면이다.
+- Windows 앱은 아직 app-server live wiring 전이지만, 최소한 workflow run summary, optimization metric cards, regression risk, recommendation shell을 먼저 갖춘다.
+- Windows 개발은 실제 WinUI 빌드와 실행이 가능한 Windows 환경에서 마무리해야 한다. macOS에서는 XAML compiler가 실행되지 않으므로, 저장소에서는 XAML smoke 검증으로 구조 회귀를 확인한다.
 
 ## 관련 페이지
 

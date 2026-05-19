@@ -40,6 +40,7 @@ fn run() -> Result<(), CliError> {
         CommandGroup::Agent { command } => handle_agent(command, &mut client),
         CommandGroup::Manual { command } => handle_manual(command, &mut client),
         CommandGroup::Optimization { command } => handle_optimization(command, &mut client),
+        CommandGroup::Demo { command } => handle_demo(command, &mut client),
         CommandGroup::Sandbox { command } => handle_sandbox(command, &mut client),
         CommandGroup::Skill { command } => handle_skill(command, &mut client),
         CommandGroup::Rpc { method, params } => {
@@ -125,7 +126,8 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
             cursor,
             watch,
             interval_ms,
-        } => print_events(client, run_id, cursor, watch, interval_ms),
+            human,
+        } => print_events(client, run_id, cursor, watch, interval_ms, human),
         WorkflowCommand::Run {
             workflow_id,
             interval_ms,
@@ -134,6 +136,7 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
             inputs,
             mode,
             resume_run_id,
+            human,
         } => {
             let input_overrides = read_optional_json_object(inputs.as_ref())?;
             let mut params = json!({
@@ -149,13 +152,21 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
                 params["resume_run_id"] = json!(rid);
             }
             let started = client.request("workflow.start", params)?;
-            print_json(&started)?;
+            if human {
+                let run_id = started
+                    .get("run_id")
+                    .and_then(Value::as_str)
+                    .ok_or(CliError::InvalidResponse("missing run_id".to_owned()))?;
+                print_text(&format!("Started workflow run {run_id}"))?;
+            } else {
+                print_json(&started)?;
+            }
             let run_id = started
                 .get("run_id")
                 .and_then(Value::as_str)
                 .ok_or(CliError::InvalidResponse("missing run_id".to_owned()))?
                 .to_owned();
-            print_events(client, run_id, 0, true, interval_ms)
+            print_events(client, run_id, 0, true, interval_ms, human)
         }
         WorkflowCommand::Stop { run_id } => {
             let result = client.request("workflow.stop", json!({ "run_id": run_id }))?;
@@ -361,21 +372,36 @@ fn handle_optimization(
         OptimizationCommand::RecordRun { params } => {
             request_and_print(client, "optimization.record_run", read_json_file(&params)?)
         }
-        OptimizationCommand::Analyze { params } => request_and_print(
-            client,
-            "optimization.analyze",
-            read_optional_json(params.as_ref())?,
-        ),
-        OptimizationCommand::Compare { params } => request_and_print(
-            client,
-            "optimization.compare",
-            read_optional_json(params.as_ref())?,
-        ),
-        OptimizationCommand::Report { params } => request_and_print(
-            client,
-            "optimization.report",
-            read_optional_json(params.as_ref())?,
-        ),
+        OptimizationCommand::Analyze { params, human } => {
+            let result = client.request("optimization.analyze", read_optional_json(params.as_ref())?)?;
+            if human {
+                print_text(&render_optimization_analysis_human(&result))
+            } else {
+                print_json(&result)
+            }
+        }
+        OptimizationCommand::Compare { params, human } => {
+            let result = client.request("optimization.compare", read_optional_json(params.as_ref())?)?;
+            if human {
+                print_text(&render_optimization_comparison_human(&result))
+            } else {
+                print_json(&result)
+            }
+        }
+        OptimizationCommand::Report { params, human } => {
+            let result = client.request("optimization.report", read_optional_json(params.as_ref())?)?;
+            if human {
+                print_text(&render_optimization_report_human(&result))
+            } else {
+                print_json(&result)
+            }
+        }
+    }
+}
+
+fn handle_demo(command: DemoCommand, client: &mut AppServerClient) -> Result<(), CliError> {
+    match command {
+        DemoCommand::Optimization => run_demo_optimization(client),
     }
 }
 
@@ -465,6 +491,63 @@ fn request_and_print(
     print_json(&result)
 }
 
+fn run_demo_optimization(client: &mut AppServerClient) -> Result<(), CliError> {
+    // Why this exists: docs/wiki/analyses/2026-05-19-demo-flow.md defines the
+    // shortest CLI path for feeling Manual's workflow + optimization value.
+    let workflow = demo_optimization_workflow();
+    let workflow_id = workflow["id"]
+        .as_str()
+        .ok_or(CliError::InvalidResponse("demo workflow missing id".to_owned()))?
+        .to_owned();
+
+    client.request("workflow.create", json!({ "workflow": workflow }))?;
+    let started = client.request(
+        "workflow.start",
+        json!({
+            "workflow_id": workflow_id,
+            "resume_from_failure": false,
+            "input_overrides": {},
+            "mode": "auto",
+        }),
+    )?;
+    let run_id = started
+        .get("run_id")
+        .and_then(Value::as_str)
+        .ok_or(CliError::InvalidResponse("missing run_id".to_owned()))?
+        .to_owned();
+
+    print_text(&format!("Started workflow run {run_id}"))?;
+    print_events(client, run_id, 0, true, 10, true)
+}
+
+fn demo_optimization_workflow() -> Value {
+    json!({
+        "id": "demo-optimization",
+        "nodes": [
+            {
+                "id": "brief",
+                "kind": "constant",
+                "value": {
+                    "lead_count": 128,
+                    "qualified_count": 42,
+                    "region": "APAC"
+                }
+            },
+            {
+                "id": "digest",
+                "kind": "template",
+                "template": "Qualified {{brief.qualified_count}} / {{brief.lead_count}} leads in {{brief.region}}"
+            }
+        ],
+        "dependencies": [
+            {
+                "node": "digest",
+                "depends_on": "brief"
+            }
+        ]
+    })
+}
+
 fn read_optional_json(path: Option<&PathBuf>) -> Result<Value, CliError> {
     match path {
         Some(path) => read_json_file(path),
@@ -537,7 +620,12 @@ fn print_events(
     mut cursor: usize,
     watch: bool,
     interval_ms: u64,
+    human: bool,
 ) -> Result<(), CliError> {
+    let mut printed_human_header = false;
+    let mut printed_human_events_label = false;
+    let mut last_human_status: Option<String> = None;
+
     loop {
         let result = client.request(
             "workflow.events",
@@ -546,7 +634,23 @@ fn print_events(
                 "cursor": cursor,
             }),
         )?;
-        print_json(&result)?;
+        if human {
+            if watch {
+                let text = render_workflow_events_incremental_human(
+                    &result,
+                    &mut printed_human_header,
+                    &mut printed_human_events_label,
+                    &mut last_human_status,
+                );
+                if !text.is_empty() {
+                    print_text(&text)?;
+                }
+            } else {
+                print_text(&render_workflow_events_human(&result))?;
+            }
+        } else {
+            print_json(&result)?;
+        }
 
         if !watch || result.get("completed").and_then(Value::as_bool) == Some(true) {
             return Ok(());
@@ -607,6 +711,11 @@ enum CommandGroup {
     Optimization {
         #[command(subcommand)]
         command: OptimizationCommand,
+    },
+    #[command(about = "Run built-in product demos")]
+    Demo {
+        #[command(subcommand)]
+        command: DemoCommand,
     },
     #[command(about = "Manage sandbox policies through app-server")]
     Sandbox {
@@ -683,6 +792,8 @@ enum WorkflowCommand {
         watch: bool,
         #[arg(long, default_value_t = 100)]
         interval_ms: u64,
+        #[arg(long, help = "Render workflow events as human-readable text")]
+        human: bool,
     },
     #[command(about = "Start a workflow and watch events until completion")]
     Run {
@@ -699,6 +810,8 @@ enum WorkflowCommand {
         mode: String,
         #[arg(long, value_name = "RUN_ID")]
         resume_run_id: Option<String>,
+        #[arg(long, help = "Render watched workflow output as human-readable text")]
+        human: bool,
     },
     #[command(about = "Stop a running workflow run")]
     Stop { run_id: String },
@@ -836,17 +949,29 @@ enum OptimizationCommand {
     Analyze {
         #[arg(long, value_name = "PARAMS_JSON")]
         params: Option<PathBuf>,
+        #[arg(long, help = "Render a human-readable analysis summary instead of JSON")]
+        human: bool,
     },
     #[command(about = "Compare optimization runs")]
     Compare {
         #[arg(long, value_name = "PARAMS_JSON")]
         params: Option<PathBuf>,
+        #[arg(long, help = "Render a human-readable comparison summary instead of JSON")]
+        human: bool,
     },
     #[command(about = "Render an optimization report")]
     Report {
         #[arg(long, value_name = "PARAMS_JSON")]
         params: Option<PathBuf>,
+        #[arg(long, help = "Render a human-readable report summary instead of JSON")]
+        human: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum DemoCommand {
+    #[command(about = "Run the optimization demo flow end-to-end")]
+    Optimization,
 }
 
 #[derive(Subcommand)]
@@ -1338,6 +1463,174 @@ mod tests {
         assert_eq!(resolved, server);
         fs::remove_dir_all(temp).unwrap();
     }
+
+    #[test]
+    fn human_optimization_report_includes_main_sections() {
+        let rendered = render_optimization_report_human(&json!({
+            "sections": ["Token Usage", "Verification", "Time"],
+            "main_issue": "implementation step used most tokens",
+            "recommendations": ["preprocess file discovery", "add verification checklist"],
+            "measurement_mode": "derived",
+            "measurement_note": "Estimated from workflow events.",
+        }));
+
+        assert!(rendered.contains("Optimization Report"));
+        assert!(rendered.contains("Token Usage"));
+        assert!(rendered.contains("Main Issue"));
+        assert!(rendered.contains("implementation step used most tokens"));
+        assert!(rendered.contains("Recommendations"));
+        assert!(rendered.contains("Measurements"));
+        assert!(rendered.contains("Estimated from workflow events."));
+    }
+
+    #[test]
+    fn human_optimization_analysis_includes_regression_and_bottlenecks() {
+        let rendered = render_optimization_analysis_human(&json!({
+            "measurement_note": "Estimated from workflow events.",
+            "regression": {
+                "possible": true,
+                "step_id": "implement",
+                "reason": "tokens and time increased while success rate fell"
+            },
+            "bottlenecks": {
+                "token_waste": ["implement"],
+                "verification_gaps": ["review"],
+                "slow_steps": ["implement"],
+                "unstable_tasks": ["implement"]
+            },
+            "suggestions": ["preprocess file discovery"]
+        }));
+
+        assert!(rendered.contains("Optimization Analysis"));
+        assert!(rendered.contains("Regression"));
+        assert!(rendered.contains("Implement"));
+        assert!(rendered.contains("Token Waste"));
+        assert!(rendered.contains("Measurements"));
+    }
+
+    #[test]
+    fn human_optimization_comparison_includes_deltas() {
+        let rendered = render_optimization_comparison_human(&json!({
+            "measurement_note": "Recorded optimization metrics.",
+            "token_delta": 4400,
+            "verification_delta": -0.24,
+            "time_delta_ms": 2400,
+            "failed_run": { "tokens": 0, "cost": 0.0 },
+            "successful_run": { "tokens": 6200, "cost": 0.52 },
+            "retry_extra": { "tokens": 4400, "cost": 0.48, "duration_ms": 2400 }
+        }));
+
+        assert!(rendered.contains("Optimization Comparison"));
+        assert!(rendered.contains("Token Delta"));
+        assert!(rendered.contains("4400"));
+        assert!(rendered.contains("Verification Delta"));
+        assert!(rendered.contains("Measurements"));
+    }
+
+    #[test]
+    fn human_workflow_events_include_optimization_report() {
+        let rendered = render_workflow_events_human(&json!({
+            "completed": true,
+            "events": [
+                { "sequence": 4, "type": "workflow_completed" }
+            ],
+            "run": {
+                "run_id": "run-7",
+                "status": "completed"
+            },
+            "optimization_report": {
+                "sections": ["Token Usage", "Verification", "Time"],
+                "main_issue": "implementation step used most tokens",
+                "recommendations": ["preprocess file discovery"],
+                "measurement_mode": "derived",
+                "measurement_note": "Estimated from workflow events."
+            },
+            "optimization_analysis": {
+                "measurement_mode": "derived",
+                "measurement_note": "Estimated from workflow events.",
+                "regression": {
+                    "possible": true,
+                    "step_id": "implement",
+                    "reason": "tokens and time increased while success rate fell"
+                },
+                "bottlenecks": {
+                    "token_waste": ["implement"],
+                    "verification_gaps": ["review"],
+                    "slow_steps": ["implement"],
+                    "unstable_tasks": ["implement"]
+                },
+                "suggestions": ["preprocess file discovery"]
+            }
+        }));
+
+        assert!(rendered.contains("Workflow Events"));
+        assert!(rendered.contains("run-7"));
+        assert!(rendered.contains("Optimization Report"));
+        assert!(rendered.contains("Optimization Analysis"));
+        assert!(rendered.contains("implementation step used most tokens"));
+    }
+
+    #[test]
+    fn incremental_workflow_events_print_status_change_after_events() {
+        let mut printed_header = false;
+        let mut printed_events_label = false;
+        let mut last_status = None;
+
+        let first = render_workflow_events_incremental_human(
+            &json!({
+                "completed": false,
+                "events": [
+                    { "sequence": 0, "type": "workflow_started" }
+                ],
+                "run": {
+                    "run_id": "run-7",
+                    "status": "running"
+                }
+            }),
+            &mut printed_header,
+            &mut printed_events_label,
+            &mut last_status,
+        );
+        let second = render_workflow_events_incremental_human(
+            &json!({
+                "completed": true,
+                "events": [
+                    { "sequence": 1, "type": "node_completed", "node_id": "digest" },
+                    { "sequence": 2, "type": "workflow_completed" }
+                ],
+                "run": {
+                    "run_id": "run-7",
+                    "status": "completed"
+                },
+                "optimization_report": {
+                    "sections": ["Token Usage", "Verification", "Time"],
+                    "main_issue": "Digest step used most tokens",
+                    "measurement_mode": "derived",
+                    "measurement_note": "Estimated from workflow events.",
+                    "recommendations": ["preprocess file discovery"]
+                }
+            }),
+            &mut printed_header,
+            &mut printed_events_label,
+            &mut last_status,
+        );
+
+        assert!(first.contains("Status: running"));
+        assert!(second.contains("- #1 Node Completed (Digest)"));
+        assert!(second.contains("Status: completed"));
+        assert!(second.find("- #1 Node Completed (Digest)") < second.find("Status: completed"));
+    }
+
+    #[test]
+    fn workflow_event_line_is_humanized() {
+        let rendered = render_workflow_event_line(&json!({
+            "sequence": 4,
+            "type": "node_completed",
+            "node_id": "digest"
+        }));
+
+        assert_eq!(rendered, "#4 Node Completed (Digest)");
+    }
 }
 
 fn read_json_file(path: &Path) -> Result<Value, CliError> {
@@ -1356,6 +1649,292 @@ fn print_json(value: &Value) -> Result<(), CliError> {
     serde_json::to_writer_pretty(&mut stdout, value)?;
     writeln!(stdout)?;
     Ok(())
+}
+
+fn print_text(text: &str) -> Result<(), CliError> {
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
+    writeln!(stdout, "{text}")?;
+    Ok(())
+}
+
+fn render_optimization_report_human(result: &Value) -> String {
+    // Why this exists: docs/wiki/systems/매뉴얼-최적화-기능.md expects the
+    // optimization report to be understandable as current state plus next action.
+    let sections = result["sections"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    let main_issue = result["main_issue"]
+        .as_str()
+        .unwrap_or("No optimization issue identified.");
+    let recommendations = result["recommendations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    let measurement_note = result["measurement_note"]
+        .as_str()
+        .unwrap_or("Measurement provenance unavailable.");
+
+    let mut lines = vec!["Optimization Report".to_owned()];
+    if !sections.is_empty() {
+        lines.push(format!("Sections: {}", sections.join(" | ")));
+    }
+    lines.push(format!("Measurements: {measurement_note}"));
+    lines.push(String::new());
+    lines.push("Main Issue".to_owned());
+    lines.push(main_issue.to_owned());
+    lines.push(String::new());
+    lines.push("Recommendations".to_owned());
+    if recommendations.is_empty() {
+        lines.push("- No recommendations available".to_owned());
+    } else {
+        lines.extend(
+            recommendations
+                .into_iter()
+                .map(|recommendation| format!("- {recommendation}")),
+        );
+    }
+
+    lines.join("\n")
+}
+
+fn render_optimization_analysis_human(result: &Value) -> String {
+    let measurement_note = result["measurement_note"]
+        .as_str()
+        .unwrap_or("Measurement provenance unavailable.");
+    let regression_possible = result["regression"]["possible"].as_bool().unwrap_or(false);
+    let regression_step = humanize_identifier(
+        result["regression"]["step_id"]
+            .as_str()
+            .unwrap_or("unknown"),
+    );
+    let regression_reason = result["regression"]["reason"]
+        .as_str()
+        .unwrap_or("No regression details available.");
+
+    let token_waste = join_value_strings(&result["bottlenecks"]["token_waste"])
+        .into_iter()
+        .map(|value| humanize_identifier(&value))
+        .collect::<Vec<_>>();
+    let verification_gaps = join_value_strings(&result["bottlenecks"]["verification_gaps"])
+        .into_iter()
+        .map(|value| humanize_identifier(&value))
+        .collect::<Vec<_>>();
+    let slow_steps = join_value_strings(&result["bottlenecks"]["slow_steps"])
+        .into_iter()
+        .map(|value| humanize_identifier(&value))
+        .collect::<Vec<_>>();
+    let suggestions = join_value_strings(&result["suggestions"]);
+
+    let mut lines = vec!["Optimization Analysis".to_owned()];
+    lines.push(format!("Measurements: {measurement_note}"));
+    lines.push(String::new());
+    lines.push("Regression".to_owned());
+    if regression_possible {
+        lines.push(format!("- Detected at: {regression_step}"));
+        lines.push(format!("- Why: {regression_reason}"));
+    } else {
+        lines.push("- No strong regression signal detected".to_owned());
+    }
+    lines.push(String::new());
+    lines.push("Token Waste".to_owned());
+    lines.push(format!("- {}", fallback_text(token_waste, "None identified")));
+    lines.push(String::new());
+    lines.push("Verification Gaps".to_owned());
+    lines.push(format!(
+        "- {}",
+        fallback_text(verification_gaps, "No major gaps identified")
+    ));
+    lines.push(String::new());
+    lines.push("Slow Steps".to_owned());
+    lines.push(format!("- {}", fallback_text(slow_steps, "No slow steps identified")));
+    lines.push(String::new());
+    lines.push("Suggestions".to_owned());
+    if suggestions.is_empty() {
+        lines.push("- No suggestions available".to_owned());
+    } else {
+        lines.extend(suggestions.into_iter().map(|item| format!("- {item}")));
+    }
+
+    lines.join("\n")
+}
+
+fn render_optimization_comparison_human(result: &Value) -> String {
+    let measurement_note = result["measurement_note"]
+        .as_str()
+        .unwrap_or("Measurement provenance unavailable.");
+    let token_delta = result["token_delta"].as_i64().unwrap_or(0);
+    let verification_delta = result["verification_delta"].as_f64().unwrap_or(0.0);
+    let time_delta_ms = result["time_delta_ms"].as_i64().unwrap_or(0);
+    let retry_tokens = result["retry_extra"]["tokens"].as_i64().unwrap_or(0);
+    let retry_cost = result["retry_extra"]["cost"].as_f64().unwrap_or(0.0);
+
+    [
+        "Optimization Comparison".to_owned(),
+        format!("Measurements: {measurement_note}"),
+        String::new(),
+        format!("Token Delta: {token_delta}"),
+        format!("Verification Delta: {verification_delta:.2}"),
+        format!("Time Delta (ms): {time_delta_ms}"),
+        String::new(),
+        format!("Retry Extra Tokens: {retry_tokens}"),
+        format!("Retry Extra Cost: {retry_cost:.2}"),
+    ]
+    .join("\n")
+}
+
+fn render_workflow_events_human(result: &Value) -> String {
+    let run_id = result["run"]["run_id"].as_str().unwrap_or("unknown-run");
+    let status = result["run"]["status"].as_str().unwrap_or("unknown");
+    let events = result["events"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(render_workflow_event_line)
+        .collect::<Vec<_>>();
+
+    let mut lines = vec![
+        "Workflow Events".to_owned(),
+        format!("Run: {run_id}"),
+        format!("Status: {status}"),
+    ];
+    if !events.is_empty() {
+        lines.push(String::new());
+        lines.push("Events".to_owned());
+        lines.extend(events.into_iter().map(|event| format!("- {event}")));
+    }
+    if result["completed"].as_bool() == Some(true) && result["optimization_report"].is_object() {
+        lines.push(String::new());
+        lines.push(render_optimization_report_human(&result["optimization_report"]));
+        if result["optimization_analysis"].is_object() {
+            lines.push(String::new());
+            lines.push(render_optimization_analysis_human(&result["optimization_analysis"]));
+        }
+    }
+    lines.join("\n")
+}
+
+fn render_workflow_events_incremental_human(
+    result: &Value,
+    printed_header: &mut bool,
+    printed_events_label: &mut bool,
+    last_status: &mut Option<String>,
+) -> String {
+    let run_id = result["run"]["run_id"].as_str().unwrap_or("unknown-run");
+    let status = result["run"]["status"].as_str().unwrap_or("unknown");
+    let events = result["events"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(render_workflow_event_line)
+        .collect::<Vec<_>>();
+
+    let mut lines = Vec::new();
+    if !*printed_header {
+        lines.push("Workflow Events".to_owned());
+        lines.push(format!("Run: {run_id}"));
+        lines.push(format!("Status: {status}"));
+        *printed_header = true;
+        *last_status = Some(status.to_owned());
+    }
+
+    if !events.is_empty() {
+        if !*printed_events_label {
+            lines.push(String::new());
+            lines.push("Events".to_owned());
+            *printed_events_label = true;
+        }
+        lines.extend(events.into_iter().map(|event| format!("- {event}")));
+    }
+
+    if last_status.as_deref() != Some(status) {
+        if !lines.is_empty() {
+            lines.push(String::new());
+        }
+        lines.push(format!("Status: {status}"));
+        *last_status = Some(status.to_owned());
+    }
+
+    if result["completed"].as_bool() == Some(true) && result["optimization_report"].is_object() {
+        lines.push(String::new());
+        lines.push(render_optimization_report_human(&result["optimization_report"]));
+        if result["optimization_analysis"].is_object() {
+            lines.push(String::new());
+            lines.push(render_optimization_analysis_human(&result["optimization_analysis"]));
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn render_workflow_event_line(event: &Value) -> String {
+    let sequence = event["sequence"].as_u64().unwrap_or(0);
+    let event_type = humanize_event_type(event["type"].as_str().unwrap_or("event"));
+    let node_suffix = event["node_id"]
+        .as_str()
+        .map(|node_id| format!(" ({})", humanize_identifier(node_id)))
+        .unwrap_or_default();
+    format!("#{sequence} {event_type}{node_suffix}")
+}
+
+fn humanize_event_type(value: &str) -> String {
+    value
+        .split('_')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| {
+            let mut chars = segment.chars();
+            match chars.next() {
+                Some(first) => {
+                    let mut word = first.to_uppercase().to_string();
+                    word.push_str(chars.as_str());
+                    word
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn humanize_identifier(value: &str) -> String {
+    value
+        .split(['-', '_'])
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| {
+            let mut chars = segment.chars();
+            match chars.next() {
+                Some(first) => {
+                    let mut word = first.to_uppercase().to_string();
+                    word.push_str(chars.as_str());
+                    word
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn join_value_strings(value: &Value) -> Vec<String> {
+    value.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect()
+}
+
+fn fallback_text(values: Vec<String>, fallback: &str) -> String {
+    if values.is_empty() {
+        fallback.to_owned()
+    } else {
+        values.join(", ")
+    }
 }
 
 #[derive(Debug)]

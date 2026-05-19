@@ -1,4 +1,5 @@
 import Foundation
+import ManualMacApp
 
 // See docs/wiki/systems/기능-계약-테스트.md for why mac cucumber steps must exercise app-server, not only in-memory fixtures.
 final class AppServerScenarioDriver {
@@ -156,8 +157,7 @@ final class AppServerScenarioDriver {
             return URL(fileURLWithPath: path)
         }
 
-        let binary = repositoryRoot
-            .appendingPathComponent("manual-rs/target/debug/app-server")
+        let binary = defaultManualAppServerBinaryURL(repositoryRoot: repositoryRoot)
         if fileManager.isExecutableFile(atPath: binary.path) {
             return binary
         }

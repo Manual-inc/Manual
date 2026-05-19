@@ -118,7 +118,17 @@ final class AppServerClient {
             throw AppServerClientError.invalidResponse
         }
 
-        return WorkflowEventsPage(events: events, nextCursor: nextCursor, completed: completed, run: run)
+        let optimizationReport = (object["optimization_report"] as? [String: Any]).flatMap { try? WorkflowOptimizationReport($0) }
+        let optimizationAnalysis = (object["optimization_analysis"] as? [String: Any]).flatMap { try? WorkflowOptimizationAnalysis($0) }
+
+        return WorkflowEventsPage(
+            events: events,
+            nextCursor: nextCursor,
+            completed: completed,
+            run: run,
+            optimizationReport: optimizationReport,
+            optimizationAnalysis: optimizationAnalysis
+        )
     }
 
     func liveEvents() async throws -> AsyncThrowingStream<AppServerLiveEvent, Error> {
@@ -202,6 +212,30 @@ final class AppServerClient {
             ]
         )
         return try SandboxEvaluationResult(result).decision
+    }
+
+    func optimizationReport(workflowID: String) async throws -> WorkflowOptimizationReport {
+        // See docs/wiki/systems/매뉴얼-최적화-기능.md: mac UI reads the
+        // latest workflow-specific optimization report from app-server.
+        let result = try await request(
+            method: "optimization.report",
+            params: [
+                "workflow_id": workflowID
+            ]
+        )
+        return try WorkflowOptimizationReport(result)
+    }
+
+    func optimizationAnalysis(workflowID: String) async throws -> WorkflowOptimizationAnalysis {
+        // See docs/wiki/systems/매뉴얼-최적화-기능.md: report cards need the
+        // underlying bottleneck and regression signals, not only headline text.
+        let result = try await request(
+            method: "optimization.analyze",
+            params: [
+                "workflow_id": workflowID
+            ]
+        )
+        return try WorkflowOptimizationAnalysis(result)
     }
 
     private func request(method: String, params: [String: Any]) async throws -> Any {
@@ -339,9 +373,7 @@ final class AppServerClient {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let discoveredPath = repositoryRoot
-            .appendingPathComponent("manual-rs/target/debug/app-server")
-            .path
+        let discoveredPath = defaultManualAppServerBinaryURL(repositoryRoot: repositoryRoot).path
 
         if fileManager.isExecutableFile(atPath: discoveredPath) {
             return discoveredPath
@@ -442,6 +474,8 @@ struct WorkflowEventsPage: @unchecked Sendable {
     let nextCursor: Int
     let completed: Bool
     let run: [String: Any]
+    let optimizationReport: WorkflowOptimizationReport?
+    let optimizationAnalysis: WorkflowOptimizationAnalysis?
 }
 
 struct SandboxListResult: @unchecked Sendable {

@@ -6,6 +6,7 @@ public struct ContentView: View {
     @SceneStorage("ManualMac.sandboxPanelVisible") private var sandboxPanelVisible = true
     @SceneStorage("ManualMac.inspectorVisible") private var inspectorVisible = false
     @SceneStorage("ManualMac.bottomPanelVisible") private var bottomPanelVisible = false
+    @SceneStorage("ManualMac.bottomPanelTab") private var bottomPanelTabRawValue = BottomPanelTab.events.rawValue
 
     public init() {}
 
@@ -34,7 +35,8 @@ public struct ContentView: View {
                         store: store,
                         sidebarVisible: $sidebarVisible,
                         inspectorVisible: $inspectorVisible,
-                        bottomPanelVisible: $bottomPanelVisible
+                        bottomPanelVisible: $bottomPanelVisible,
+                        showOptimization: presentOptimizationPanel
                     )
                         .frame(height: 54)
 
@@ -58,6 +60,10 @@ public struct ContentView: View {
                                     BottomPanel(
                                         events: store.events,
                                         rawWorkflowJSON: store.rawWorkflowJSON,
+                                        optimizationReport: store.optimizationReport,
+                                        optimizationAnalysis: store.optimizationAnalysis,
+                                        optimizationLoading: store.optimizationLoading,
+                                        selectedTab: selectedBottomPanelTabBinding,
                                         onClose: {
                                             withAnimation(.easeInOut(duration: 0.18)) {
                                                 bottomPanelVisible = false
@@ -102,6 +108,29 @@ public struct ContentView: View {
                 bottomPanelVisible = true
             }
             store.start()
+        }
+    }
+
+    private var selectedBottomPanelTab: BottomPanelTab {
+        BottomPanelTab(rawValue: bottomPanelTabRawValue) ?? .events
+    }
+
+    private var selectedBottomPanelTabBinding: Binding<BottomPanelTab> {
+        Binding(
+            get: { selectedBottomPanelTab },
+            set: { bottomPanelTabRawValue = $0.rawValue }
+        )
+    }
+
+    private func presentOptimizationPanel() {
+        var panelState = WorkflowPanelState(
+            isBottomPanelVisible: bottomPanelVisible,
+            selectedTab: selectedBottomPanelTab
+        )
+        panelState.showOptimization()
+        withAnimation(.easeInOut(duration: 0.18)) {
+            bottomPanelVisible = panelState.isBottomPanelVisible
+            bottomPanelTabRawValue = panelState.selectedTab.rawValue
         }
     }
 }
@@ -343,6 +372,7 @@ private struct TopBar: View {
     @Binding var sidebarVisible: Bool
     @Binding var inspectorVisible: Bool
     @Binding var bottomPanelVisible: Bool
+    let showOptimization: () -> Void
 
     var body: some View {
         HStack(spacing: 14) {
@@ -360,7 +390,7 @@ private struct TopBar: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(AppTheme.textFaint)
-                    Text("Business Pipeline Health")
+                    Text(store.selectedWorkflowTitle)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppTheme.text)
                 }
@@ -376,6 +406,15 @@ private struct TopBar: View {
                         .foregroundStyle(AppTheme.textMuted)
                 }
             }
+
+            OptimizationPulseView(
+                headline: WorkflowOptimizationHeadline(
+                    report: store.optimizationReport,
+                    analysis: store.optimizationAnalysis
+                ),
+                action: showOptimization
+            )
+            .frame(maxWidth: 320)
 
             Spacer()
 
@@ -567,8 +606,11 @@ private struct BottomToggle: View {
 private struct BottomPanel: View {
     let events: [WorkflowEventModel]
     let rawWorkflowJSON: String
+    let optimizationReport: WorkflowOptimizationReport?
+    let optimizationAnalysis: WorkflowOptimizationAnalysis?
+    let optimizationLoading: Bool
+    @Binding var selectedTab: BottomPanelTab
     let onClose: () -> Void
-    @State private var selectedTab: BottomPanelTab = .events
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -578,6 +620,9 @@ private struct BottomPanel: View {
                 }
                 LogTab(label: "JSON", isActive: selectedTab == .json) {
                     selectedTab = .json
+                }
+                LogTab(label: "Optimization", isActive: selectedTab == .optimization) {
+                    selectedTab = .optimization
                 }
                 Spacer()
                 Button(action: onClose) {
@@ -602,7 +647,7 @@ private struct BottomPanel: View {
                 EventTimelineView(events: events)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(AppTheme.panel)
-            } else {
+            } else if selectedTab == .json {
                 ScrollView {
                     Text(rawWorkflowJSON)
                         .font(.system(size: 11, design: .monospaced))
@@ -612,15 +657,17 @@ private struct BottomPanel: View {
                         .padding(16)
                 }
                 .background(AppTheme.panel)
+            } else {
+                OptimizationSummaryView(
+                    report: optimizationReport,
+                    analysis: optimizationAnalysis,
+                    isLoading: optimizationLoading
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(AppTheme.panel)
     }
-}
-
-private enum BottomPanelTab {
-    case events
-    case json
 }
 
 private struct LogTab: View {

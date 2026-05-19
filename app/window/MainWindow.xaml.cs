@@ -7,7 +7,8 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = "Manual Window";
+        // Why this exists: docs/wiki/architecture/manual-app-architecture.md
+        // defines native clients as shared workflow + optimization surfaces.
+        Title = "Manual Optimization Console";
     }
 }
-

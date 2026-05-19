@@ -77,6 +77,20 @@ struct WorkflowDisplayModel {
     let edges: [WorkflowEdgeModel]
 }
 
+func humanizeIdentifier(_ value: String) -> String {
+    value
+        .split(separator: "-")
+        .flatMap { chunk in chunk.split(separator: "_") }
+        .map { word in
+            word.prefix(1).uppercased() + word.dropFirst()
+        }
+        .joined(separator: " ")
+}
+
+func workflowTitle(from workflowID: String) -> String {
+    humanizeIdentifier(workflowID)
+}
+
 enum WorkflowDisplayBuilder {
     static func build(from workflow: [String: Any]) -> WorkflowDisplayModel {
         let workflowID = workflow["id"] as? String ?? "untitled-workflow"

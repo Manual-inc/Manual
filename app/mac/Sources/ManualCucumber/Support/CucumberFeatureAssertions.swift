@@ -193,6 +193,15 @@ enum CucumberFeatureAssertions {
             "스크립트화, 전처리, 검증 추가, 모델 변경 후보를 제안해야 한다",
             "더 작은 모델로 처리할 수 있는 단계를 제안해야 한다":
             try assertObject(result(world), "analysis result", file: file, line: line)
+        case "optimization report는 derived 측정 근거를 포함해야 한다":
+            try assertField(result(world)["measurement_mode"], equals: "derived", "optimization.measurement_mode", file: file, line: line)
+            let optimizationResult = try result(world)
+            try expectStep(
+                (optimizationResult["measurement_note"] as? String)?.contains("Estimated") == true,
+                "optimization.measurement_note should explain derived estimation",
+                file: file,
+                line: line
+            )
 
         default:
             try assertGenericServerBackedResult(world: world, step: step, file: file, line: line)

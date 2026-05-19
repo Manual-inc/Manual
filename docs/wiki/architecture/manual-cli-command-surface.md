@@ -4,7 +4,7 @@ type: architecture
 tags: [architecture, cli, app-server, json-rpc]
 sources: []
 date_created: 2026-05-18
-date_updated: 2026-05-18
+date_updated: 2026-05-19
 ---
 
 # Manual CLI app-server 명령 표면
@@ -19,6 +19,7 @@ date_updated: 2026-05-18
 - `manual node ...` — `node.*` 11개 메서드 전부를 다룬다. 노드 템플릿 등록과 수정, schema 조회, 독립 실행, 실행 로그, 테스트 케이스 저장/검증을 포함한다. 이 표면은 [[node-storybook|노드 Storybook]] 기능과 직접 연결된다.
 - `manual manual ...` — `manual.*` 9개 메서드 전부를 다룬다. Manual 레코드 생성, 목록 조회, 상태 전환, 복제, 버전 조회를 포함한다.
 - `manual optimization ...` — `optimization.*` 4개 메서드 전부를 다룬다. 최적화 실행 기록, 분석, 비교, 리포트를 포함하며 [[token-cost-observability|토큰 비용 관측]]과 연결된다.
+- `manual demo optimization` — built-in 데모 workflow를 생성, 실행, 최적화 리포트/분석 표시까지 한 번에 수행한다. 제품의 핵심 가치를 가장 짧게 체감하는 진입점이다.
 - `manual sandbox ...` — `sandbox.*` 5개 메서드 전부를 다룬다. 샌드박스 생성/조회/수정, 정책 평가를 포함하며 [[agent-sandboxing|에이전트 샌드박스]]와 [[샌드박스-기능]]을 CLI에서 바로 다룰 수 있게 한다.
 - `manual skill ...` — `skill.*` 5개 메서드 전부를 다룬다. 스킬 단계 구성, 후보 추천, 실행 기록, 사용 검증, 에이전트 capability 힌트를 포함하며 [[agent-skill-routing|에이전트 스킬 지정]]과 연결된다.
 - `manual agent list ...` — `agent.list` 메서드를 노출한다.
@@ -30,6 +31,8 @@ date_updated: 2026-05-18
 - 중첩 구조가 큰 payload는 JSON 파일 경로를 받는다. 예를 들어 워크플로우 정의, 노드 정의, 매뉴얼 생성 payload, 샌드박스 생성 payload, 스킬 단계 payload는 파일로 넣는다.
 - 부분 업데이트는 `--changes`, `--execution`, `--inputs`, `--params` 같은 옵션으로 JSON 파일을 추가할 수 있다.
 - `--params`는 app-server가 object payload를 기대하지만 CLI에서 모든 세부 필드를 별도 옵션으로 열지 않은 메서드에 대한 escape hatch다.
+- `manual optimization analyze --human`, `compare --human`, `report --human`은 같은 JSON-RPC 결과를 사람이 읽기 쉬운 텍스트 요약으로 렌더링한다. 기본 출력은 계속 JSON이고, human 출력은 measurement provenance도 함께 보여준다.
+- `manual workflow events --human`과 `manual workflow run --human`은 workflow 이벤트와 완료된 run의 optimization report, optimization analysis를 한 흐름의 텍스트 출력으로 렌더링한다.
 
 ## 검증 규칙
 

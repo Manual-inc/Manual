@@ -140,8 +140,42 @@ fn events_supports_cursor_and_prints_server_run_summary() {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "{\n  \"completed\": true,\n  \"events\": [\n    {\n      \"sequence\": 4,\n      \"type\": \"workflow_completed\"\n    }\n  ],\n  \"next_cursor\": 5,\n  \"run\": {\n    \"run_id\": \"run-7\",\n    \"status\": \"completed\"\n  }\n}\n"
+        "{\n  \"completed\": true,\n  \"events\": [\n    {\n      \"sequence\": 4,\n      \"type\": \"workflow_completed\"\n    }\n  ],\n  \"next_cursor\": 5,\n  \"optimization_analysis\": {\n    \"bottlenecks\": {\n      \"slow_steps\": [\n        \"implement\"\n      ],\n      \"token_waste\": [\n        \"implement\"\n      ],\n      \"unstable_tasks\": [\n        \"implement\"\n      ],\n      \"verification_gaps\": [\n        \"review\"\n      ]\n    },\n    \"measurement_mode\": \"derived\",\n    \"measurement_note\": \"Estimated from workflow events.\",\n    \"regression\": {\n      \"possible\": true,\n      \"reason\": \"tokens and time increased while success rate fell\",\n      \"step_id\": \"implement\"\n    },\n    \"suggestions\": [\n      \"preprocess file discovery\"\n    ]\n  },\n  \"optimization_report\": {\n    \"main_issue\": \"implementation step used most tokens\",\n    \"measurement_mode\": \"derived\",\n    \"measurement_note\": \"Estimated from workflow events.\",\n    \"recommendations\": [\n      \"preprocess file discovery\"\n    ],\n    \"sections\": [\n      \"Token Usage\",\n      \"Verification\",\n      \"Time\"\n    ]\n  },\n  \"run\": {\n    \"run_id\": \"run-7\",\n    \"status\": \"completed\"\n  }\n}\n"
     );
+
+    let request = fs::read_to_string(log).unwrap();
+    assert!(request.contains(r#""method":"workflow.events""#));
+    assert!(request.contains(r#""run_id":"run-7""#));
+    assert!(request.contains(r#""cursor":4"#));
+}
+
+#[test]
+fn human_events_support_same_request_and_print_human_summary() {
+    let temp = TestDir::new("manual-cli-events-human");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+
+    let output = manual_cli()
+        .arg("--server-bin")
+        .arg(&server)
+        .arg("workflow")
+        .arg("events")
+        .arg("run-7")
+        .arg("--cursor")
+        .arg("4")
+        .arg("--human")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Workflow Events"));
+    assert!(stdout.contains("Optimization Report"));
+    assert!(stdout.contains("Optimization Analysis"));
 
     let request = fs::read_to_string(log).unwrap();
     assert!(request.contains(r#""method":"workflow.events""#));
@@ -643,6 +677,14 @@ fn optimization_sandbox_skill_and_agent_commands_send_expected_requests() {
     assert_request(
         &server,
         &log,
+        ["optimization".into(), "analyze".into(), "--human".into()],
+        "optimization.analyze",
+        &[],
+    );
+
+    assert_request(
+        &server,
+        &log,
         ["optimization".into(), "compare".into()],
         "optimization.compare",
         &[],
@@ -651,7 +693,23 @@ fn optimization_sandbox_skill_and_agent_commands_send_expected_requests() {
     assert_request(
         &server,
         &log,
+        ["optimization".into(), "compare".into(), "--human".into()],
+        "optimization.compare",
+        &[],
+    );
+
+    assert_request(
+        &server,
+        &log,
         ["optimization".into(), "report".into()],
+        "optimization.report",
+        &[],
+    );
+
+    assert_request(
+        &server,
+        &log,
+        ["optimization".into(), "report".into(), "--human".into()],
         "optimization.report",
         &[],
     );
@@ -868,6 +926,29 @@ for line in sys.stdin:
                 "next_cursor": request["params"]["cursor"] + 1,
                 "completed": True,
                 "run": {{"run_id": request["params"]["run_id"], "status": "completed"}},
+                "optimization_report": {{
+                    "sections": ["Token Usage", "Verification", "Time"],
+                    "main_issue": "implementation step used most tokens",
+                    "recommendations": ["preprocess file discovery"],
+                    "measurement_mode": "derived",
+                    "measurement_note": "Estimated from workflow events."
+                }},
+                "optimization_analysis": {{
+                    "measurement_mode": "derived",
+                    "measurement_note": "Estimated from workflow events.",
+                    "regression": {{
+                        "possible": True,
+                        "step_id": "implement",
+                        "reason": "tokens and time increased while success rate fell"
+                    }},
+                    "bottlenecks": {{
+                        "token_waste": ["implement"],
+                        "verification_gaps": ["review"],
+                        "slow_steps": ["implement"],
+                        "unstable_tasks": ["implement"]
+                    }},
+                    "suggestions": ["preprocess file discovery"]
+                }},
             }},
         }}
     elif method == "workflow.get":
