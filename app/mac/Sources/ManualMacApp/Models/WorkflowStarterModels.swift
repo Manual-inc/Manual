@@ -85,8 +85,7 @@ enum WorkflowStarterDefinition {
     ]
 
     static func suggestedWorkflowID(repositoryRootPath: String, presetID: String = "code-review") -> String {
-        let name = URL(fileURLWithPath: repositoryRootPath, isDirectory: true)
-            .lastPathComponent
+        let name = repositoryDisplayName(repositoryRootPath: repositoryRootPath)
         let normalized = name
             .lowercased()
             .map { character -> Character in
@@ -97,6 +96,10 @@ enum WorkflowStarterDefinition {
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
         let suffix = availablePresets.first(where: { $0.id == presetID })?.workflowIDSuffix ?? "review"
         return "starter-\(collapsed.isEmpty ? "repo" : collapsed)-\(suffix)"
+    }
+
+    static func repositoryDisplayName(repositoryRootPath: String) -> String {
+        URL(fileURLWithPath: repositoryRootPath, isDirectory: true).lastPathComponent
     }
 
     static func preferredAgent(from agents: [AppServerAgentAvailability]) -> String? {

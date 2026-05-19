@@ -8,6 +8,7 @@ public struct ContentView: View {
     @SceneStorage("ManualMac.inspectorVisible") private var inspectorVisible = false
     @SceneStorage("ManualMac.bottomPanelVisible") private var bottomPanelVisible = false
     @SceneStorage("ManualMac.bottomPanelTab") private var bottomPanelTabRawValue = BottomPanelTab.events.rawValue
+    @SceneStorage("ManualMac.lastStarterRepositoryPath") private var lastStarterRepositoryPath = ""
 
     public init() {}
 
@@ -24,11 +25,19 @@ public struct ContentView: View {
                         store: store,
                         onCreateRecommendedStarter: {
                             guard let repositoryURL = pickWorkflowStarterRepository(message: "Pick a git repository and Manual will choose the best starter.") else { return }
+                            lastStarterRepositoryPath = repositoryURL.path
                             presentOutputPanel()
                             store.createAndRunRecommendedStarter(selectedPath: repositoryURL.path)
                         },
+                        onRerunRecommendedStarter: {
+                            guard !lastStarterRepositoryPath.isEmpty else { return }
+                            presentOutputPanel()
+                            store.createAndRunRecommendedStarter(selectedPath: lastStarterRepositoryPath)
+                        },
+                        lastStarterRepositoryPath: lastStarterRepositoryPath.isEmpty ? nil : lastStarterRepositoryPath,
                         onCreateStarter: { preset in
                             guard let repositoryURL = pickWorkflowStarterRepository(for: preset) else { return }
+                            lastStarterRepositoryPath = repositoryURL.path
                             presentOutputPanel()
                             store.createAndRunStarter(presetID: preset.id, selectedPath: repositoryURL.path)
                         }
@@ -246,6 +255,8 @@ private struct BrandLogo: View {
 private struct WorkflowSidebar: View {
     @ObservedObject var store: WorkflowRunStore
     let onCreateRecommendedStarter: () -> Void
+    let onRerunRecommendedStarter: () -> Void
+    let lastStarterRepositoryPath: String?
     let onCreateStarter: (WorkflowStarterPreset) -> Void
 
     var body: some View {
@@ -275,6 +286,8 @@ private struct WorkflowSidebar: View {
             QuickStartCard(
                 presets: WorkflowStarterDefinition.availablePresets,
                 onCreateRecommendedStarter: onCreateRecommendedStarter,
+                onRerunRecommendedStarter: onRerunRecommendedStarter,
+                lastStarterRepositoryPath: lastStarterRepositoryPath,
                 action: onCreateStarter
             )
                 .padding(10)
@@ -325,6 +338,8 @@ private struct WorkflowSidebar: View {
 private struct QuickStartCard: View {
     let presets: [WorkflowStarterPreset]
     let onCreateRecommendedStarter: () -> Void
+    let onRerunRecommendedStarter: () -> Void
+    let lastStarterRepositoryPath: String?
     let action: (WorkflowStarterPreset) -> Void
 
     var body: some View {
@@ -340,6 +355,41 @@ private struct QuickStartCard: View {
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let lastStarterRepositoryPath {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Last repository")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(AppTheme.textFaint)
+                    Text(WorkflowStarterDefinition.repositoryDisplayName(repositoryRootPath: lastStarterRepositoryPath))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.text)
+                        .lineLimit(1)
+
+                    Button(action: onRerunRecommendedStarter) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Run Recommended Again")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundStyle(AppTheme.text)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 9)
+                                .fill(AppTheme.panel)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 9)
+                                .stroke(AppTheme.strokeStrong, lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("rerun-recommended-starter-button")
+                }
+            }
 
             Button(action: onCreateRecommendedStarter) {
                 VStack(alignment: .leading, spacing: 5) {

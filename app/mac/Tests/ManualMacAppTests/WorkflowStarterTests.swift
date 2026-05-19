@@ -8,6 +8,13 @@ struct WorkflowStarterDefinitionTests {
         #expect(presets.map(\.id) == ["code-review", "change-summary", "test-plan"])
     }
 
+    @Test func repositoryDisplayName_usesLastPathComponent() {
+        #expect(
+            WorkflowStarterDefinition.repositoryDisplayName(repositoryRootPath: "/tmp/My Project Repo")
+                == "My Project Repo"
+        )
+    }
+
     @Test func recommendedPreset_prefersChangeSummaryForDocsOnlyChanges() {
         let recommendation = WorkflowStarterDefinition.recommendedPreset(
             forChangedFiles: ["docs/guide.md", "README.md"]
