@@ -11,7 +11,7 @@ date_updated: 2026-05-19
 
 워크플로우 스타터는 [[2026-05-19-demo-flow|데모 경로]] 다음 단계에서 사용자가 JSON 스키마를 먼저 배우지 않고도 자신의 저장소에서 첫 Manual workflow를 만들 수 있게 하는 진입점이다.
 
-현재 MVP의 첫 starter preset은 `code-review`이며, CLI와 mac app quick-start action 모두 이 starter를 생성할 수 있다.
+현재 starter catalog에는 `code-review`와 `change-summary` preset이 있으며, CLI와 mac app quick-start action 모두 이 catalog를 기반으로 starter를 생성할 수 있다.
 Windows preview shell도 같은 starter 경로를 static onboarding narrative로 반영한다.
 
 ## 목적
@@ -34,20 +34,26 @@ Windows preview shell도 같은 starter 경로를 static onboarding narrative로
 
 ## 현재 preset
 
-### `code-review`
-
 추천 명령:
 
 ```bash
 manual workflow starter code-review --run
+manual workflow starter change-summary --run
 ```
 
-mac app에서는 sidebar의 `Code Review Starter…` quick-start action으로 같은 starter를 만들고 바로 실행할 수 있다. 실행 중에는 bottom panel이 `Output` 탭으로 열려 review 결과가 completion 뒤 바로 보이게 한다.
+CLI에서는 `manual workflow starter`만 실행해 available preset catalog를 먼저 볼 수 있다.
 
-이 preset은 다음 흐름을 만든다.
+mac app에서는 sidebar quick-start card에 starter catalog가 보이고, 각 starter를 바로 실행할 수 있다. 실행 중에는 bottom panel이 `Output` 탭으로 열려 결과가 completion 뒤 바로 보이게 한다.
+
+### `code-review`
 
 - `collect_diff` — 현재 working tree diff 또는 최근 commit diff를 수집하되, file summary와 잘린 patch preview만 넘긴다.
 - `review` — 로컬에서 사용 가능한 agent가 diff를 검토한다.
+
+### `change-summary`
+
+- `collect_diff` — 현재 working tree diff 또는 최근 commit diff를 같은 bounded preview 방식으로 수집한다.
+- `summary` — 로컬에서 사용 가능한 agent가 변경 내용을 사람이 읽는 짧은 업데이트로 요약한다.
 
 ## 기대 효과
 

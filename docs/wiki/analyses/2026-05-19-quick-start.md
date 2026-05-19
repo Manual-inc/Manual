@@ -60,10 +60,11 @@ bash scripts/demo-optimization.sh
 데모 다음에는 JSON을 직접 쓰지 않고 starter preset으로 첫 workflow를 만드는 경로를 권장한다.
 
 ```bash
+manual workflow starter
 manual workflow starter code-review --run
 ```
 
-이 명령은 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 code review workflow를 생성한 뒤 즉시 실행까지 이어 준다. review 입력은 changed file summary와 bounded patch preview로 제한해 첫 실행이 과도하게 무거워지지 않게 한다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
+첫 명령은 starter catalog를 보여준다. `code-review`는 correctness review를, `change-summary`는 사람이 읽을 변경 요약을 만든다. 둘 다 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 workflow를 생성한 뒤 실행까지 이어 줄 수 있다. review 입력은 changed file summary와 bounded patch preview로 제한해 첫 실행이 과도하게 무거워지지 않게 한다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
 
 ## 소스에서 빌드
 
@@ -93,7 +94,7 @@ macOS 앱 실행:
 bash app/mac/script/build_and_run.sh
 ```
 
-앱 안에서는 sidebar의 `Code Review Starter…` quick-start action으로 저장소를 고른 뒤 starter workflow를 바로 생성하고 실행할 수 있다. 실행이 시작되면 bottom panel이 `Output` 탭으로 열려 review 결과를 바로 확인할 수 있다.
+앱 안에서는 sidebar quick-start card에서 starter catalog를 보고 저장소를 고른 뒤 starter workflow를 바로 생성하고 실행할 수 있다. 실행이 시작되면 bottom panel이 `Output` 탭으로 열려 결과를 바로 확인할 수 있다.
 
 Windows shell:
 

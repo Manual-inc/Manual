@@ -2,6 +2,12 @@ import Testing
 @testable import ManualMacApp
 
 struct WorkflowStarterDefinitionTests {
+    @Test func availablePresets_includeCodeReviewAndChangeSummary() {
+        let presets = WorkflowStarterDefinition.availablePresets
+
+        #expect(presets.map(\.id) == ["code-review", "change-summary"])
+    }
+
     @Test func suggestedWorkflowID_sanitizesRepositoryName() throws {
         let repositoryRootPath = "/tmp/My Cool.Repo"
 
@@ -29,6 +35,23 @@ struct WorkflowStarterDefinitionTests {
         #expect(review["kind"] as? String == "codex")
         #expect(review["cwd"] as? String == repositoryRootPath)
     }
+
+    @Test func changeSummaryWorkflow_usesSummaryNodeAndPrompt() throws {
+        let repositoryRootPath = "/tmp/manual-repo"
+        let workflow = try WorkflowStarterDefinition.changeSummaryWorkflow(
+            workflowID: "starter-manual-summary",
+            repositoryRootPath: repositoryRootPath,
+            agent: "codex"
+        )
+
+        let nodes = try #require(workflow["nodes"] as? [[String: Any]])
+        let summary = try #require(nodes.first(where: { $0["id"] as? String == "summary" }))
+        let prompt = try #require(summary["prompt"] as? String)
+
+        #expect(summary["kind"] as? String == "codex")
+        #expect(prompt.localizedCaseInsensitiveContains("summarize"))
+        #expect(prompt.localizedCaseInsensitiveContains("what changed"))
+    }
 }
 
 @MainActor
@@ -54,6 +77,29 @@ struct WorkflowStarterIntentTests {
         let nodes = try #require(createdWorkflow["nodes"] as? [[String: Any]])
         let review = try #require(nodes.first(where: { $0["id"] as? String == "review" }))
         #expect(review["kind"] as? String == "claude")
+    }
+
+    @Test func executeChangeSummaryStarter_buildsSummaryWorkflow() async throws {
+        let client = StubWorkflowExecutionClient(
+            workflows: [],
+            agents: [
+                AppServerAgentAvailability(name: "codex", available: true, path: "/usr/bin/codex"),
+            ],
+            nextRunID: "run-starter-2"
+        )
+        let intent = WorkflowExecutionIntent(client: client)
+
+        let result = try await intent.executeStarter(
+            presetID: "change-summary",
+            repositoryRootPath: "/tmp/starter-repo"
+        )
+
+        #expect(result.workflowID == "starter-starter-repo-summary")
+        #expect(result.runID == "run-starter-2")
+        let createdWorkflow = try #require(client.createdWorkflow)
+        let nodes = try #require(createdWorkflow["nodes"] as? [[String: Any]])
+        let summary = try #require(nodes.first(where: { $0["id"] as? String == "summary" }))
+        #expect(summary["kind"] as? String == "codex")
     }
 }
 

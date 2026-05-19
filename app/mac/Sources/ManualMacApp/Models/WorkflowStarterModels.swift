@@ -4,6 +4,7 @@ import Foundation
 // create the same first-success starter workflows without sending users back to CLI docs.
 enum WorkflowStarterError: Error, LocalizedError {
     case unsupportedAgent(String)
+    case unsupportedPreset(String)
     case noAvailableAgent
     case notGitRepository(String)
     case gitCommandFailed(String)
@@ -12,6 +13,8 @@ enum WorkflowStarterError: Error, LocalizedError {
         switch self {
         case let .unsupportedAgent(agent):
             "Unsupported starter agent: \(agent)"
+        case let .unsupportedPreset(preset):
+            "Unsupported starter preset: \(preset)"
         case .noAvailableAgent:
             "No supported local agent is available. Install codex, claude, or pi first."
         case let .notGitRepository(path):
@@ -47,8 +50,27 @@ struct AppServerAgentAvailability: Equatable, Sendable {
     }
 }
 
+struct WorkflowStarterPreset: Equatable, Sendable {
+    let id: String
+    let title: String
+    let summary: String
+}
+
 enum WorkflowStarterDefinition {
-    static func suggestedWorkflowID(repositoryRootPath: String) -> String {
+    static let availablePresets: [WorkflowStarterPreset] = [
+        WorkflowStarterPreset(
+            id: "code-review",
+            title: "Code Review Starter",
+            summary: "Review repository changes for correctness bugs, regressions, risky assumptions, and missing tests."
+        ),
+        WorkflowStarterPreset(
+            id: "change-summary",
+            title: "Change Summary Starter",
+            summary: "summarize the repository changes into a concise update covering what changed, why it matters, and what to verify next."
+        ),
+    ]
+
+    static func suggestedWorkflowID(repositoryRootPath: String, presetID: String = "code-review") -> String {
         let name = URL(fileURLWithPath: repositoryRootPath, isDirectory: true)
             .lastPathComponent
         let normalized = name
@@ -59,7 +81,13 @@ enum WorkflowStarterDefinition {
         let collapsed = String(normalized)
             .replacingOccurrences(of: "-+", with: "-", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-        return "starter-\(collapsed.isEmpty ? "repo" : collapsed)-review"
+        let suffix = switch presetID {
+        case "change-summary":
+            "summary"
+        default:
+            "review"
+        }
+        return "starter-\(collapsed.isEmpty ? "repo" : collapsed)-\(suffix)"
     }
 
     static func preferredAgent(from agents: [AppServerAgentAvailability]) -> String? {
@@ -111,6 +139,46 @@ enum WorkflowStarterDefinition {
         ]
     }
 
+    static func changeSummaryWorkflow(
+        workflowID: String,
+        repositoryRootPath: String,
+        agent: String,
+        model: String? = nil
+    ) throws -> [String: Any] {
+        guard ["codex", "claude", "pi"].contains(agent) else {
+            throw WorkflowStarterError.unsupportedAgent(agent)
+        }
+
+        var summaryNode: [String: Any] = [
+            "id": "summary",
+            "kind": agent,
+            "prompt": changeSummaryPrompt(),
+            "cwd": repositoryRootPath,
+        ]
+        if let model, !model.isEmpty {
+            summaryNode["model"] = model
+        }
+
+        return [
+            "id": workflowID,
+            "nodes": [
+                [
+                    "id": "collect_diff",
+                    "kind": "script",
+                    "script": codeReviewScript(repositoryRootPath: repositoryRootPath),
+                    "sandbox_policy": codeReviewSandbox(repositoryRootPath: repositoryRootPath),
+                ],
+                summaryNode,
+            ],
+            "dependencies": [
+                [
+                    "node": "summary",
+                    "depends_on": "collect_diff",
+                ],
+            ],
+        ]
+    }
+
     static func resolveRepositoryRootPath(from selectedPath: String) throws -> String {
         let candidate = URL(fileURLWithPath: selectedPath, isDirectory: true)
             .standardizedFileURL
@@ -152,6 +220,15 @@ enum WorkflowStarterDefinition {
         The input includes file summaries and a bounded patch preview.
         If the diff is truncated or seems insufficient, say that explicitly and focus on the highest-risk observations you can support.
         Keep the answer concise and actionable.
+        """
+    }
+
+    private static func changeSummaryPrompt() -> String {
+        """
+        Summarize the repository changes described in Input.collect_diff.stdout.
+        Write a concise human update covering what changed, why it matters, and what to verify next.
+        The input includes file summaries and a bounded patch preview.
+        If the diff is truncated or seems insufficient, say that explicitly and avoid pretending to know more than the evidence supports.
         """
     }
 

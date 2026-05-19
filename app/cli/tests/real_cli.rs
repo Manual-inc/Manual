@@ -421,6 +421,51 @@ fn workflow_starter_creates_code_review_workflow_against_real_app_server() {
 }
 
 #[test]
+fn workflow_starter_creates_change_summary_workflow_against_real_app_server() {
+    let harness = RealHarness::new("manual-cli-starter-summary-real");
+    let repo = init_git_repo(harness.temp.path().join("starter-summary-repo"));
+
+    let output = harness.run(vec![
+        "workflow".to_owned(),
+        "starter".to_owned(),
+        "change-summary".to_owned(),
+        "--repo".to_owned(),
+        repo.display().to_string(),
+        "--workflow-id".to_owned(),
+        "starter-summary".to_owned(),
+        "--agent".to_owned(),
+        "codex".to_owned(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Preset: change-summary"));
+    assert!(stdout.contains("Workflow ID: starter-summary"));
+
+    let fetched = harness.run_jsons([
+        "workflow".into(),
+        "get".into(),
+        "starter-summary".into(),
+    ]);
+    assert_eq!(fetched[0]["workflow"]["id"], "starter-summary");
+    assert_eq!(fetched[0]["workflow"]["nodes"][0]["id"], "collect_diff");
+    assert_eq!(fetched[0]["workflow"]["nodes"][0]["kind"], "script");
+    assert_eq!(fetched[0]["workflow"]["nodes"][1]["id"], "summary");
+    assert_eq!(fetched[0]["workflow"]["nodes"][1]["kind"], "codex");
+    assert_eq!(
+        fetched[0]["workflow"]["dependencies"][0],
+        json!({
+            "node": "summary",
+            "depends_on": "collect_diff"
+        })
+    );
+}
+
+#[test]
 fn manual_sandbox_skill_optimization_and_agent_commands_work_against_real_app_server() {
     let harness = RealHarness::new("manual-cli-real-manual");
 

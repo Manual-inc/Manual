@@ -67,6 +67,22 @@ manual doctor
 
 ## workflow 명령어
 
+### `workflow starter`
+
+starter catalog를 먼저 본다.
+
+```bash
+manual workflow starter
+manual workflow starter --list
+```
+
+현재 catalog:
+
+- `code-review` — correctness review starter
+- `change-summary` — human-readable change summary starter
+
+---
+
 ### `workflow starter code-review`
 
 데모 다음에 가장 빨리 실제 저장소용 workflow를 만들기 위한 starter preset.
@@ -75,6 +91,7 @@ manual doctor
 manual workflow starter code-review --run
 manual workflow starter code-review --repo /path/to/repo --workflow-id repo-review
 manual workflow starter code-review --agent codex
+manual workflow starter change-summary --run
 ```
 
 현재 동작:
@@ -84,6 +101,8 @@ manual workflow starter code-review --agent codex
 - `collect_diff` script 노드와 `review` agent 노드가 있는 workflow를 생성한다
 - `collect_diff`는 changed file summary와 bounded patch preview만 넘겨 큰 repo에서도 첫 review 입력을 줄인다
 - `--run`이면 workflow 실행, optimization follow-through, review output까지 이어서 보여준다
+
+`change-summary` preset은 `summary` agent 노드를 만들어 사람이 읽는 변경 요약을 출력한다.
 
 옵션:
 

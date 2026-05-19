@@ -114,6 +114,7 @@ final class AppServerScenarioDriver {
         }
 
         try fileManager.createDirectory(at: storageURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: stateURL, withIntermediateDirectories: true)
         let binary = try resolvedAppServerBinary()
 
         let process = Process()

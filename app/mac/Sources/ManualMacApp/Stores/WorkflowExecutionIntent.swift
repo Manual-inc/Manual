@@ -49,18 +49,44 @@ public final class WorkflowExecutionIntent {
     }
 
     public func executeCodeReviewStarter(repositoryRootPath: String) async throws -> WorkflowExecutionIntentResult {
+        try await executeStarter(presetID: "code-review", repositoryRootPath: repositoryRootPath)
+    }
+
+    public func executeChangeSummaryStarter(repositoryRootPath: String) async throws -> WorkflowExecutionIntentResult {
+        try await executeStarter(presetID: "change-summary", repositoryRootPath: repositoryRootPath)
+    }
+
+    public func executeStarter(
+        presetID: String,
+        repositoryRootPath: String
+    ) async throws -> WorkflowExecutionIntentResult {
         // See docs/wiki/features/workflow-starters.md: mac UI should offer the
         // same first-success starter path as the CLI surface.
-        let workflowID = WorkflowStarterDefinition.suggestedWorkflowID(repositoryRootPath: repositoryRootPath)
+        let workflowID = WorkflowStarterDefinition.suggestedWorkflowID(
+            repositoryRootPath: repositoryRootPath,
+            presetID: presetID
+        )
         let agents = try await client.availableAgents()
         guard let agent = WorkflowStarterDefinition.preferredAgent(from: agents) else {
             throw WorkflowStarterError.noAvailableAgent
         }
-        let workflow = try WorkflowStarterDefinition.codeReviewWorkflow(
-            workflowID: workflowID,
-            repositoryRootPath: repositoryRootPath,
-            agent: agent
-        )
+        let workflow: [String: Any]
+        switch presetID {
+        case "code-review":
+            workflow = try WorkflowStarterDefinition.codeReviewWorkflow(
+                workflowID: workflowID,
+                repositoryRootPath: repositoryRootPath,
+                agent: agent
+            )
+        case "change-summary":
+            workflow = try WorkflowStarterDefinition.changeSummaryWorkflow(
+                workflowID: workflowID,
+                repositoryRootPath: repositoryRootPath,
+                agent: agent
+            )
+        default:
+            throw WorkflowStarterError.unsupportedPreset(presetID)
+        }
         let knownWorkflows = try await client.workflows()
         return try await execute(workflow: workflow, knownWorkflows: knownWorkflows)
     }

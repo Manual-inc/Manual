@@ -219,18 +219,18 @@ final class WorkflowRunStore: ObservableObject {
         }
     }
 
-    func createAndRunCodeReviewStarter(selectedPath: String) {
+    func createAndRunStarter(presetID: String, selectedPath: String) {
         guard !isRunning else { return }
 
         isRunning = true
         runID = nil
         events.removeAll()
         resetNodes()
-        statusMessage = "Preparing starter workflow"
+        statusMessage = "Preparing \(presetID) starter"
 
         Task { [weak self] in
             guard let self else { return }
-            await self.createAndRunCodeReviewStarter(repositoryPath: selectedPath)
+            await self.createAndRunStarter(presetID: presetID, repositoryPath: selectedPath)
         }
     }
 
@@ -456,10 +456,13 @@ final class WorkflowRunStore: ObservableObject {
         }
     }
 
-    private func createAndRunCodeReviewStarter(repositoryPath: String) async {
+    private func createAndRunStarter(presetID: String, repositoryPath: String) async {
         do {
             let repositoryRootPath = try WorkflowStarterDefinition.resolveRepositoryRootPath(from: repositoryPath)
-            let result = try await executionIntent.executeCodeReviewStarter(repositoryRootPath: repositoryRootPath)
+            let result = try await executionIntent.executeStarter(
+                presetID: presetID,
+                repositoryRootPath: repositoryRootPath
+            )
             selectedWorkflowID = result.workflowID
             await refreshWorkflows(createExampleIfMissing: false)
             self.runID = result.runID

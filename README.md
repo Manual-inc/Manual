@@ -28,6 +28,12 @@ First real workflow after the demo:
 manual workflow starter code-review --run
 ```
 
+Browse starter presets:
+
+```bash
+manual workflow starter
+```
+
 Start here for setup and product entry points:
 
 - [Quick Start](docs/wiki/analyses/2026-05-19-quick-start.md)

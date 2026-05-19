@@ -31,6 +31,10 @@ fn run() -> Result<(), CliError> {
         );
     }
 
+    if starter_catalog_requested(&cli.command) {
+        return print_text(&render_workflow_starter_catalog());
+    }
+
     let mut client = if let Some(server_bin) = cli.server_bin.as_deref() {
         AppServerClient::stdio(resolve_server_bin(Some(server_bin))?)?
     } else if let Some(server_url) = cli.server_url {
@@ -207,12 +211,27 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
         ),
         WorkflowCommand::Starter {
             preset,
+            list,
             repo,
             workflow_id,
             agent,
             model,
             run,
-        } => run_workflow_starter(client, preset, repo, workflow_id, agent, model, run),
+        } => {
+            if list || preset.is_none() {
+                print_text(&render_workflow_starter_catalog())
+            } else {
+                run_workflow_starter(
+                    client,
+                    preset.unwrap_or_default(),
+                    repo,
+                    workflow_id,
+                    agent,
+                    model,
+                    run,
+                )
+            }
+        }
     }
 }
 
@@ -680,8 +699,8 @@ fn run_workflow_starter(
         print_text(&format!("\nStarter Failure\n{failure_output}"))?;
         return Ok(());
     }
-    if let Some(review_output) = workflow_starter_review_output(&final_result) {
-        print_text(&format!("\nReview Output\n{review_output}"))?;
+    if let Some((label, output)) = workflow_starter_primary_output(&preset, &final_result) {
+        print_text(&format!("\n{label}\n{output}"))?;
     }
 
     Ok(())
@@ -729,6 +748,12 @@ fn build_workflow_starter_definition(
             agent,
             model,
         )),
+        "change-summary" => Ok(change_summary_starter_workflow(
+            workflow_id,
+            repo_root,
+            agent,
+            model,
+        )),
         other => Err(CliError::InvalidResponse(format!(
             "unknown workflow starter preset: {other}"
         ))),
@@ -770,8 +795,47 @@ fn code_review_starter_workflow(
     })
 }
 
+fn change_summary_starter_workflow(
+    workflow_id: &str,
+    repo_root: &Path,
+    agent: &str,
+    model: Option<&str>,
+) -> Value {
+    let mut summary_node = Map::new();
+    summary_node.insert("id".to_owned(), json!("summary"));
+    summary_node.insert("kind".to_owned(), json!(agent));
+    summary_node.insert("prompt".to_owned(), json!(change_summary_starter_prompt()));
+    summary_node.insert("cwd".to_owned(), json!(repo_root.display().to_string()));
+    if let Some(model) = model.filter(|model| !model.is_empty()) {
+        summary_node.insert("model".to_owned(), json!(model));
+    }
+
+    json!({
+        "id": workflow_id,
+        "nodes": [
+            {
+                "id": "collect_diff",
+                "kind": "script",
+                "script": code_review_starter_script(repo_root),
+                "sandbox_policy": code_review_starter_sandbox(repo_root),
+            },
+            Value::Object(summary_node)
+        ],
+        "dependencies": [
+            {
+                "node": "summary",
+                "depends_on": "collect_diff"
+            }
+        ]
+    })
+}
+
 fn code_review_starter_prompt() -> &'static str {
     "Review the repository changes described in Input.collect_diff.stdout.\nFocus on correctness bugs, regressions, risky assumptions, and missing tests.\nThe input includes file summaries and a bounded patch preview.\nIf the diff is truncated or seems insufficient, say that explicitly and focus on the highest-risk observations you can support.\nKeep the answer concise and actionable."
+}
+
+fn change_summary_starter_prompt() -> &'static str {
+    "Summarize the repository changes described in Input.collect_diff.stdout.\nWrite a concise human update covering what changed, why it matters, and what to verify next.\nThe input includes file summaries and a bounded patch preview.\nIf the diff is truncated or seems insufficient, say that explicitly and avoid pretending to know more than the evidence supports."
 }
 
 fn code_review_starter_script(repo_root: &Path) -> String {
@@ -876,13 +940,16 @@ fn render_workflow_starter_summary(
     agent: &str,
     run: bool,
 ) -> String {
+    let metadata = workflow_starter_preset(preset);
     let mut lines = vec![
         "Workflow Starter".to_owned(),
         format!("Preset: {preset}"),
+        format!("Title: {}", metadata.title),
         format!("Workflow ID: {workflow_id}"),
         format!("Repository: {}", repo_root.display()),
         format!("Agent: {agent}"),
     ];
+    lines.push(format!("What it does: {}", metadata.summary));
     lines.push(String::new());
     lines.push("Next steps".to_owned());
     if run {
@@ -901,10 +968,14 @@ fn render_workflow_starter_summary(
     lines.join("\n")
 }
 
-fn workflow_starter_review_output(result: &Value) -> Option<String> {
-    result["run"]["nodes"]["review"]["result"]["stdout"]
+fn workflow_starter_primary_output(preset: &str, result: &Value) -> Option<(String, String)> {
+    let node_id = workflow_starter_preset(preset).primary_output_node;
+    let value = &result["run"]["nodes"][node_id]["result"];
+    let output = value["stdout"]
         .as_str()
         .map(str::to_owned)
+        .or_else(|| value.as_str().map(str::to_owned));
+    output.map(|output| (workflow_starter_preset(preset).output_label.to_owned(), output))
 }
 
 fn workflow_starter_failure_output(result: &Value) -> Option<String> {
@@ -939,6 +1010,72 @@ fn find_command_in_path(command: &str) -> Option<PathBuf> {
 
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+struct WorkflowStarterPreset<'a> {
+    id: &'a str,
+    title: &'a str,
+    summary: &'a str,
+    primary_output_node: &'a str,
+    output_label: &'a str,
+}
+
+const WORKFLOW_STARTER_PRESETS: &[WorkflowStarterPreset<'static>] = &[
+    WorkflowStarterPreset {
+        id: "code-review",
+        title: "Code Review Starter",
+        summary: "Review repository changes for correctness bugs, regressions, risky assumptions, and missing tests.",
+        primary_output_node: "review",
+        output_label: "Review Output",
+    },
+    WorkflowStarterPreset {
+        id: "change-summary",
+        title: "Change Summary Starter",
+        summary: "summarize the repository changes into a concise update covering what changed, why it matters, and what to verify next.",
+        primary_output_node: "summary",
+        output_label: "Summary Output",
+    },
+];
+
+fn workflow_starter_preset(id: &str) -> &'static WorkflowStarterPreset<'static> {
+    WORKFLOW_STARTER_PRESETS
+        .iter()
+        .find(|preset| preset.id == id)
+        .unwrap_or(&WORKFLOW_STARTER_PRESETS[0])
+}
+
+fn render_workflow_starter_catalog() -> String {
+    let mut lines = vec!["Workflow Starter Catalog".to_owned()];
+    lines.push(
+        "Choose a starter preset to move from the demo into a real repository workflow.".to_owned(),
+    );
+    for preset in WORKFLOW_STARTER_PRESETS {
+        lines.push(String::new());
+        lines.push(format!("{} ({})", preset.title, preset.id));
+        lines.push(preset.summary.to_owned());
+        lines.push(format!("Try: manual workflow starter {} --run", preset.id));
+    }
+    lines.join("\n")
+}
+
+fn starter_catalog_requested(command: &CommandGroup) -> bool {
+    matches!(
+        command,
+        CommandGroup::Workflow {
+            command: WorkflowCommand::Starter {
+                preset: None,
+                ..
+            }
+        }
+    ) || matches!(
+        command,
+        CommandGroup::Workflow {
+            command: WorkflowCommand::Starter {
+                list: true,
+                ..
+            }
+        }
+    )
 }
 
 fn read_optional_json(path: Option<&PathBuf>) -> Result<Value, CliError> {
@@ -1226,7 +1363,9 @@ enum WorkflowCommand {
     ComposeFromRegistry { node_id: String },
     #[command(about = "Create a starter workflow preset for a local repository")]
     Starter {
-        preset: String,
+        preset: Option<String>,
+        #[arg(long, help = "List the available workflow starter presets")]
+        list: bool,
         #[arg(long, value_name = "PATH")]
         repo: Option<PathBuf>,
         #[arg(long, default_value = "starter-code-review", value_name = "WORKFLOW_ID")]

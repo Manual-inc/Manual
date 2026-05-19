@@ -20,8 +20,8 @@ public struct ContentView: View {
                     .frame(width: 56)
 
                 if sidebarVisible {
-                    WorkflowSidebar(store: store) {
-                        guard let repositoryURL = pickWorkflowStarterRepository() else { return }
+                    WorkflowSidebar(store: store) { preset in
+                        guard let repositoryURL = pickWorkflowStarterRepository(for: preset) else { return }
                         var panelState = WorkflowPanelState(
                             isBottomPanelVisible: bottomPanelVisible,
                             selectedTab: selectedBottomPanelTab
@@ -31,7 +31,7 @@ public struct ContentView: View {
                             bottomPanelVisible = panelState.isBottomPanelVisible
                             bottomPanelTabRawValue = panelState.selectedTab.rawValue
                         }
-                        store.createAndRunCodeReviewStarter(selectedPath: repositoryURL.path)
+                        store.createAndRunStarter(presetID: preset.id, selectedPath: repositoryURL.path)
                     }
                         .frame(width: 260)
                         .transition(.move(edge: .leading).combined(with: .opacity))
@@ -148,12 +148,12 @@ public struct ContentView: View {
         }
     }
 
-    private func pickWorkflowStarterRepository() -> URL? {
+    private func pickWorkflowStarterRepository(for preset: WorkflowStarterPreset) -> URL? {
         // See docs/wiki/features/workflow-starters.md: mac onboarding should let
         // users pick a real repository before creating the starter workflow.
         let panel = NSOpenPanel()
         panel.title = "Choose a Repository"
-        panel.message = "Pick a git repository for the Code Review Starter."
+        panel.message = "Pick a git repository for \(preset.title)."
         panel.prompt = "Use Repository"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -229,7 +229,7 @@ private struct BrandLogo: View {
 
 private struct WorkflowSidebar: View {
     @ObservedObject var store: WorkflowRunStore
-    let onCreateStarter: () -> Void
+    let onCreateStarter: (WorkflowStarterPreset) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -255,7 +255,10 @@ private struct WorkflowSidebar: View {
                 Rectangle().fill(AppTheme.stroke).frame(height: 1)
             }
 
-            QuickStartCard(action: onCreateStarter)
+            QuickStartCard(
+                presets: WorkflowStarterDefinition.availablePresets,
+                action: onCreateStarter
+            )
                 .padding(10)
 
             ScrollView {
@@ -302,14 +305,15 @@ private struct WorkflowSidebar: View {
 }
 
 private struct QuickStartCard: View {
-    let action: () -> Void
+    let presets: [WorkflowStarterPreset]
+    let action: (WorkflowStarterPreset) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Quick Start")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(AppTheme.textMuted)
-            Text("Create and run a Code Review Starter from a real git repository.")
+            Text("Choose a starter workflow for a real git repository.")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(AppTheme.text)
                 .fixedSize(horizontal: false, vertical: true)
@@ -318,31 +322,40 @@ private struct QuickStartCard: View {
                 .foregroundStyle(AppTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button(action: action) {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles.rectangle.stack.fill")
-                        .font(.system(size: 10, weight: .bold))
-                    Text("Code Review Starter…")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 9)
-                        .fill(
-                            LinearGradient(
-                                colors: [AppTheme.accent, Color(red: 0.95, green: 0.30, blue: 0.50)],
-                                startPoint: .leading,
-                                endPoint: .trailing
+            ForEach(presets, id: \.id) { preset in
+                Button(action: { action(preset) }) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles.rectangle.stack.fill")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("\(preset.title)…")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        Text(preset.summary)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.82))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 9)
+                            .fill(
+                                LinearGradient(
+                                    colors: [AppTheme.accent, Color(red: 0.95, green: 0.30, blue: 0.50)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
-                        )
-                )
+                    )
+                }
+                .buttonStyle(.plain)
+                // See docs/wiki/features/workflow-starters.md for why the app needs
+                // stable automation hooks for the first-success starter actions.
+                .accessibilityIdentifier("create-starter-\(preset.id)-button")
             }
-            .buttonStyle(.plain)
-            // See docs/wiki/features/workflow-starters.md for why the app needs
-            // a stable automation hook for the first-success starter action.
-            .accessibilityIdentifier("create-starter-workflow-button")
         }
         .padding(12)
         .background(
