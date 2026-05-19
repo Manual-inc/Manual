@@ -84,6 +84,12 @@ public final class WorkflowExecutionIntent {
                 repositoryRootPath: repositoryRootPath,
                 agent: agent
             )
+        case "test-plan":
+            workflow = try WorkflowStarterDefinition.testPlanWorkflow(
+                workflowID: workflowID,
+                repositoryRootPath: repositoryRootPath,
+                agent: agent
+            )
         default:
             throw WorkflowStarterError.unsupportedPreset(presetID)
         }

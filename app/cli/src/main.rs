@@ -647,7 +647,7 @@ fn run_workflow_starter(
     client: &mut AppServerClient,
     preset: String,
     repo: Option<PathBuf>,
-    workflow_id: String,
+    workflow_id: Option<String>,
     agent: Option<String>,
     model: Option<String>,
     run: bool,
@@ -656,6 +656,8 @@ fn run_workflow_starter(
     // shortest path from demo value to a user's first real workflow.
     let repo_root = resolve_git_repo_root(repo.as_deref())?;
     let selected_agent = resolve_workflow_starter_agent(client, agent.as_deref())?;
+    let workflow_id =
+        workflow_id.unwrap_or_else(|| suggested_workflow_starter_id(&preset, &repo_root));
     let workflow = build_workflow_starter_definition(
         &preset,
         &workflow_id,
@@ -754,6 +756,12 @@ fn build_workflow_starter_definition(
             agent,
             model,
         )),
+        "test-plan" => Ok(test_plan_starter_workflow(
+            workflow_id,
+            repo_root,
+            agent,
+            model,
+        )),
         other => Err(CliError::InvalidResponse(format!(
             "unknown workflow starter preset: {other}"
         ))),
@@ -830,12 +838,51 @@ fn change_summary_starter_workflow(
     })
 }
 
+fn test_plan_starter_workflow(
+    workflow_id: &str,
+    repo_root: &Path,
+    agent: &str,
+    model: Option<&str>,
+) -> Value {
+    let mut test_plan_node = Map::new();
+    test_plan_node.insert("id".to_owned(), json!("test_plan"));
+    test_plan_node.insert("kind".to_owned(), json!(agent));
+    test_plan_node.insert("prompt".to_owned(), json!(test_plan_starter_prompt()));
+    test_plan_node.insert("cwd".to_owned(), json!(repo_root.display().to_string()));
+    if let Some(model) = model.filter(|model| !model.is_empty()) {
+        test_plan_node.insert("model".to_owned(), json!(model));
+    }
+
+    json!({
+        "id": workflow_id,
+        "nodes": [
+            {
+                "id": "collect_diff",
+                "kind": "script",
+                "script": code_review_starter_script(repo_root),
+                "sandbox_policy": code_review_starter_sandbox(repo_root),
+            },
+            Value::Object(test_plan_node)
+        ],
+        "dependencies": [
+            {
+                "node": "test_plan",
+                "depends_on": "collect_diff"
+            }
+        ]
+    })
+}
+
 fn code_review_starter_prompt() -> &'static str {
     "Review the repository changes described in Input.collect_diff.stdout.\nFocus on correctness bugs, regressions, risky assumptions, and missing tests.\nThe input includes file summaries and a bounded patch preview.\nIf the diff is truncated or seems insufficient, say that explicitly and focus on the highest-risk observations you can support.\nKeep the answer concise and actionable."
 }
 
 fn change_summary_starter_prompt() -> &'static str {
     "Summarize the repository changes described in Input.collect_diff.stdout.\nWrite a concise human update covering what changed, why it matters, and what to verify next.\nThe input includes file summaries and a bounded patch preview.\nIf the diff is truncated or seems insufficient, say that explicitly and avoid pretending to know more than the evidence supports."
+}
+
+fn test_plan_starter_prompt() -> &'static str {
+    "Outline the highest-value automated and manual checks for the repository changes described in Input.collect_diff.stdout.\nFocus on regression risks, missing verification, and the smallest set of checks that would increase confidence.\nThe input includes file summaries and a bounded patch preview.\nIf the diff is truncated or seems insufficient, say that explicitly and avoid pretending to know more than the evidence supports."
 }
 
 fn code_review_starter_script(repo_root: &Path) -> String {
@@ -1016,6 +1063,7 @@ struct WorkflowStarterPreset<'a> {
     id: &'a str,
     title: &'a str,
     summary: &'a str,
+    workflow_id_suffix: &'a str,
     primary_output_node: &'a str,
     output_label: &'a str,
 }
@@ -1025,6 +1073,7 @@ const WORKFLOW_STARTER_PRESETS: &[WorkflowStarterPreset<'static>] = &[
         id: "code-review",
         title: "Code Review Starter",
         summary: "Review repository changes for correctness bugs, regressions, risky assumptions, and missing tests.",
+        workflow_id_suffix: "review",
         primary_output_node: "review",
         output_label: "Review Output",
     },
@@ -1032,8 +1081,17 @@ const WORKFLOW_STARTER_PRESETS: &[WorkflowStarterPreset<'static>] = &[
         id: "change-summary",
         title: "Change Summary Starter",
         summary: "summarize the repository changes into a concise update covering what changed, why it matters, and what to verify next.",
+        workflow_id_suffix: "summary",
         primary_output_node: "summary",
         output_label: "Summary Output",
+    },
+    WorkflowStarterPreset {
+        id: "test-plan",
+        title: "Test Plan Starter",
+        summary: "outline the highest-value automated and manual checks for the repository changes before you run them.",
+        workflow_id_suffix: "test-plan",
+        primary_output_node: "test_plan",
+        output_label: "Test Plan Output",
     },
 ];
 
@@ -1056,6 +1114,35 @@ fn render_workflow_starter_catalog() -> String {
         lines.push(format!("Try: manual workflow starter {} --run", preset.id));
     }
     lines.join("\n")
+}
+
+fn suggested_workflow_starter_id(preset: &str, repo_root: &Path) -> String {
+    let repo_name = repo_root
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("repo");
+    let normalized = repo_name
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .replace("--", "-");
+    let normalized = normalized.trim_matches('-');
+    let repo_component = if normalized.is_empty() {
+        "repo"
+    } else {
+        normalized
+    };
+    format!(
+        "starter-{}-{}",
+        repo_component,
+        workflow_starter_preset(preset).workflow_id_suffix
+    )
 }
 
 fn starter_catalog_requested(command: &CommandGroup) -> bool {
@@ -1368,8 +1455,8 @@ enum WorkflowCommand {
         list: bool,
         #[arg(long, value_name = "PATH")]
         repo: Option<PathBuf>,
-        #[arg(long, default_value = "starter-code-review", value_name = "WORKFLOW_ID")]
-        workflow_id: String,
+        #[arg(long, value_name = "WORKFLOW_ID")]
+        workflow_id: Option<String>,
         #[arg(long, value_name = "AGENT")]
         agent: Option<String>,
         #[arg(long, value_name = "MODEL")]

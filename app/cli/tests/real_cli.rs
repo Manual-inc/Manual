@@ -466,6 +466,49 @@ fn workflow_starter_creates_change_summary_workflow_against_real_app_server() {
 }
 
 #[test]
+fn workflow_starter_creates_test_plan_workflow_against_real_app_server() {
+    let harness = RealHarness::new("manual-cli-starter-test-plan-real");
+    let repo = init_git_repo(harness.temp.path().join("repo"));
+
+    let output = harness.run(vec![
+        "workflow".to_owned(),
+        "starter".to_owned(),
+        "test-plan".to_owned(),
+        "--repo".to_owned(),
+        repo.display().to_string(),
+        "--agent".to_owned(),
+        "codex".to_owned(),
+    ]);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Preset: test-plan"));
+    assert!(stdout.contains("Workflow ID: starter-repo-test-plan"));
+
+    let fetched = harness.run_jsons([
+        "workflow".into(),
+        "get".into(),
+        "starter-repo-test-plan".into(),
+    ]);
+    assert_eq!(fetched[0]["workflow"]["id"], "starter-repo-test-plan");
+    assert_eq!(fetched[0]["workflow"]["nodes"][0]["id"], "collect_diff");
+    assert_eq!(fetched[0]["workflow"]["nodes"][0]["kind"], "script");
+    assert_eq!(fetched[0]["workflow"]["nodes"][1]["id"], "test_plan");
+    assert_eq!(fetched[0]["workflow"]["nodes"][1]["kind"], "codex");
+    assert_eq!(
+        fetched[0]["workflow"]["dependencies"][0],
+        json!({
+            "node": "test_plan",
+            "depends_on": "collect_diff"
+        })
+    );
+}
+
+#[test]
 fn manual_sandbox_skill_optimization_and_agent_commands_work_against_real_app_server() {
     let harness = RealHarness::new("manual-cli-real-manual");
 

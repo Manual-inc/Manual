@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use manual_worflow::{WorkflowDefinition, WorkflowRun};
 
@@ -190,7 +191,7 @@ impl WorkflowStore {
         }
 
         let content = serde_json::to_string_pretty(value).map_err(io::Error::other)?;
-        let temporary_path = path.with_extension("json.tmp");
+        let temporary_path = temporary_json_path(path);
         fs::write(&temporary_path, content)?;
         fs::rename(temporary_path, path)
     }
@@ -321,6 +322,16 @@ fn delete_file(path: PathBuf) -> io::Result<()> {
     }
 }
 
+static TEMP_PATH_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn temporary_json_path(path: &Path) -> PathBuf {
+    // Why this exists: docs/wiki/systems/매뉴얼-최적화-기능.md depends on
+    // workflow-derived optimization evidence persisting reliably even when
+    // multiple readers race to materialize the same run.
+    let suffix = TEMP_PATH_COUNTER.fetch_add(1, Ordering::Relaxed);
+    path.with_extension(format!("json.tmp.{suffix}"))
+}
+
 fn hex_encode(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut encoded = String::with_capacity(bytes.len() * 2);
@@ -381,5 +392,16 @@ mod tests {
         );
 
         assert_eq!(storage_dir, PathBuf::from("/tmp/manual-state"));
+    }
+
+    #[test]
+    fn temporary_json_path_is_unique_per_call() {
+        let path = Path::new("/tmp/example.json");
+        let first = temporary_json_path(path);
+        let second = temporary_json_path(path);
+
+        assert_ne!(first, second);
+        assert!(first.to_string_lossy().contains(".json.tmp."));
+        assert!(second.to_string_lossy().contains(".json.tmp."));
     }
 }

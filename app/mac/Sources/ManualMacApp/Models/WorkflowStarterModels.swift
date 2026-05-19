@@ -54,6 +54,7 @@ struct WorkflowStarterPreset: Equatable, Sendable {
     let id: String
     let title: String
     let summary: String
+    let workflowIDSuffix: String
 }
 
 enum WorkflowStarterDefinition {
@@ -61,12 +62,20 @@ enum WorkflowStarterDefinition {
         WorkflowStarterPreset(
             id: "code-review",
             title: "Code Review Starter",
-            summary: "Review repository changes for correctness bugs, regressions, risky assumptions, and missing tests."
+            summary: "Review repository changes for correctness bugs, regressions, risky assumptions, and missing tests.",
+            workflowIDSuffix: "review"
         ),
         WorkflowStarterPreset(
             id: "change-summary",
             title: "Change Summary Starter",
-            summary: "summarize the repository changes into a concise update covering what changed, why it matters, and what to verify next."
+            summary: "summarize the repository changes into a concise update covering what changed, why it matters, and what to verify next.",
+            workflowIDSuffix: "summary"
+        ),
+        WorkflowStarterPreset(
+            id: "test-plan",
+            title: "Test Plan Starter",
+            summary: "outline the highest-value automated and manual checks for the repository changes before you run them.",
+            workflowIDSuffix: "test-plan"
         ),
     ]
 
@@ -81,12 +90,7 @@ enum WorkflowStarterDefinition {
         let collapsed = String(normalized)
             .replacingOccurrences(of: "-+", with: "-", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-        let suffix = switch presetID {
-        case "change-summary":
-            "summary"
-        default:
-            "review"
-        }
+        let suffix = availablePresets.first(where: { $0.id == presetID })?.workflowIDSuffix ?? "review"
         return "starter-\(collapsed.isEmpty ? "repo" : collapsed)-\(suffix)"
     }
 
@@ -179,6 +183,46 @@ enum WorkflowStarterDefinition {
         ]
     }
 
+    static func testPlanWorkflow(
+        workflowID: String,
+        repositoryRootPath: String,
+        agent: String,
+        model: String? = nil
+    ) throws -> [String: Any] {
+        guard ["codex", "claude", "pi"].contains(agent) else {
+            throw WorkflowStarterError.unsupportedAgent(agent)
+        }
+
+        var testPlanNode: [String: Any] = [
+            "id": "test_plan",
+            "kind": agent,
+            "prompt": testPlanPrompt(),
+            "cwd": repositoryRootPath,
+        ]
+        if let model, !model.isEmpty {
+            testPlanNode["model"] = model
+        }
+
+        return [
+            "id": workflowID,
+            "nodes": [
+                [
+                    "id": "collect_diff",
+                    "kind": "script",
+                    "script": codeReviewScript(repositoryRootPath: repositoryRootPath),
+                    "sandbox_policy": codeReviewSandbox(repositoryRootPath: repositoryRootPath),
+                ],
+                testPlanNode,
+            ],
+            "dependencies": [
+                [
+                    "node": "test_plan",
+                    "depends_on": "collect_diff",
+                ],
+            ],
+        ]
+    }
+
     static func resolveRepositoryRootPath(from selectedPath: String) throws -> String {
         let candidate = URL(fileURLWithPath: selectedPath, isDirectory: true)
             .standardizedFileURL
@@ -227,6 +271,15 @@ enum WorkflowStarterDefinition {
         """
         Summarize the repository changes described in Input.collect_diff.stdout.
         Write a concise human update covering what changed, why it matters, and what to verify next.
+        The input includes file summaries and a bounded patch preview.
+        If the diff is truncated or seems insufficient, say that explicitly and avoid pretending to know more than the evidence supports.
+        """
+    }
+
+    private static func testPlanPrompt() -> String {
+        """
+        Outline the highest-value automated and manual checks for the repository changes described in Input.collect_diff.stdout.
+        Focus on regression risks, missing verification, and the smallest set of checks that would increase confidence.
         The input includes file summaries and a bounded patch preview.
         If the diff is truncated or seems insufficient, say that explicitly and avoid pretending to know more than the evidence supports.
         """

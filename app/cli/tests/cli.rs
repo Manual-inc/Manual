@@ -420,8 +420,10 @@ fn workflow_starter_catalog_lists_available_presets_without_rpc() {
     assert!(stdout.contains("Workflow Starter Catalog"));
     assert!(stdout.contains("code-review"));
     assert!(stdout.contains("change-summary"));
+    assert!(stdout.contains("test-plan"));
     assert!(stdout.contains("manual workflow starter code-review --run"));
     assert!(stdout.contains("manual workflow starter change-summary --run"));
+    assert!(stdout.contains("manual workflow starter test-plan --run"));
     assert!(
         !log.exists() || fs::read_to_string(&log).unwrap_or_default().trim().is_empty(),
         "starter catalog should not need an app-server RPC"
@@ -465,6 +467,46 @@ fn workflow_starter_creates_change_summary_workflow() {
     assert!(requests.contains(r#""method":"workflow.create""#));
     assert!(requests.contains(r#""id":"starter-summary""#));
     assert!(requests.contains(r#""id":"summary""#));
+    assert!(requests.contains(r#""kind":"codex""#));
+    assert!(requests.contains(&format!(r#""cwd":"{}""#, canonical_repo.display())));
+    assert!(requests.contains(r#""depends_on":"collect_diff""#));
+}
+
+#[test]
+fn workflow_starter_creates_test_plan_workflow_with_default_id() {
+    let temp = TestDir::new("manual-cli-starter-test-plan");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo(&temp, "repo");
+    let canonical_repo = fs::canonicalize(&repo).unwrap();
+
+    let output = run_manual(
+        &server,
+        [
+            "workflow".into(),
+            "starter".into(),
+            "test-plan".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+            "--agent".into(),
+            "codex".into(),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Preset: test-plan"));
+    assert!(stdout.contains("Workflow ID: starter-repo-test-plan"));
+    assert!(stdout.contains("outline the highest-value automated and manual checks"));
+
+    let requests = fs::read_to_string(log).unwrap();
+    assert!(requests.contains(r#""method":"workflow.create""#));
+    assert!(requests.contains(r#""id":"starter-repo-test-plan""#));
+    assert!(requests.contains(r#""id":"test_plan""#));
     assert!(requests.contains(r#""kind":"codex""#));
     assert!(requests.contains(&format!(r#""cwd":"{}""#, canonical_repo.display())));
     assert!(requests.contains(r#""depends_on":"collect_diff""#));

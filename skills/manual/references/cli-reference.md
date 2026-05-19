@@ -80,6 +80,7 @@ manual workflow starter --list
 
 - `code-review` — correctness review starter
 - `change-summary` — human-readable change summary starter
+- `test-plan` — automated + manual verification plan starter
 
 ---
 
@@ -92,6 +93,7 @@ manual workflow starter code-review --run
 manual workflow starter code-review --repo /path/to/repo --workflow-id repo-review
 manual workflow starter code-review --agent codex
 manual workflow starter change-summary --run
+manual workflow starter test-plan --run
 ```
 
 현재 동작:
@@ -103,13 +105,14 @@ manual workflow starter change-summary --run
 - `--run`이면 workflow 실행, optimization follow-through, review output까지 이어서 보여준다
 
 `change-summary` preset은 `summary` agent 노드를 만들어 사람이 읽는 변경 요약을 출력한다.
+`test-plan` preset은 `test_plan` agent 노드를 만들어 자동/수동 검증 항목을 함께 적은 짧은 계획을 출력한다.
 
 옵션:
 
 | 옵션 | 설명 |
 |------|------|
 | `--repo <PATH>` | starter workflow를 만들 대상 저장소 경로 (기본값: 현재 디렉터리) |
-| `--workflow-id <ID>` | 저장할 workflow ID (기본값: `starter-code-review`) |
+| `--workflow-id <ID>` | 저장할 workflow ID (기본값: repo 이름 + preset 기반으로 자동 제안) |
 | `--agent <NAME>` | 사용할 agent를 직접 지정 (`codex`, `claude`, `pi`) |
 | `--model <MODEL>` | review agent 노드에 넣을 model override |
 | `--run` | 생성 후 즉시 workflow를 실행 |

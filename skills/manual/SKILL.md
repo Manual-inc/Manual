@@ -72,6 +72,7 @@ manual --server-url http://127.0.0.1:PORT --auth-token TOKEN workflow list
 manual workflow starter                    # starter catalog 보기
 manual workflow starter code-review --run  # 첫 starter workflow 생성 + 즉시 실행
 manual workflow starter change-summary --run
+manual workflow starter test-plan --run
 manual workflow create workflow.json     # JSON 파일로 워크플로우 생성
 manual workflow list                     # 저장된 워크플로우 목록
 manual workflow get <workflow_id>        # 단일 워크플로우 조회

@@ -26,6 +26,7 @@ First real workflow after the demo:
 
 ```bash
 manual workflow starter code-review --run
+manual workflow starter test-plan --run
 ```
 
 Browse starter presets:

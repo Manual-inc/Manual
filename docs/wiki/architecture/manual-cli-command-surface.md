@@ -21,7 +21,7 @@ date_updated: 2026-05-19
 - `manual optimization ...` — `optimization.*` 4개 메서드 전부를 다룬다. 최적화 실행 기록, 분석, 비교, 리포트를 포함하며 [[token-cost-observability|토큰 비용 관측]]과 연결된다.
 - `manual doctor` — app-server 바이너리, discovery 파일, URL/토큰, health 상태를 비파괴적으로 진단하고 바로 이어서 실행할 next steps를 제안한다. healthy 상태라면 `manual demo optimization`로 가장 빠른 제품 체험 경로를 넘겨준다.
 - `manual demo optimization` — built-in 데모 workflow를 생성, 실행, 최적화 리포트/분석 표시까지 한 번에 수행한다. 제품의 핵심 가치를 가장 짧게 체감하는 진입점이다.
-- `manual workflow starter ...` — CLI-side starter catalog와 preset surface다. 현재 `code-review`와 `change-summary` preset이 있고, 로컬 git repo와 local agent availability를 바탕으로 첫 실제 workflow를 생성한다. `--run`일 때는 output까지 이어서 보여준다. 자세한 의도는 [[workflow-starters|워크플로우 스타터]]를 본다.
+- `manual workflow starter ...` — CLI-side starter catalog와 preset surface다. 현재 `code-review`, `change-summary`, `test-plan` preset이 있고, 로컬 git repo와 local agent availability를 바탕으로 첫 실제 workflow를 생성한다. `--run`일 때는 output까지 이어서 보여준다. 자세한 의도는 [[workflow-starters|워크플로우 스타터]]를 본다.
 - `manual sandbox ...` — `sandbox.*` 5개 메서드 전부를 다룬다. 샌드박스 생성/조회/수정, 정책 평가를 포함하며 [[agent-sandboxing|에이전트 샌드박스]]와 [[샌드박스-기능]]을 CLI에서 바로 다룰 수 있게 한다.
 - `manual skill ...` — `skill.*` 5개 메서드 전부를 다룬다. 스킬 단계 구성, 후보 추천, 실행 기록, 사용 검증, 에이전트 capability 힌트를 포함하며 [[agent-skill-routing|에이전트 스킬 지정]]과 연결된다.
 - `manual agent list ...` — `agent.list` 메서드를 노출한다.
