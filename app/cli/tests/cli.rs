@@ -589,6 +589,51 @@ fn workflow_starter_catalog_uses_remembered_repository_when_outside_git_repo() {
 }
 
 #[test]
+fn workflow_starter_catalog_lists_recent_starters_from_state() {
+    let temp = TestDir::new("manual-cli-starter-history");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo_with_identity(&temp, "history-repo");
+    let canonical_repo = fs::canonicalize(&repo).unwrap();
+    let discovery = temp.path().join("manual").join("app-server.json");
+    write_file_and_commit(&repo, "src/lib.rs", "pub fn value() -> i32 { 1 }\n");
+    std::fs::write(repo.join("src/lib.rs"), "pub fn value() -> i32 { 2 }\n").unwrap();
+
+    let seed = run_manual_in_dir(
+        &server,
+        temp.path(),
+        vec![
+            "--discovery-file".into(),
+            discovery.display().to_string(),
+            "workflow".into(),
+            "starter".into(),
+            "test-plan".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+        ],
+    );
+    assert!(seed.status.success(), "stderr: {}", String::from_utf8_lossy(&seed.stderr));
+
+    let output = run_manual_in_dir(
+        &server,
+        temp.path(),
+        vec![
+            "--discovery-file".into(),
+            discovery.display().to_string(),
+            "workflow".into(),
+            "starter".into(),
+        ],
+    );
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Recent starters"));
+    assert!(stdout.contains("test-plan"));
+    assert!(stdout.contains(&canonical_repo.display().to_string()));
+    assert!(stdout.contains("manual workflow run starter-history-repo-test-plan --human"));
+}
+
+#[test]
 fn workflow_starter_run_uses_remembered_repository_when_outside_git_repo() {
     let temp = TestDir::new("manual-cli-starter-remembered-run");
     let log = temp.path().join("requests.jsonl");

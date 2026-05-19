@@ -84,6 +84,7 @@ manual workflow starter --run
 `--repo <PATH>`를 함께 주면 changed file 유형을 바탕으로 지금 가장 맞는 starter를 추천한다.
 `--run`까지 함께 주면 추천된 starter를 즉시 실행한다.
 이후에는 마지막으로 기억한 저장소를 기준으로 `manual workflow starter --run`만 다시 실행할 수 있다.
+catalog는 recent starter history와 `manual workflow run <workflow_id> --human` rerun 힌트도 함께 보여준다.
 
 - `code-review` — correctness review starter
 - `change-summary` — human-readable change summary starter

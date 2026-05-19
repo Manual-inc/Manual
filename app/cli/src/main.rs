@@ -700,6 +700,7 @@ fn run_workflow_starter(
     )?;
 
     client.request("workflow.create", json!({ "workflow": workflow }))?;
+    save_recent_starter(starter_state_file, &preset, &repo_root, &workflow_id)?;
     print_text(&render_workflow_starter_summary(
         &preset,
         &workflow_id,
@@ -1148,6 +1149,19 @@ fn render_workflow_starter_catalog(repo: Option<&Path>, starter_state_file: &Pat
             lines.push(reason.to_owned());
         }
     }
+    let recent = load_recent_starters(starter_state_file);
+    if !recent.is_empty() {
+        lines.push(String::new());
+        lines.push("Recent starters".to_owned());
+        for entry in recent {
+            lines.push(format!(
+                "- {} on {} -> manual workflow run {} --human",
+                entry.preset_id,
+                entry.repository_root,
+                entry.workflow_id
+            ));
+        }
+    }
     for preset in WORKFLOW_STARTER_PRESETS {
         lines.push(String::new());
         lines.push(format!("{} ({})", preset.title, preset.id));
@@ -1381,6 +1395,13 @@ fn workflow_starter_state_file(discovery_file: &Path) -> PathBuf {
         .join("starter-state.json")
 }
 
+#[derive(Clone)]
+struct RecentStarterEntry {
+    preset_id: String,
+    repository_root: String,
+    workflow_id: String,
+}
+
 fn load_remembered_starter_repo(state_file: &Path) -> Option<PathBuf> {
     let contents = fs::read_to_string(state_file).ok()?;
     let value = serde_json::from_str::<Value>(&contents).ok()?;
@@ -1393,16 +1414,78 @@ fn save_remembered_starter_repo(
 ) -> Result<(), CliError> {
     // Why this exists: docs/wiki/features/workflow-starters.md expects repeat
     // starter runs to feel faster after the first successful repository pick.
+    let mut state = load_starter_state(state_file);
+    state["last_repository_root"] = json!(repo_root.display().to_string());
+    save_starter_state(state_file, &state)?;
+    Ok(())
+}
+
+fn save_recent_starter(
+    state_file: &Path,
+    preset_id: &str,
+    repo_root: &Path,
+    workflow_id: &str,
+) -> Result<(), CliError> {
+    let mut state = load_starter_state(state_file);
+    state["last_repository_root"] = json!(repo_root.display().to_string());
+
+    let mut recent = load_recent_starters(state_file);
+    let repo_root = repo_root.display().to_string();
+    recent.retain(|entry| !(entry.preset_id == preset_id && entry.repository_root == repo_root));
+    recent.insert(
+        0,
+        RecentStarterEntry {
+            preset_id: preset_id.to_owned(),
+            repository_root: repo_root,
+            workflow_id: workflow_id.to_owned(),
+        },
+    );
+    recent.truncate(5);
+
+    state["recent"] = Value::Array(
+        recent
+            .into_iter()
+            .map(|entry| {
+                json!({
+                    "preset_id": entry.preset_id,
+                    "repository_root": entry.repository_root,
+                    "workflow_id": entry.workflow_id
+                })
+            })
+            .collect(),
+    );
+    save_starter_state(state_file, &state)?;
+    Ok(())
+}
+
+fn load_recent_starters(state_file: &Path) -> Vec<RecentStarterEntry> {
+    load_starter_state(state_file)["recent"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            Some(RecentStarterEntry {
+                preset_id: entry["preset_id"].as_str()?.to_owned(),
+                repository_root: entry["repository_root"].as_str()?.to_owned(),
+                workflow_id: entry["workflow_id"].as_str()?.to_owned(),
+            })
+        })
+        .collect()
+}
+
+fn load_starter_state(state_file: &Path) -> Value {
+    fs::read_to_string(state_file)
+        .ok()
+        .and_then(|contents| serde_json::from_str::<Value>(&contents).ok())
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({}))
+}
+
+fn save_starter_state(state_file: &Path, state: &Value) -> Result<(), CliError> {
     if let Some(parent) = state_file.parent() {
         fs::create_dir_all(parent)?;
     }
-
-    fs::write(
-        state_file,
-        serde_json::to_string_pretty(&json!({
-            "last_repository_root": repo_root.display().to_string()
-        }))?,
-    )?;
+    fs::write(state_file, serde_json::to_string_pretty(state)?)?;
     Ok(())
 }
 
