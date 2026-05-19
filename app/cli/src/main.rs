@@ -21,6 +21,7 @@ fn main() {
 fn run() -> Result<(), CliError> {
     let cli = Cli::parse();
     let discovery_file = cli.discovery_file.clone().unwrap_or_else(default_discovery_file);
+    let starter_state_file = workflow_starter_state_file(&discovery_file);
 
     if matches!(cli.command, CommandGroup::Doctor) {
         return run_doctor(
@@ -36,7 +37,10 @@ fn run() -> Result<(), CliError> {
             StarterCatalogMode::Plain => None,
             StarterCatalogMode::WithRepo(path) => Some(path.as_path()),
         };
-        return print_text(&render_workflow_starter_catalog(repo));
+        if let Some(repository_root) = try_resolve_starter_repo_root(repo, &starter_state_file) {
+            let _ = save_remembered_starter_repo(&starter_state_file, &repository_root);
+        }
+        return print_text(&render_workflow_starter_catalog(repo, &starter_state_file));
     }
 
     let mut client = if let Some(server_bin) = cli.server_bin.as_deref() {
@@ -51,7 +55,9 @@ fn run() -> Result<(), CliError> {
     };
 
     match cli.command {
-        CommandGroup::Workflow { command } => handle_workflow(command, &mut client),
+        CommandGroup::Workflow { command } => {
+            handle_workflow(command, &mut client, &starter_state_file)
+        }
         CommandGroup::Node { command } => handle_node(command, &mut client),
         CommandGroup::Agent { command } => handle_agent(command, &mut client),
         CommandGroup::Manual { command } => handle_manual(command, &mut client),
@@ -70,7 +76,11 @@ fn run() -> Result<(), CliError> {
     }
 }
 
-fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Result<(), CliError> {
+fn handle_workflow(
+    command: WorkflowCommand,
+    client: &mut AppServerClient,
+    starter_state_file: &Path,
+) -> Result<(), CliError> {
     match command {
         WorkflowCommand::Create { workflow } => {
             let workflow = read_json_file(&workflow)?;
@@ -223,14 +233,15 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
             run,
         } => {
             if list {
-                print_text(&render_workflow_starter_catalog(repo.as_deref()))
+                print_text(&render_workflow_starter_catalog(repo.as_deref(), starter_state_file))
             } else if preset.is_none() && !run {
-                print_text(&render_workflow_starter_catalog(repo.as_deref()))
+                print_text(&render_workflow_starter_catalog(repo.as_deref(), starter_state_file))
             } else {
                 let resolved_preset = if let Some(preset) = preset {
                     preset
                 } else {
-                    let repository_root = resolve_git_repo_root(repo.as_deref())?;
+                    let repository_root =
+                        resolve_starter_repo_root(repo.as_deref(), starter_state_file)?;
                     if let Some((preset_id, reason)) = recommend_starter_for_repo(&repository_root) {
                         print_text(&format!(
                             "Workflow Starter Recommendation\nRecommended now: {preset_id}\n{reason}\n"
@@ -248,6 +259,7 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
                     agent,
                     model,
                     run,
+                    starter_state_file,
                 )
             }
         }
@@ -670,10 +682,12 @@ fn run_workflow_starter(
     agent: Option<String>,
     model: Option<String>,
     run: bool,
+    starter_state_file: &Path,
 ) -> Result<(), CliError> {
     // Why this exists: docs/wiki/features/workflow-starters.md defines the
     // shortest path from demo value to a user's first real workflow.
-    let repo_root = resolve_git_repo_root(repo.as_deref())?;
+    let repo_root = resolve_starter_repo_root(repo.as_deref(), starter_state_file)?;
+    save_remembered_starter_repo(starter_state_file, &repo_root)?;
     let selected_agent = resolve_workflow_starter_agent(client, agent.as_deref())?;
     let workflow_id =
         workflow_id.unwrap_or_else(|| suggested_workflow_starter_id(&preset, &repo_root));
@@ -1121,12 +1135,12 @@ fn workflow_starter_preset(id: &str) -> &'static WorkflowStarterPreset<'static> 
         .unwrap_or(&WORKFLOW_STARTER_PRESETS[0])
 }
 
-fn render_workflow_starter_catalog(repo: Option<&Path>) -> String {
+fn render_workflow_starter_catalog(repo: Option<&Path>, starter_state_file: &Path) -> String {
     let mut lines = vec!["Workflow Starter Catalog".to_owned()];
     lines.push(
         "Choose a starter preset to move from the demo into a real repository workflow.".to_owned(),
     );
-    if let Some(repository_root) = try_resolve_git_repo_root(repo) {
+    if let Some(repository_root) = try_resolve_starter_repo_root(repo, starter_state_file) {
         lines.push(String::new());
         lines.push(format!("Repository: {}", repository_root.display()));
         if let Some((preset_id, reason)) = recommend_starter_for_repo(&repository_root) {
@@ -1204,6 +1218,21 @@ fn starter_catalog_mode(command: &CommandGroup) -> Option<StarterCatalogMode<'_>
             .or(Some(StarterCatalogMode::Plain)),
         _ => None,
     }
+}
+
+fn resolve_starter_repo_root(repo: Option<&Path>, starter_state_file: &Path) -> Result<PathBuf, CliError> {
+    if let Some(repository_root) = try_resolve_starter_repo_root(repo, starter_state_file) {
+        return Ok(repository_root);
+    }
+
+    resolve_git_repo_root(repo)
+}
+
+fn try_resolve_starter_repo_root(repo: Option<&Path>, starter_state_file: &Path) -> Option<PathBuf> {
+    try_resolve_git_repo_root(repo).or_else(|| {
+        load_remembered_starter_repo(starter_state_file)
+            .and_then(|repository_root| try_resolve_git_repo_root(Some(repository_root.as_path())))
+    })
 }
 
 fn try_resolve_git_repo_root(repo: Option<&Path>) -> Option<PathBuf> {
@@ -1343,6 +1372,38 @@ fn is_code_like_path(path: &str) -> bool {
     ]
     .iter()
     .any(|extension| lowercase.ends_with(extension))
+}
+
+fn workflow_starter_state_file(discovery_file: &Path) -> PathBuf {
+    discovery_file
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join("starter-state.json")
+}
+
+fn load_remembered_starter_repo(state_file: &Path) -> Option<PathBuf> {
+    let contents = fs::read_to_string(state_file).ok()?;
+    let value = serde_json::from_str::<Value>(&contents).ok()?;
+    value["last_repository_root"].as_str().map(PathBuf::from)
+}
+
+fn save_remembered_starter_repo(
+    state_file: &Path,
+    repo_root: &Path,
+) -> Result<(), CliError> {
+    // Why this exists: docs/wiki/features/workflow-starters.md expects repeat
+    // starter runs to feel faster after the first successful repository pick.
+    if let Some(parent) = state_file.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    fs::write(
+        state_file,
+        serde_json::to_string_pretty(&json!({
+            "last_repository_root": repo_root.display().to_string()
+        }))?,
+    )?;
+    Ok(())
 }
 
 fn read_optional_json(path: Option<&PathBuf>) -> Result<Value, CliError> {

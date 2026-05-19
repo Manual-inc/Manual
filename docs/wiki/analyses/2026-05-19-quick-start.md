@@ -63,11 +63,12 @@ bash scripts/demo-optimization.sh
 manual workflow starter
 manual workflow starter --repo .
 manual workflow starter --repo . --run
+manual workflow starter --run
 manual workflow starter code-review --run
 manual workflow starter test-plan --run
 ```
 
-첫 명령은 starter catalog를 보여준다. 두 번째 명령은 현재 저장소 변경 유형을 보고 맞는 starter를 추천한다. 세 번째 명령은 그 추천 starter를 바로 실행한다. `code-review`는 correctness review를, `change-summary`는 사람이 읽을 변경 요약을, `test-plan`은 자동/수동 검증 계획을 만든다. 모두 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 workflow를 생성한 뒤 실행까지 이어 줄 수 있다. review 입력은 changed file summary와 bounded patch preview로 제한해 첫 실행이 과도하게 무거워지지 않게 한다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
+첫 명령은 starter catalog를 보여준다. 두 번째 명령은 현재 저장소 변경 유형을 보고 맞는 starter를 추천한다. 세 번째 명령은 그 추천 starter를 바로 실행한다. 네 번째 명령은 마지막으로 기억된 저장소 기준으로 추천 starter를 다시 실행한다. `code-review`는 correctness review를, `change-summary`는 사람이 읽을 변경 요약을, `test-plan`은 자동/수동 검증 계획을 만든다. 모두 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 workflow를 생성한 뒤 실행까지 이어 줄 수 있다. review 입력은 changed file summary와 bounded patch preview로 제한해 첫 실행이 과도하게 무거워지지 않게 한다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
 
 ## 소스에서 빌드
 

@@ -547,6 +547,96 @@ fn workflow_starter_run_without_explicit_preset_executes_recommended_test_plan()
 }
 
 #[test]
+fn workflow_starter_catalog_uses_remembered_repository_when_outside_git_repo() {
+    let temp = TestDir::new("manual-cli-starter-remembered-catalog");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo_with_identity(&temp, "docs-repo");
+    let canonical_repo = fs::canonicalize(&repo).unwrap();
+    let discovery = temp.path().join("manual").join("app-server.json");
+    write_file_and_commit(&repo, "docs/guide.md", "# guide\n");
+    std::fs::write(repo.join("docs/guide.md"), "# guide updated\n").unwrap();
+
+    let seed = run_manual_in_dir(
+        &server,
+        temp.path(),
+        vec![
+            "--discovery-file".into(),
+            discovery.display().to_string(),
+            "workflow".into(),
+            "starter".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+        ],
+    );
+    assert!(seed.status.success(), "stderr: {}", String::from_utf8_lossy(&seed.stderr));
+
+    let output = run_manual_in_dir(
+        &server,
+        temp.path(),
+        vec![
+            "--discovery-file".into(),
+            discovery.display().to_string(),
+            "workflow".into(),
+            "starter".into(),
+        ],
+    );
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(&format!("Repository: {}", canonical_repo.display())));
+    assert!(stdout.contains("Recommended now: change-summary"));
+}
+
+#[test]
+fn workflow_starter_run_uses_remembered_repository_when_outside_git_repo() {
+    let temp = TestDir::new("manual-cli-starter-remembered-run");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo_with_identity(&temp, "code-repo");
+    let canonical_repo = fs::canonicalize(&repo).unwrap();
+    let discovery = temp.path().join("manual").join("app-server.json");
+    write_file_and_commit(&repo, "src/lib.rs", "pub fn value() -> i32 { 1 }\n");
+    std::fs::write(repo.join("src/lib.rs"), "pub fn value() -> i32 { 2 }\n").unwrap();
+
+    let seed = run_manual_in_dir(
+        &server,
+        temp.path(),
+        vec![
+            "--discovery-file".into(),
+            discovery.display().to_string(),
+            "workflow".into(),
+            "starter".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+        ],
+    );
+    assert!(seed.status.success(), "stderr: {}", String::from_utf8_lossy(&seed.stderr));
+
+    let output = run_manual_in_dir(
+        &server,
+        temp.path(),
+        vec![
+            "--discovery-file".into(),
+            discovery.display().to_string(),
+            "workflow".into(),
+            "starter".into(),
+            "--run".into(),
+        ],
+    );
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(&format!("Repository: {}", canonical_repo.display())));
+    assert!(stdout.contains("Preset: test-plan"));
+    assert!(stdout.contains("Recommended now: test-plan"));
+
+    let requests = fs::read_to_string(log).unwrap();
+    assert!(requests.contains(r#""method":"workflow.create""#));
+    assert!(requests.contains(r#""id":"test_plan""#));
+}
+
+#[test]
 fn workflow_starter_creates_change_summary_workflow() {
     let temp = TestDir::new("manual-cli-starter-summary");
     let log = temp.path().join("requests.jsonl");
@@ -1213,6 +1303,19 @@ where
 {
     let mut command = manual_cli();
     command.arg("--server-bin").arg(server);
+    for arg in args {
+        command.arg(arg);
+    }
+    command.output().unwrap()
+}
+
+fn run_manual_in_dir<I, S>(server: &Path, cwd: &Path, args: I) -> std::process::Output
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let mut command = manual_cli();
+    command.arg("--server-bin").arg(server).current_dir(cwd);
     for arg in args {
         command.arg(arg);
     }
