@@ -431,6 +431,58 @@ fn workflow_starter_catalog_lists_available_presets_without_rpc() {
 }
 
 #[test]
+fn workflow_starter_catalog_recommends_change_summary_for_docs_only_changes() {
+    let temp = TestDir::new("manual-cli-starter-catalog-docs");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo_with_identity(&temp, "docs-repo");
+    write_file_and_commit(&repo, "docs/guide.md", "# guide\n");
+    std::fs::write(repo.join("docs/guide.md"), "# guide updated\n").unwrap();
+
+    let output = run_manual::<Vec<String>, String>(
+        &server,
+        vec![
+            "workflow".into(),
+            "starter".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+        ],
+    );
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Recommended now: change-summary"));
+    assert!(stdout.contains("Detected mostly documentation or markdown changes"));
+    assert!(stdout.contains("manual workflow starter change-summary --run"));
+}
+
+#[test]
+fn workflow_starter_catalog_recommends_test_plan_for_code_changes_without_tests() {
+    let temp = TestDir::new("manual-cli-starter-catalog-tests");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let repo = init_git_repo_with_identity(&temp, "code-repo");
+    write_file_and_commit(&repo, "src/lib.rs", "pub fn value() -> i32 { 1 }\n");
+    std::fs::write(repo.join("src/lib.rs"), "pub fn value() -> i32 { 2 }\n").unwrap();
+
+    let output = run_manual::<Vec<String>, String>(
+        &server,
+        vec![
+            "workflow".into(),
+            "starter".into(),
+            "--repo".into(),
+            repo.display().to_string(),
+        ],
+    );
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Recommended now: test-plan"));
+    assert!(stdout.contains("Detected code changes without matching test updates"));
+    assert!(stdout.contains("manual workflow starter test-plan --run"));
+}
+
+#[test]
 fn workflow_starter_creates_change_summary_workflow() {
     let temp = TestDir::new("manual-cli-starter-summary");
     let log = temp.path().join("requests.jsonl");
@@ -1129,6 +1181,47 @@ fn init_git_repo(temp: &TestDir, name: &str) -> PathBuf {
         .unwrap();
     assert!(status.success());
     repo
+}
+
+fn init_git_repo_with_identity(temp: &TestDir, name: &str) -> PathBuf {
+    let repo = init_git_repo(temp, name);
+    let email = Command::new("git")
+        .arg("-C")
+        .arg(&repo)
+        .args(["config", "user.email", "starter@example.com"])
+        .status()
+        .unwrap();
+    assert!(email.success());
+    let name = Command::new("git")
+        .arg("-C")
+        .arg(&repo)
+        .args(["config", "user.name", "Starter"])
+        .status()
+        .unwrap();
+    assert!(name.success());
+    repo
+}
+
+fn write_file_and_commit(repo: &Path, relative: &str, contents: &str) {
+    let path = repo.join(relative);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::write(&path, contents).unwrap();
+    let add = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["add", relative])
+        .status()
+        .unwrap();
+    assert!(add.success());
+    let commit = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["commit", "-q", "-m", "seed"])
+        .status()
+        .unwrap();
+    assert!(commit.success());
 }
 
 fn fake_server(temp: &TestDir, log: &Path) -> PathBuf {

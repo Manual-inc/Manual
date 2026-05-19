@@ -74,9 +74,12 @@ starter catalog를 먼저 본다.
 ```bash
 manual workflow starter
 manual workflow starter --list
+manual workflow starter --repo .
 ```
 
 현재 catalog:
+
+`--repo <PATH>`를 함께 주면 changed file 유형을 바탕으로 지금 가장 맞는 starter를 추천한다.
 
 - `code-review` — correctness review starter
 - `change-summary` — human-readable change summary starter

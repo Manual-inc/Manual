@@ -33,6 +33,7 @@ Browse starter presets:
 
 ```bash
 manual workflow starter
+manual workflow starter --repo .
 ```
 
 Start here for setup and product entry points:

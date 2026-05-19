@@ -31,8 +31,12 @@ fn run() -> Result<(), CliError> {
         );
     }
 
-    if starter_catalog_requested(&cli.command) {
-        return print_text(&render_workflow_starter_catalog());
+    if let Some(mode) = starter_catalog_mode(&cli.command) {
+        let repo = match mode {
+            StarterCatalogMode::Plain => None,
+            StarterCatalogMode::WithRepo(path) => Some(path.as_path()),
+        };
+        return print_text(&render_workflow_starter_catalog(repo));
     }
 
     let mut client = if let Some(server_bin) = cli.server_bin.as_deref() {
@@ -219,7 +223,7 @@ fn handle_workflow(command: WorkflowCommand, client: &mut AppServerClient) -> Re
             run,
         } => {
             if list || preset.is_none() {
-                print_text(&render_workflow_starter_catalog())
+                print_text(&render_workflow_starter_catalog(None))
             } else {
                 run_workflow_starter(
                     client,
@@ -1102,11 +1106,19 @@ fn workflow_starter_preset(id: &str) -> &'static WorkflowStarterPreset<'static> 
         .unwrap_or(&WORKFLOW_STARTER_PRESETS[0])
 }
 
-fn render_workflow_starter_catalog() -> String {
+fn render_workflow_starter_catalog(repo: Option<&Path>) -> String {
     let mut lines = vec!["Workflow Starter Catalog".to_owned()];
     lines.push(
         "Choose a starter preset to move from the demo into a real repository workflow.".to_owned(),
     );
+    if let Some(repository_root) = try_resolve_git_repo_root(repo) {
+        lines.push(String::new());
+        lines.push(format!("Repository: {}", repository_root.display()));
+        if let Some((preset_id, reason)) = recommend_starter_for_repo(&repository_root) {
+            lines.push(format!("Recommended now: {preset_id}"));
+            lines.push(reason.to_owned());
+        }
+    }
     for preset in WORKFLOW_STARTER_PRESETS {
         lines.push(String::new());
         lines.push(format!("{} ({})", preset.title, preset.id));
@@ -1145,24 +1157,176 @@ fn suggested_workflow_starter_id(preset: &str, repo_root: &Path) -> String {
     )
 }
 
-fn starter_catalog_requested(command: &CommandGroup) -> bool {
-    matches!(
-        command,
+enum StarterCatalogMode<'a> {
+    Plain,
+    WithRepo(&'a PathBuf),
+}
+
+fn starter_catalog_mode(command: &CommandGroup) -> Option<StarterCatalogMode<'_>> {
+    match command {
         CommandGroup::Workflow {
-            command: WorkflowCommand::Starter {
-                preset: None,
-                ..
+            command:
+                WorkflowCommand::Starter {
+                    preset: None,
+                    repo,
+                    ..
+                },
+        } => repo
+            .as_ref()
+            .map(StarterCatalogMode::WithRepo)
+            .or(Some(StarterCatalogMode::Plain)),
+        CommandGroup::Workflow {
+            command:
+                WorkflowCommand::Starter {
+                    list: true,
+                    repo,
+                    ..
+                },
+        } => repo
+            .as_ref()
+            .map(StarterCatalogMode::WithRepo)
+            .or(Some(StarterCatalogMode::Plain)),
+        _ => None,
+    }
+}
+
+fn try_resolve_git_repo_root(repo: Option<&Path>) -> Option<PathBuf> {
+    let repo = repo
+        .map(PathBuf::from)
+        .or_else(|| env::current_dir().ok())?;
+    let repo = fs::canonicalize(repo).ok()?;
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(&repo)
+        .arg("rev-parse")
+        .arg("--show-toplevel")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let repo_root = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    (!repo_root.is_empty()).then(|| PathBuf::from(repo_root))
+}
+
+fn recommend_starter_for_repo(repo_root: &Path) -> Option<(&'static str, &'static str)> {
+    let changed_files = collect_changed_files(repo_root);
+    if changed_files.is_empty() {
+        return Some((
+            "code-review",
+            "No active diff was detected, so code-review is the safest general default.",
+        ));
+    }
+
+    let docs_like = changed_files.iter().filter(|path| is_docs_like_path(path)).count();
+    if docs_like == changed_files.len() {
+        return Some((
+            "change-summary",
+            "Detected mostly documentation or markdown changes.",
+        ));
+    }
+
+    let code_like = changed_files.iter().filter(|path| is_code_like_path(path)).count();
+    let test_like = changed_files.iter().filter(|path| is_test_like_path(path)).count();
+    if code_like > 0 && test_like == 0 {
+        return Some((
+            "test-plan",
+            "Detected code changes without matching test updates.",
+        ));
+    }
+
+    Some((
+        "code-review",
+        "Detected implementation changes that benefit from a correctness and regression review.",
+    ))
+}
+
+fn collect_changed_files(repo_root: &Path) -> Vec<String> {
+    let mut files = Vec::new();
+    let commands = [
+        vec!["diff", "--name-only", "--", "."],
+        vec!["diff", "--cached", "--name-only", "--", "."],
+    ];
+    for args in commands {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(repo_root)
+            .args(&args)
+            .output();
+        if let Ok(output) = output {
+            if output.status.success() {
+                files.extend(
+                    String::from_utf8_lossy(&output.stdout)
+                        .lines()
+                        .map(str::trim)
+                        .filter(|line| !line.is_empty())
+                        .map(str::to_owned),
+                );
             }
         }
-    ) || matches!(
-        command,
-        CommandGroup::Workflow {
-            command: WorkflowCommand::Starter {
-                list: true,
-                ..
+    }
+
+    if files.is_empty() {
+        for args in [
+            vec!["diff", "--name-only", "HEAD~1", "--", "."],
+            vec!["show", "--pretty=", "--name-only", "HEAD", "--", "."],
+        ] {
+            let output = Command::new("git")
+                .arg("-C")
+                .arg(repo_root)
+                .args(&args)
+                .output();
+            if let Ok(output) = output {
+                if output.status.success() {
+                    files.extend(
+                        String::from_utf8_lossy(&output.stdout)
+                            .lines()
+                            .map(str::trim)
+                            .filter(|line| !line.is_empty())
+                            .map(str::to_owned),
+                    );
+                    if !files.is_empty() {
+                        break;
+                    }
+                }
             }
         }
-    )
+    }
+
+    files.sort();
+    files.dedup();
+    files
+}
+
+fn is_docs_like_path(path: &str) -> bool {
+    let lowercase = path.to_ascii_lowercase();
+    lowercase.starts_with("docs/")
+        || lowercase.ends_with(".md")
+        || lowercase.ends_with(".mdx")
+        || lowercase.ends_with(".txt")
+        || lowercase.ends_with(".rst")
+        || lowercase.contains("readme")
+        || lowercase.contains("changelog")
+}
+
+fn is_test_like_path(path: &str) -> bool {
+    let lowercase = path.to_ascii_lowercase();
+    lowercase.contains("/test")
+        || lowercase.contains("/tests")
+        || lowercase.contains("_test.")
+        || lowercase.contains(".test.")
+        || lowercase.contains(".spec.")
+        || lowercase.ends_with(".feature")
+}
+
+fn is_code_like_path(path: &str) -> bool {
+    let lowercase = path.to_ascii_lowercase();
+    [
+        ".rs", ".swift", ".cs", ".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".kt", ".go",
+        ".rb", ".php",
+    ]
+    .iter()
+    .any(|extension| lowercase.ends_with(extension))
 }
 
 fn read_optional_json(path: Option<&PathBuf>) -> Result<Value, CliError> {
