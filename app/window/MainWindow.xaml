@@ -2,8 +2,9 @@
     x:Class="ManualWindow.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Why this exists: docs/wiki/systems/매뉴얼-최적화-기능.md makes optimization
-         insight the core MVP value that every client surface should communicate. -->
+    <!-- Why this exists: docs/wiki/analyses/2026-05-19-quick-start.md and
+         docs/wiki/features/workflow-starters.md keep the first-success
+         onboarding path visible even in the static Windows preview shell. -->
     <Grid Background="#15171B">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -51,9 +52,54 @@
 
                     <TextBlock
                         MaxWidth="760"
-                        Text="Run a workflow, inspect execution evidence, and surface the next optimization move without leaving the main console."
+                        Text="Check connectivity, feel the demo, and move into the first real code review workflow without losing the optimization story."
                         TextWrapping="WrapWholeWords"
                         Foreground="#B3FFFFFF" />
+
+                    <StackPanel
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <Border
+                            Padding="10,5"
+                            Background="#222631"
+                            CornerRadius="999">
+                            <TextBlock
+                                Text="1 Doctor"
+                                FontSize="11"
+                                FontWeight="SemiBold"
+                                Foreground="#FFFBFBFB" />
+                        </Border>
+                        <Border
+                            Padding="10,5"
+                            Background="#222631"
+                            CornerRadius="999">
+                            <TextBlock
+                                Text="2 Demo"
+                                FontSize="11"
+                                FontWeight="SemiBold"
+                                Foreground="#FFFBFBFB" />
+                        </Border>
+                        <Border
+                            Padding="10,5"
+                            Background="#222631"
+                            CornerRadius="999">
+                            <TextBlock
+                                Text="3 Code Review Starter"
+                                FontSize="11"
+                                FontWeight="SemiBold"
+                                Foreground="#FFFBFBFB" />
+                        </Border>
+                        <Border
+                            Padding="10,5"
+                            Background="#222631"
+                            CornerRadius="999">
+                            <TextBlock
+                                Text="4 Output"
+                                FontSize="11"
+                                FontWeight="SemiBold"
+                                Foreground="#FFFBFBFB" />
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
 
                 <Border
@@ -70,7 +116,7 @@
                             FontWeight="SemiBold"
                             Foreground="#FFFF8E7E" />
                         <TextBlock
-                            Text="Implementation step used most tokens"
+                            Text="Review step still drives most token cost"
                             Width="220"
                             TextWrapping="WrapWholeWords"
                             Foreground="#FFFBFBFB" />
@@ -120,7 +166,7 @@
                                 FontWeight="SemiBold"
                                 Foreground="#FFFBFBFB" />
                             <TextBlock
-                                Text="demo-optimization-run · Completed"
+                                Text="starter-code-review-run · Completed"
                                 Foreground="#99FFFFFF" />
                         </StackPanel>
 
@@ -130,7 +176,7 @@
                             Background="#1F2A20"
                             CornerRadius="999">
                             <TextBlock
-                                Text="2 nodes · 1 recommendation"
+                                Text="2 nodes · output surfaced"
                                 FontSize="11"
                                 FontWeight="SemiBold"
                                 Foreground="#FF95E08A" />
@@ -147,24 +193,24 @@
                         <Border Background="#222631" CornerRadius="14" Padding="14">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Token Usage" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
-                                <TextBlock Text="6,200" FontSize="24" FontWeight="SemiBold" Foreground="#FFFBFBFB" />
-                                <TextBlock Text="+4,400 vs baseline" Foreground="#FFFF8E7E" />
+                                <TextBlock Text="2,300" FontSize="24" FontWeight="SemiBold" Foreground="#FFFBFBFB" />
+                                <TextBlock Text="bounded patch preview" Foreground="#FF95E08A" />
                             </StackPanel>
                         </Border>
 
                         <Border Grid.Column="1" Background="#222631" CornerRadius="14" Padding="14">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Verification" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
-                                <TextBlock Text="70%" FontSize="24" FontWeight="SemiBold" Foreground="#FFFBFBFB" />
-                                <TextBlock Text="review evidence missing" Foreground="#FFD9C27A" />
+                                <TextBlock Text="100%" FontSize="24" FontWeight="SemiBold" Foreground="#FFFBFBFB" />
+                                <TextBlock Text="review output captured" Foreground="#FF95E08A" />
                             </StackPanel>
                         </Border>
 
                         <Border Grid.Column="2" Background="#222631" CornerRadius="14" Padding="14">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Time" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
-                                <TextBlock Text="3.1s" FontSize="24" FontWeight="SemiBold" Foreground="#FFFBFBFB" />
-                                <TextBlock Text="2 retries on implement" Foreground="#FF95E08A" />
+                                <TextBlock Text="2.6s" FontSize="24" FontWeight="SemiBold" Foreground="#FFFBFBFB" />
+                                <TextBlock Text="starter-ready latency" Foreground="#FF95E08A" />
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -203,7 +249,7 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="09:41" Foreground="#80FFFFFF" />
-                                        <TextBlock Grid.Column="1" Text="brief completed" Foreground="#FFFBFBFB" />
+                                        <TextBlock Grid.Column="1" Text="collect_diff completed" Foreground="#FFFBFBFB" />
                                     </Grid>
                                     <Grid ColumnSpacing="10">
                                         <Grid.ColumnDefinitions>
@@ -211,7 +257,7 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="09:41" Foreground="#80FFFFFF" />
-                                        <TextBlock Grid.Column="1" Text="digest completed" Foreground="#FFFBFBFB" />
+                                        <TextBlock Grid.Column="1" Text="review completed" Foreground="#FFFBFBFB" />
                                     </Grid>
                                     <Grid ColumnSpacing="10">
                                         <Grid.ColumnDefinitions>
@@ -232,28 +278,28 @@
                             CornerRadius="14">
                             <StackPanel Spacing="12">
                                 <TextBlock
-                                    Text="Recommendations"
+                                    Text="Review Output"
                                     FontSize="14"
                                     FontWeight="SemiBold"
                                     Foreground="#FFFBFBFB" />
 
                                 <Border Background="#222631" CornerRadius="12" Padding="12">
                                     <TextBlock
-                                        Text="Preprocess file discovery before the main reasoning step."
+                                        Text="No findings. Residual risk is low for this bounded starter change."
                                         TextWrapping="WrapWholeWords"
                                         Foreground="#FFFBFBFB" />
                                 </Border>
 
                                 <Border Background="#222631" CornerRadius="12" Padding="12">
                                     <TextBlock
-                                        Text="Keep the high-quality model on implementation, but downshift planning."
+                                        Text="If the patch preview is truncated, the review should say so explicitly and focus only on supported risks."
                                         TextWrapping="WrapWholeWords"
                                         Foreground="#FFFBFBFB" />
                                 </Border>
 
                                 <Border Background="#222631" CornerRadius="12" Padding="12">
                                     <TextBlock
-                                        Text="Measurements shown here are derived from workflow events until Windows runtime wiring is added."
+                                        Text="Native clients should surface the review result directly, not hide it behind raw event dictionaries."
                                         TextWrapping="WrapWholeWords"
                                         Foreground="#B3FFFFFF" />
                                 </Border>
@@ -272,31 +318,40 @@
                 CornerRadius="18">
                 <StackPanel Spacing="14">
                     <TextBlock
-                        Text="Optimization Signals"
+                        Text="Quick Start Path"
                         FontSize="18"
                         FontWeight="SemiBold"
                         Foreground="#FFFBFBFB" />
 
                     <Border Background="#222631" CornerRadius="14" Padding="14">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Main Issue" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
-                            <TextBlock Text="implementation step used most tokens" TextWrapping="WrapWholeWords" Foreground="#FFFBFBFB" />
+                            <TextBlock Text="1. Doctor" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
+                            <TextBlock Text="manual doctor" FontFamily="Consolas" Foreground="#FFFBFBFB" />
+                            <TextBlock Text="Check local connectivity and follow the next-step hint before the first run." TextWrapping="WrapWholeWords" Foreground="#B3FFFFFF" />
                         </StackPanel>
                     </Border>
 
                     <Border Background="#222631" CornerRadius="14" Padding="14">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Derived Measurements" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
-                            <TextBlock Text="Estimated from workflow events and workflow definition." TextWrapping="WrapWholeWords" Foreground="#B3FFFFFF" />
+                            <TextBlock Text="2. Demo" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
+                            <TextBlock Text="manual demo optimization" FontFamily="Consolas" Foreground="#FFFBFBFB" />
+                            <TextBlock Text="Feel the workflow + optimization value in one guided path." TextWrapping="WrapWholeWords" Foreground="#B3FFFFFF" />
                         </StackPanel>
                     </Border>
 
                     <Border Background="#222631" CornerRadius="14" Padding="14">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Bottlenecks" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
-                            <TextBlock Text="Token Waste: implement" Foreground="#FFFBFBFB" />
-                            <TextBlock Text="Verification Gaps: review" Foreground="#FFFBFBFB" />
-                            <TextBlock Text="Slow Steps: implement" Foreground="#FFFBFBFB" />
+                            <TextBlock Text="3. Starter" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
+                            <TextBlock Text="manual workflow starter code-review --run" FontFamily="Consolas" TextWrapping="WrapWholeWords" Foreground="#FFFBFBFB" />
+                            <TextBlock Text="Move from the demo into the first real repository review without hand-writing JSON." TextWrapping="WrapWholeWords" Foreground="#B3FFFFFF" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="#222631" CornerRadius="14" Padding="14">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="4. Output Surface" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
+                            <TextBlock Text="Review Output appears next to the run timeline." TextWrapping="WrapWholeWords" Foreground="#FFFBFBFB" />
+                            <TextBlock Text="Measurements shown here stay derived until Windows runtime wiring is added." TextWrapping="WrapWholeWords" Foreground="#B3FFFFFF" />
                         </StackPanel>
                     </Border>
                 </StackPanel>

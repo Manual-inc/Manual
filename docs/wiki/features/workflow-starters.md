@@ -1,7 +1,7 @@
 ---
 title: 워크플로우 스타터
 type: feature
-tags: [workflow, starter, onboarding, cli, mac]
+tags: [workflow, starter, onboarding, cli, mac, windows]
 sources: []
 date_created: 2026-05-19
 date_updated: 2026-05-19
@@ -12,6 +12,7 @@ date_updated: 2026-05-19
 워크플로우 스타터는 [[2026-05-19-demo-flow|데모 경로]] 다음 단계에서 사용자가 JSON 스키마를 먼저 배우지 않고도 자신의 저장소에서 첫 Manual workflow를 만들 수 있게 하는 진입점이다.
 
 현재 MVP의 첫 starter preset은 `code-review`이며, CLI와 mac app quick-start action 모두 이 starter를 생성할 수 있다.
+Windows preview shell도 같은 starter 경로를 static onboarding narrative로 반영한다.
 
 ## 목적
 

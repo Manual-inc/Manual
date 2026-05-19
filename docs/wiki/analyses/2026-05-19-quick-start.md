@@ -98,6 +98,7 @@ bash app/mac/script/build_and_run.sh
 Windows shell:
 
 - 제품 shell은 `app/window/`에 있다.
+- 현재 preview shell은 `manual doctor` -> `manual demo optimization` -> `manual workflow starter code-review --run` -> review output 순서를 static UI narrative로 먼저 보여준다.
 - 이 macOS 환경에서는 `bash scripts/test-window-ui-smoke.sh`로 XAML 구조 회귀를 검증한다.
 - 실제 WinUI runtime wiring은 Windows 환경에서 마무리해야 한다.
 
