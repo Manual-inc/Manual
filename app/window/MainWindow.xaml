@@ -84,7 +84,7 @@
                             Background="#222631"
                             CornerRadius="999">
                             <TextBlock
-                                Text="3 Code Review Starter"
+                                Text="3 Starter Catalog"
                                 FontSize="11"
                                 FontWeight="SemiBold"
                                 Foreground="#FFFBFBFB" />
@@ -176,7 +176,7 @@
                             Background="#1F2A20"
                             CornerRadius="999">
                             <TextBlock
-                                Text="2 nodes · output surfaced"
+                                Text="starter output surfaced"
                                 FontSize="11"
                                 FontWeight="SemiBold"
                                 Foreground="#FF95E08A" />
@@ -341,9 +341,12 @@
 
                     <Border Background="#222631" CornerRadius="14" Padding="14">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="3. Starter" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
+                            <TextBlock Text="3. Starter Catalog" FontSize="12" FontWeight="SemiBold" Foreground="#99FFFFFF" />
+                            <TextBlock Text="manual workflow starter" FontFamily="Consolas" Foreground="#FFFBFBFB" />
+                            <TextBlock Text="Choose code-review, change-summary, or test-plan before you run a real repository workflow." TextWrapping="WrapWholeWords" Foreground="#B3FFFFFF" />
                             <TextBlock Text="manual workflow starter code-review --run" FontFamily="Consolas" TextWrapping="WrapWholeWords" Foreground="#FFFBFBFB" />
-                            <TextBlock Text="Move from the demo into the first real repository review without hand-writing JSON." TextWrapping="WrapWholeWords" Foreground="#B3FFFFFF" />
+                            <TextBlock Text="manual workflow starter change-summary --run" FontFamily="Consolas" TextWrapping="WrapWholeWords" Foreground="#FFFBFBFB" />
+                            <TextBlock Text="manual workflow starter test-plan --run" FontFamily="Consolas" TextWrapping="WrapWholeWords" Foreground="#FFFBFBFB" />
                         </StackPanel>
                     </Border>
 

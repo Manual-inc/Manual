@@ -4,7 +4,8 @@ Windows native preview shell for the Manual onboarding and optimization workflow
 
 Current scope:
 
-- quick-start path (`manual doctor` -> `manual demo optimization` -> `manual workflow starter code-review --run`)
+- quick-start path (`manual doctor` -> `manual demo optimization` -> `manual workflow starter`)
+- starter options preview (`code-review`, `change-summary`, `test-plan`)
 - workflow run summary
 - execution timeline
 - review output preview
