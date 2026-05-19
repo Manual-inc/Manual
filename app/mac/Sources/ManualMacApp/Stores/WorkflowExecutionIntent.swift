@@ -15,6 +15,7 @@ protocol WorkflowExecutionClient: AnyObject {
     func updateWorkflow(id workflowID: String, workflow: [String: Any]) async throws -> WorkflowMutationResult
     func startWorkflow(id workflowID: String) async throws -> String
     func availableAgents() async throws -> [AppServerAgentAvailability]
+    func recordStarter(_ entry: WorkflowStarterRecentEntry, recommendationReason: String?) async throws
 }
 
 extension AppServerClient: WorkflowExecutionClient {}
@@ -79,7 +80,8 @@ public final class WorkflowExecutionIntent {
         }
         let result = try await executeStarter(
             presetID: recommendation.preset.id,
-            repositoryRootPath: repositoryRootPath
+            repositoryRootPath: repositoryRootPath,
+            recommendationReason: recommendation.reason
         )
         return WorkflowExecutionIntentResult(
             workflowID: result.workflowID,
@@ -91,7 +93,8 @@ public final class WorkflowExecutionIntent {
 
     public func executeStarter(
         presetID: String,
-        repositoryRootPath: String
+        repositoryRootPath: String,
+        recommendationReason: String? = nil
     ) async throws -> WorkflowExecutionIntentResult {
         // See docs/wiki/features/workflow-starters.md: mac UI should offer the
         // same first-success starter path as the CLI surface.
@@ -128,11 +131,17 @@ public final class WorkflowExecutionIntent {
         }
         let knownWorkflows = try await client.workflows()
         let result = try await execute(workflow: workflow, knownWorkflows: knownWorkflows)
+        let recentEntry = WorkflowStarterRecentEntry(
+            presetID: presetID,
+            repositoryRootPath: repositoryRootPath,
+            workflowID: result.workflowID
+        )
+        try? await client.recordStarter(recentEntry, recommendationReason: recommendationReason)
         return WorkflowExecutionIntentResult(
             workflowID: result.workflowID,
             runID: result.runID,
             starterPresetID: presetID,
-            starterRecommendationReason: nil
+            starterRecommendationReason: recommendationReason
         )
     }
 

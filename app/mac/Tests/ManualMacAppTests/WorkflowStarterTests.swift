@@ -19,7 +19,10 @@ struct WorkflowStarterDefinitionTests {
         let first = WorkflowStarterRecentEntry(
             presetID: "code-review",
             repositoryRootPath: "/tmp/repo-a",
-            workflowID: "starter-repo-a-review"
+            workflowID: "starter-repo-a-review",
+            recommendationReason: "Detected implementation changes",
+            outcomeLabel: "Review Output",
+            outcomeText: "Looks good overall."
         )
         let second = WorkflowStarterRecentEntry(
             presetID: "test-plan",
@@ -37,6 +40,50 @@ struct WorkflowStarterDefinitionTests {
             "starter-repo-a-review",
             "starter-repo-b-test-plan",
         ])
+        #expect(decoded.first?.recommendationReason == "Detected implementation changes")
+        #expect(decoded.first?.outcomeLabel == "Review Output")
+        #expect(decoded.first?.outcomeText == "Looks good overall.")
+    }
+
+    @Test func mergedRecentEntries_prefersSharedOrder_andDeduplicatesLocalEntries() {
+        let local = [
+            WorkflowStarterRecentEntry(
+                presetID: "code-review",
+                repositoryRootPath: "/tmp/repo-a",
+                workflowID: "starter-repo-a-review-local"
+            ),
+            WorkflowStarterRecentEntry(
+                presetID: "test-plan",
+                repositoryRootPath: "/tmp/repo-b",
+                workflowID: "starter-repo-b-test-plan"
+            ),
+        ]
+        let shared = [
+            WorkflowStarterRecentEntry(
+                presetID: "change-summary",
+                repositoryRootPath: "/tmp/repo-c",
+                workflowID: "starter-repo-c-summary",
+                recommendationReason: "Detected mostly documentation or markdown changes.",
+                outcomeLabel: "Summary Output",
+                outcomeText: "Updated the docs and guide."
+            ),
+            WorkflowStarterRecentEntry(
+                presetID: "code-review",
+                repositoryRootPath: "/tmp/repo-a",
+                workflowID: "starter-repo-a-review-shared"
+            ),
+        ]
+
+        let merged = WorkflowStarterDefinition.mergedRecentEntries(local: local, shared: shared)
+
+        #expect(merged.map(\.workflowID) == [
+            "starter-repo-c-summary",
+            "starter-repo-a-review-shared",
+            "starter-repo-b-test-plan",
+        ])
+        #expect(merged.first?.recommendationReason == "Detected mostly documentation or markdown changes.")
+        #expect(merged.first?.outcomeLabel == "Summary Output")
+        #expect(merged.first?.outcomeText == "Updated the docs and guide.")
     }
 
     @Test func recommendedPreset_prefersChangeSummaryForDocsOnlyChanges() {
@@ -48,6 +95,28 @@ struct WorkflowStarterDefinitionTests {
         #expect(recommendation.reason.contains("documentation"))
     }
 
+    @Test func recommendedStarterPreview_surfacesReasonAndOutcomeForDocsChanges() {
+        let preview = WorkflowStarterDefinition.recommendedStarterPreview(
+            forChangedFiles: ["docs/guide.md", "README.md"]
+        )
+
+        #expect(preview.preset.id == "change-summary")
+        #expect(preview.reason.contains("documentation"))
+        #expect(preview.changedFilesHint.contains("docs/guide.md"))
+        #expect(preview.expectedOutcome.contains("change update"))
+    }
+
+    @Test func recommendedStarterSelectionSummary_explainsHowManualChooses() {
+        let summary = WorkflowStarterDefinition.recommendedStarterSelectionSummary()
+
+        #expect(summary.contains("Docs-only changes"))
+        #expect(summary.contains("Change Summary"))
+        #expect(summary.contains("Code without matching tests"))
+        #expect(summary.contains("Test Plan"))
+        #expect(summary.contains("otherwise"))
+        #expect(summary.contains("Code Review"))
+    }
+
     @Test func recommendedPreset_prefersTestPlanForCodeChangesWithoutTests() {
         let recommendation = WorkflowStarterDefinition.recommendedPreset(
             forChangedFiles: ["src/lib.rs", "app/main.swift"]
@@ -57,6 +126,27 @@ struct WorkflowStarterDefinitionTests {
         #expect(recommendation.reason.contains("without matching test updates"))
     }
 
+    @Test func recommendedStarterPreview_surfacesReasonAndOutcomeForCodeChangesWithoutTests() {
+        let preview = WorkflowStarterDefinition.recommendedStarterPreview(
+            forChangedFiles: ["src/lib.rs", "app/main.swift"]
+        )
+
+        #expect(preview.preset.id == "test-plan")
+        #expect(preview.reason.contains("without matching test updates"))
+        #expect(preview.changedFilesHint.contains("src/lib.rs"))
+        #expect(preview.expectedOutcome.contains("test plan"))
+    }
+
+    @Test func changedFilesHint_capsListAndShowsOverflowCount() {
+        let hint = WorkflowStarterDefinition.changedFilesHint(
+            forChangedFiles: ["docs/a.md", "docs/b.md", "docs/c.md"]
+        )
+
+        #expect(hint.contains("docs/a.md"))
+        #expect(hint.contains("docs/b.md"))
+        #expect(hint.contains("+1 more"))
+    }
+
     @Test func suggestedWorkflowID_sanitizesRepositoryName() throws {
         let repositoryRootPath = "/tmp/My Cool.Repo"
 
@@ -64,6 +154,16 @@ struct WorkflowStarterDefinitionTests {
             WorkflowStarterDefinition.suggestedWorkflowID(repositoryRootPath: repositoryRootPath)
                 == "starter-my-cool-repo-review"
         )
+    }
+
+    @Test func availablePresets_exposeExpectedOutcomeSummaries() {
+        let review = try! #require(WorkflowStarterDefinition.availablePresets.first(where: { $0.id == "code-review" }))
+        let summary = try! #require(WorkflowStarterDefinition.availablePresets.first(where: { $0.id == "change-summary" }))
+        let testPlan = try! #require(WorkflowStarterDefinition.availablePresets.first(where: { $0.id == "test-plan" }))
+
+        #expect(review.expectedOutcome.contains("bugs"))
+        #expect(summary.expectedOutcome.contains("change update"))
+        #expect(testPlan.expectedOutcome.contains("test plan"))
     }
 
     @Test func codeReviewWorkflow_usesBoundedDiffScriptAndReviewNode() throws {
@@ -211,6 +311,23 @@ struct WorkflowStarterIntentTests {
         #expect(result.starterPresetID == "change-summary")
         #expect(result.starterRecommendationReason?.contains("documentation") == true)
     }
+
+    @Test func executeCodeReviewStarter_recordsSharedRecentStarter() async throws {
+        let client = StubWorkflowExecutionClient(
+            workflows: [],
+            agents: [
+                AppServerAgentAvailability(name: "codex", available: true, path: "/usr/bin/codex"),
+            ],
+            nextRunID: "run-starter-5"
+        )
+        let intent = WorkflowExecutionIntent(client: client)
+
+        _ = try await intent.executeCodeReviewStarter(repositoryRootPath: "/tmp/starter-repo")
+
+        #expect(client.recordedStarter?.presetID == "code-review")
+        #expect(client.recordedStarter?.repositoryRootPath == "/tmp/starter-repo")
+        #expect(client.recordedStarter?.workflowID == "starter-starter-repo-review")
+    }
 }
 
 @MainActor
@@ -222,6 +339,7 @@ private final class StubWorkflowExecutionClient: WorkflowExecutionClient {
     private(set) var createdWorkflow: [String: Any]?
     private(set) var updatedWorkflow: [String: Any]?
     private(set) var startedWorkflowID: String?
+    private(set) var recordedStarter: WorkflowStarterRecentEntry?
 
     init(
         workflows: [WorkflowSummary],
@@ -258,5 +376,9 @@ private final class StubWorkflowExecutionClient: WorkflowExecutionClient {
 
     func availableAgents() async throws -> [AppServerAgentAvailability] {
         agentsResult
+    }
+
+    func recordStarter(_ entry: WorkflowStarterRecentEntry, recommendationReason: String?) async throws {
+        recordedStarter = entry
     }
 }

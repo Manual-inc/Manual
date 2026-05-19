@@ -1120,6 +1120,154 @@ fn workflow_stop_cancels_running_workflow() {
 }
 
 #[test]
+fn json_rpc_records_and_lists_recent_starters() {
+    let server = test_server();
+
+    let recorded: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "starter.record",
+                "params": {
+                    "workflow_id": "starter-repo-review",
+                    "preset_id": "code-review",
+                    "repository_root": "/tmp/repo",
+                    "recommendation_reason": "Detected implementation changes",
+                    "outcome_label": "Review Output",
+                    "outcome_text": "Looks good overall."
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(recorded["result"]["starter"]["workflow_id"], "starter-repo-review");
+    assert_eq!(recorded["result"]["starter"]["preset_id"], "code-review");
+    assert_eq!(
+        recorded["result"]["starter"]["recommendation_reason"],
+        "Detected implementation changes"
+    );
+    assert_eq!(recorded["result"]["starter"]["outcome_label"], "Review Output");
+    assert_eq!(recorded["result"]["starter"]["outcome_text"], "Looks good overall.");
+
+    let listed: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "starter.list",
+                "params": { "limit": 5 }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(listed["result"]["starters"][0]["workflow_id"], "starter-repo-review");
+    assert_eq!(listed["result"]["starters"][0]["preset_id"], "code-review");
+    assert_eq!(
+        listed["result"]["starters"][0]["recommendation_reason"],
+        "Detected implementation changes"
+    );
+    assert_eq!(listed["result"]["starters"][0]["outcome_label"], "Review Output");
+    assert_eq!(listed["result"]["starters"][0]["outcome_text"], "Looks good overall.");
+
+    let fetched: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "starter.get",
+                "params": { "workflow_id": "starter-repo-review" }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(fetched["result"]["starter"]["workflow_id"], "starter-repo-review");
+    assert_eq!(fetched["result"]["starter"]["outcome_label"], "Review Output");
+    assert_eq!(fetched["result"]["starter"]["outcome_text"], "Looks good overall.");
+}
+
+#[test]
+fn starter_records_refresh_outcome_after_generic_workflow_rerun() {
+    let server = test_server();
+
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "workflow.create",
+            "params": {
+                "workflow": {
+                    "id": "starter-repo-review",
+                    "nodes": [
+                        { "id": "review", "kind": "constant", "value": "Looks good overall." }
+                    ],
+                    "dependencies": []
+                }
+            }
+        })
+        .to_string(),
+    );
+
+    server.handle_json(
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "starter.record",
+            "params": {
+                "workflow_id": "starter-repo-review",
+                "preset_id": "code-review",
+                "repository_root": "/tmp/repo",
+                "recommendation_reason": "Detected implementation changes"
+            }
+        })
+        .to_string(),
+    );
+
+    let started: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "workflow.start",
+                "params": {
+                    "workflow_id": "starter-repo-review"
+                }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+    let run_id = started["result"]["run_id"].as_str().unwrap();
+
+    poll_events_until(&server, run_id, 0, |events| {
+        events["result"]["completed"].as_bool().unwrap()
+    });
+
+    let listed: Value = serde_json::from_str(
+        &server.handle_json(
+            &json!({
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "starter.list",
+                "params": { "limit": 5 }
+            })
+            .to_string(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(listed["result"]["starters"][0]["workflow_id"], "starter-repo-review");
+    assert_eq!(listed["result"]["starters"][0]["outcome_label"], "Review Output");
+    assert_eq!(listed["result"]["starters"][0]["outcome_text"], "Looks good overall.");
+}
+
+#[test]
 fn workflow_start_step_mode_pauses() {
     let server = AppServer::with_storage_dir(unique_storage_dir("step-mode"));
     let workflow = json!({

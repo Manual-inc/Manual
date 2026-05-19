@@ -69,6 +69,7 @@ pub struct AppServer {
     next_node_test_case_number: Arc<Mutex<u64>>,
     optimization_runs: Arc<RwLock<BTreeMap<String, Value>>>,
     skill_records: Arc<RwLock<BTreeMap<String, Value>>>,
+    starter_records: Arc<RwLock<BTreeMap<String, Value>>>,
 }
 
 impl AppServer {
@@ -89,6 +90,7 @@ impl AppServer {
         let node_test_cases = workflow_store.load_values("node_test_cases");
         let optimization_runs = workflow_store.load_values("optimization_runs");
         let skill_records = workflow_store.load_values("skill_records");
+        let starter_records = workflow_store.load_values("starter_records");
 
         Self {
             workflows: Arc::new(RwLock::new(workflows)),
@@ -111,6 +113,7 @@ impl AppServer {
             node_test_cases: Arc::new(RwLock::new(node_test_cases)),
             optimization_runs: Arc::new(RwLock::new(optimization_runs)),
             skill_records: Arc::new(RwLock::new(skill_records)),
+            starter_records: Arc::new(RwLock::new(starter_records)),
         }
     }
 
@@ -173,6 +176,9 @@ impl AppServer {
             "skill.record_execution" => self.record_skill_execution(request.id, request.params),
             "skill.verify" => self.verify_skill_usage(request.id, request.params),
             "skill.agent_capabilities" => self.skill_agent_capabilities(request.id),
+            "starter.get" => self.get_starter(request.id, request.params),
+            "starter.record" => self.record_starter(request.id, request.params),
+            "starter.list" => self.list_starters(request.id, request.params),
             _ => rpc_error(request.id, -32601, "method not found"),
         }
     }
@@ -456,6 +462,7 @@ impl AppServer {
         let event_hub = self.event_hub.clone();
         let run_controllers = Arc::clone(&self.run_controllers);
         let optimization_runs = Arc::clone(&self.optimization_runs);
+        let starter_records = Arc::clone(&self.starter_records);
         let thread_run_id = run_id.clone();
         let optimization_workflow = workflow.clone();
 
@@ -507,6 +514,13 @@ impl AppServer {
                 .get(&thread_run_id)
                 .cloned();
             if let Some(run) = final_run {
+                refresh_starter_record_outcome(
+                    &optimization_workflow.id,
+                    &thread_run_id,
+                    &run,
+                    &workflow_store,
+                    &starter_records,
+                );
                 persist_derived_optimization_run(
                     &optimization_workflow,
                     &thread_run_id,
@@ -1308,6 +1322,115 @@ impl AppServer {
         rpc_result(id, manual_skill::agent_capabilities())
     }
 
+    fn record_starter(&self, id: Value, params: Value) -> Value {
+        let params = match serde_json::from_value::<StarterRecordParams>(params) {
+            Ok(params) => params,
+            Err(error) => return rpc_error(id, -32602, error.to_string()),
+        };
+
+        let existing = self
+            .starter_records
+            .read()
+            .expect("starter lock should not poison")
+            .get(&params.workflow_id)
+            .cloned();
+        let now = iso_timestamp();
+        let created_at = existing
+            .as_ref()
+            .and_then(|record| record["created_at"].as_str())
+            .unwrap_or(now.as_str())
+            .to_owned();
+        let recommendation_reason = params
+            .recommendation_reason
+            .clone()
+            .or_else(|| {
+                existing
+                    .as_ref()
+                    .and_then(|record| record["recommendation_reason"].as_str().map(str::to_owned))
+            });
+        let outcome_label = params
+            .outcome_label
+            .clone()
+            .or_else(|| {
+                existing
+                    .as_ref()
+                    .and_then(|record| record["outcome_label"].as_str().map(str::to_owned))
+            });
+        let outcome_text = params
+            .outcome_text
+            .clone()
+            .or_else(|| {
+                existing
+                    .as_ref()
+                    .and_then(|record| record["outcome_text"].as_str().map(str::to_owned))
+            });
+        let record = json!({
+            "id": params.workflow_id,
+            "workflow_id": params.workflow_id,
+            "preset_id": params.preset_id,
+            "repository_root": params.repository_root,
+            "recommendation_reason": recommendation_reason,
+            "outcome_label": outcome_label,
+            "outcome_text": outcome_text,
+            "created_at": created_at,
+            "updated_at": now,
+        });
+
+        if let Err(error) = self
+            .workflow_store
+            .save_value("starter_records", record["id"].as_str().unwrap_or_default(), &record)
+        {
+            return rpc_error(id, -32002, error.to_string());
+        }
+
+        self.starter_records
+            .write()
+            .expect("starter lock should not poison")
+            .insert(
+                record["id"].as_str().unwrap_or_default().to_owned(),
+                record.clone(),
+            );
+        rpc_result(id, json!({ "starter": record }))
+    }
+
+    fn get_starter(&self, id: Value, params: Value) -> Value {
+        let workflow_id = params["workflow_id"].as_str().unwrap_or_default();
+        if workflow_id.is_empty() {
+            return rpc_error(id, -32602, "workflow_id is required");
+        }
+
+        let starter = self
+            .starter_records
+            .read()
+            .expect("starter lock should not poison")
+            .get(workflow_id)
+            .cloned();
+
+        match starter {
+            Some(starter) => rpc_result(id, json!({ "starter": starter })),
+            None => rpc_error(id, -32000, "starter not found"),
+        }
+    }
+
+    fn list_starters(&self, id: Value, params: Value) -> Value {
+        let limit = params["limit"].as_u64().unwrap_or(5) as usize;
+        let mut starters = self
+            .starter_records
+            .read()
+            .expect("starter lock should not poison")
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        starters.sort_by(|left, right| {
+            right["updated_at"]
+                .as_str()
+                .cmp(&left["updated_at"].as_str())
+                .then_with(|| right["workflow_id"].as_str().cmp(&left["workflow_id"].as_str()))
+        });
+        starters.truncate(limit);
+        rpc_result(id, json!({ "starters": starters }))
+    }
+
     fn load_node_run(&self, run_id: &str) -> Option<NodeRun> {
         self.workflow_store.load_node_run(run_id).or_else(|| {
             self.node_runs
@@ -1899,6 +2022,70 @@ fn derived_optimization_params(
     })
 }
 
+fn refresh_starter_record_outcome(
+    workflow_id: &str,
+    run_id: &str,
+    run: &WorkflowRun,
+    workflow_store: &WorkflowStore,
+    starter_records: &Arc<RwLock<BTreeMap<String, Value>>>,
+) {
+    // Why this exists: docs/wiki/features/workflow-starters.md expects recent
+    // starter history to reflect the latest rerun result, not only the first run.
+    let existing = starter_records
+        .read()
+        .expect("starter lock should not poison")
+        .get(workflow_id)
+        .cloned();
+    let Some(mut record) = existing else {
+        return;
+    };
+
+    let Some((label, text)) = starter_outcome_for_record(&record, run_id, run) else {
+        return;
+    };
+
+    record["outcome_label"] = json!(label);
+    record["outcome_text"] = json!(text);
+    record["updated_at"] = json!(iso_timestamp());
+
+    if let Err(error) = workflow_store.save_value("starter_records", workflow_id, &record) {
+        eprintln!("failed to persist starter record {workflow_id}: {error}");
+        return;
+    }
+
+    starter_records
+        .write()
+        .expect("starter lock should not poison")
+        .insert(workflow_id.to_owned(), record);
+}
+
+fn starter_outcome_for_record(record: &Value, run_id: &str, run: &WorkflowRun) -> Option<(String, String)> {
+    let summary = run_summary(run_id, run);
+    if summary["status"] == "failed" {
+        let node_id = summary["first_failed_node"].as_str().unwrap_or("unknown");
+        let error = summary["nodes"][node_id]["error"]
+            .as_str()
+            .unwrap_or("workflow failed without a detailed node error");
+        return Some((
+            "Starter Failure".to_owned(),
+            format!("Failed node: {node_id}\n{error}"),
+        ));
+    }
+
+    let (node_id, label) = match record["preset_id"].as_str() {
+        Some("code-review") => ("review", "Review Output"),
+        Some("change-summary") => ("summary", "Summary Output"),
+        Some("test-plan") => ("test_plan", "Test Plan Output"),
+        _ => return None,
+    };
+    let value = &summary["nodes"][node_id]["result"];
+    let output = value["stdout"]
+        .as_str()
+        .map(str::to_owned)
+        .or_else(|| value.as_str().map(str::to_owned));
+    output.map(|output| (label.to_owned(), output))
+}
+
 fn estimated_total_ms_from_run(run: &WorkflowRun) -> i64 {
     let completed_or_failed_nodes = run
         .events()
@@ -2126,6 +2313,19 @@ struct NodeRunEventsParams {
     run_id: String,
     #[serde(default)]
     cursor: usize,
+}
+
+#[derive(Deserialize)]
+struct StarterRecordParams {
+    workflow_id: String,
+    preset_id: String,
+    repository_root: String,
+    #[serde(default)]
+    recommendation_reason: Option<String>,
+    #[serde(default)]
+    outcome_label: Option<String>,
+    #[serde(default)]
+    outcome_text: Option<String>,
 }
 
 fn rpc_result(id: Value, result: Value) -> Value {

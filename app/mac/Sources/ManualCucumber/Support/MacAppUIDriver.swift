@@ -6,6 +6,11 @@ import ManualMacApp
 final class MacAppUIDriver {
     private let appServer: AppServerScenarioDriver
 
+    private enum StarterRepositoryKind {
+        case generic
+        case docsOnly
+    }
+
     init(appServer: AppServerScenarioDriver) {
         self.appServer = appServer
     }
@@ -36,7 +41,7 @@ final class MacAppUIDriver {
 
     func chooseCreateCodeReviewStarterFromUI() throws -> WorkflowExecutionIntentResult {
         try launch()
-        let repositoryPath = try temporaryStarterRepository()
+        let repositoryPath = try temporaryStarterRepository(kind: .generic)
         let semaphore = DispatchSemaphore(value: 0)
         let box = AsyncResultBox<WorkflowExecutionIntentResult>()
 
@@ -57,7 +62,54 @@ final class MacAppUIDriver {
         return try box.result!.get()
     }
 
-    private func temporaryStarterRepository() throws -> String {
+    func chooseCreateRecommendedStarterFromUI() throws -> WorkflowExecutionIntentResult {
+        try launch()
+        let repositoryPath = try temporaryStarterRepository(kind: .docsOnly)
+        let semaphore = DispatchSemaphore(value: 0)
+        let box = AsyncResultBox<WorkflowExecutionIntentResult>()
+
+        Task { @MainActor in
+            do {
+                box.result = .success(
+                    try await WorkflowExecutionIntent().executeRecommendedStarter(
+                        repositoryRootPath: repositoryPath
+                    )
+                )
+            } catch {
+                box.result = .failure(error)
+            }
+            semaphore.signal()
+        }
+
+        semaphore.wait()
+        return try box.result!.get()
+    }
+
+    func chooseRerunRecentStarterFromUI() throws -> WorkflowExecutionIntentResult {
+        try launch()
+        let recent = try latestSharedRecentStarter()
+        let semaphore = DispatchSemaphore(value: 0)
+        let box = AsyncResultBox<WorkflowExecutionIntentResult>()
+
+        Task { @MainActor in
+            do {
+                box.result = .success(
+                    try await WorkflowExecutionIntent().executeStarter(
+                        presetID: recent.presetID,
+                        repositoryRootPath: recent.repositoryRootPath
+                    )
+                )
+            } catch {
+                box.result = .failure(error)
+            }
+            semaphore.signal()
+        }
+
+        semaphore.wait()
+        return try box.result!.get()
+    }
+
+    private func temporaryStarterRepository(kind: StarterRepositoryKind) throws -> String {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("manual-mac-starter-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -66,12 +118,42 @@ final class MacAppUIDriver {
         try runGit(["config", "user.email", "starter@example.com"], in: root)
         try runGit(["config", "user.name", "Starter"], in: root)
 
-        let fileURL = root.appendingPathComponent("note.txt")
+        let relativePath: String
+        switch kind {
+        case .generic:
+            relativePath = "note.txt"
+        case .docsOnly:
+            let docsURL = root.appendingPathComponent("docs", isDirectory: true)
+            try FileManager.default.createDirectory(at: docsURL, withIntermediateDirectories: true)
+            relativePath = "docs/guide.md"
+        }
+
+        let fileURL = root.appendingPathComponent(relativePath)
         try "hello\n".write(to: fileURL, atomically: true, encoding: .utf8)
-        try runGit(["add", "note.txt"], in: root)
+        try runGit(["add", relativePath], in: root)
         try runGit(["commit", "-q", "-m", "init"], in: root)
         try "hello world\n".write(to: fileURL, atomically: true, encoding: .utf8)
         return root.path
+    }
+
+    private func latestSharedRecentStarter() throws -> (presetID: String, repositoryRootPath: String, workflowID: String) {
+        let response = try appServer.rpc(method: "starter.list", params: ["limit": 1])
+        guard
+            let result = response["result"] as? [String: Any],
+            let starters = result["starters"] as? [[String: Any]],
+            let starter = starters.first,
+            let presetID = starter["preset_id"] as? String,
+            let repositoryRootPath = starter["repository_root"] as? String,
+            let workflowID = starter["workflow_id"] as? String
+        else {
+            throw StepError.assertion("shared recent starter history should include at least one starter")
+        }
+
+        return (
+            presetID: presetID,
+            repositoryRootPath: repositoryRootPath,
+            workflowID: workflowID
+        )
     }
 
     private func runGit(_ arguments: [String], in repositoryURL: URL) throws {

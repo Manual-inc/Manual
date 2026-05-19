@@ -38,6 +38,12 @@ manual workflow starter --repo .
 manual workflow starter --run
 ```
 
+The starter catalog now tells you when each preset fits best, what result you should expect, and which changed files drove the recommendation before you launch it.
+After a starter run completes, Manual also shows a reusable outcome summary so you can quickly rerun or share the result.
+If you only need the stored result again later, `manual workflow starter-outcome <workflow_id>` prints that saved summary without rerunning.
+`manual workflow starter-outcome --latest` prints the newest stored starter summary immediately.
+Add `--copy` to either form to push that summary straight to the clipboard.
+
 Start here for setup and product entry points:
 
 - [Quick Start](docs/wiki/analyses/2026-05-19-quick-start.md)

@@ -509,6 +509,118 @@ fn workflow_starter_creates_test_plan_workflow_against_real_app_server() {
 }
 
 #[test]
+fn generic_workflow_run_refreshes_shared_starter_outcome_against_real_app_server() {
+    let harness = RealHarness::new("manual-cli-starter-outcome-refresh-real");
+    let workflow_json = harness.write_json(
+        "starter-workflow.json",
+        &json!({
+            "id": "starter-shared-history",
+            "nodes": [
+                { "id": "summary", "kind": "constant", "value": "Shared result from generic rerun." }
+            ],
+            "dependencies": []
+        }),
+    );
+    let starter_record_json = harness.write_json(
+        "starter-record.json",
+        &json!({
+            "workflow_id": "starter-shared-history",
+            "preset_id": "change-summary",
+            "repository_root": "/tmp/repo",
+            "recommendation_reason": "Detected mostly documentation or markdown changes."
+        }),
+    );
+    let starter_list_params = harness.write_json(
+        "starter-list.json",
+        &json!({ "limit": 5 }),
+    );
+
+    let created = harness.run([
+        "workflow".to_owned(),
+        "create".to_owned(),
+        workflow_json.display().to_string(),
+    ]);
+    assert!(created.status.success(), "stderr: {}", String::from_utf8_lossy(&created.stderr));
+
+    let recorded = harness.run([
+        "rpc".to_owned(),
+        "starter.record".to_owned(),
+        starter_record_json.display().to_string(),
+    ]);
+    assert!(recorded.status.success(), "stderr: {}", String::from_utf8_lossy(&recorded.stderr));
+
+    let run_output = harness.run([
+        "workflow".to_owned(),
+        "run".to_owned(),
+        "starter-shared-history".to_owned(),
+        "--human".to_owned(),
+    ]);
+    assert!(run_output.status.success(), "stderr: {}", String::from_utf8_lossy(&run_output.stderr));
+    let stdout = String::from_utf8_lossy(&run_output.stdout);
+    assert!(stdout.contains("Started workflow run"));
+    assert!(stdout.contains("Starter Outcome"));
+    assert!(stdout.contains("Reusable command: manual workflow run starter-shared-history --human"));
+    assert!(stdout.contains("Shared result from generic rerun."));
+
+    let listed = harness.run_jsons([
+        "rpc".into(),
+        "starter.list".into(),
+        starter_list_params.display().to_string(),
+    ]);
+    assert_eq!(listed[0]["starters"][0]["workflow_id"], "starter-shared-history");
+    assert_eq!(listed[0]["starters"][0]["outcome_label"], "Summary Output");
+    assert_eq!(listed[0]["starters"][0]["outcome_text"], "Shared result from generic rerun.");
+
+    let outcome_output = harness.run([
+        "workflow".to_owned(),
+        "starter-outcome".to_owned(),
+        "starter-shared-history".to_owned(),
+    ]);
+    assert!(outcome_output.status.success(), "stderr: {}", String::from_utf8_lossy(&outcome_output.stderr));
+    let outcome_stdout = String::from_utf8_lossy(&outcome_output.stdout);
+    assert!(outcome_stdout.contains("Starter Outcome"));
+    assert!(outcome_stdout.contains("Workflow ID: starter-shared-history"));
+    assert!(outcome_stdout.contains("Summary Output"));
+    assert!(outcome_stdout.contains("Shared result from generic rerun."));
+
+    let latest_output = harness.run([
+        "workflow".to_owned(),
+        "starter-outcome".to_owned(),
+        "--latest".to_owned(),
+    ]);
+    assert!(latest_output.status.success(), "stderr: {}", String::from_utf8_lossy(&latest_output.stderr));
+    let latest_stdout = String::from_utf8_lossy(&latest_output.stdout);
+    assert!(latest_stdout.contains("Starter Outcome"));
+    assert!(latest_stdout.contains("Workflow ID: starter-shared-history"));
+    assert!(latest_stdout.contains("Summary Output"));
+    assert!(latest_stdout.contains("Shared result from generic rerun."));
+
+    let clipboard_capture = harness.temp.path().join("clipboard.txt");
+    let clipboard = harness.write_executable(
+        "fake_clipboard.sh",
+        &format!("#!/bin/sh\ncat > \"{}\"\n", clipboard_capture.display()),
+    );
+    let copied_output = harness.run_with_env(
+        vec![
+            ("MANUAL_CLIPBOARD_CMD", clipboard.display().to_string()),
+            ("MANUAL_CLIPBOARD_CAPTURE", clipboard_capture.display().to_string()),
+        ],
+        [
+            "workflow".to_owned(),
+            "starter-outcome".to_owned(),
+            "--latest".to_owned(),
+            "--copy".to_owned(),
+        ],
+    );
+    assert!(copied_output.status.success(), "stderr: {}", String::from_utf8_lossy(&copied_output.stderr));
+    let copied_stdout = String::from_utf8_lossy(&copied_output.stdout);
+    assert!(copied_stdout.contains("Copied starter outcome to clipboard."));
+    let copied_text = fs::read_to_string(&clipboard_capture).unwrap();
+    assert!(copied_text.contains("Workflow ID: starter-shared-history"));
+    assert!(copied_text.contains("Shared result from generic rerun."));
+}
+
+#[test]
 fn manual_sandbox_skill_optimization_and_agent_commands_work_against_real_app_server() {
     let harness = RealHarness::new("manual-cli-real-manual");
 
@@ -1038,6 +1150,39 @@ impl RealHarness {
             command.arg(arg);
         }
         command.output().unwrap()
+    }
+
+    fn run_with_env<I, S>(&self, envs: Vec<(&str, String)>, args: I) -> Output
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_manual"));
+        command
+            .arg("--server-url")
+            .arg(&self.server_url)
+            .arg("--auth-token")
+            .arg(&self.auth_token);
+        for (key, value) in envs {
+            command.env(key, value);
+        }
+        for arg in args {
+            command.arg(arg);
+        }
+        command.output().unwrap()
+    }
+
+    fn write_executable(&self, name: &str, contents: &str) -> PathBuf {
+        let path = self.temp.path().join(name);
+        fs::write(&path, contents).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = fs::metadata(&path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&path, permissions).unwrap();
+        }
+        path
     }
 
     fn wait_for_workflow_completion(&self, run_id: &str) -> Value {

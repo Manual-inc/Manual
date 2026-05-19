@@ -112,6 +112,67 @@ final class AppServerClient {
         return try agents.map(AppServerAgentAvailability.init)
     }
 
+    func recentStarters(limit: Int = 5) async throws -> [WorkflowStarterRecentEntry] {
+        // See docs/wiki/features/workflow-starters.md: the mac quick-start card
+        // should surface starter history that follows the user across surfaces.
+        let result = try await request(
+            method: "starter.list",
+            params: ["limit": limit]
+        )
+
+        guard
+            let object = result as? [String: Any],
+            let starters = object["starters"] as? [[String: Any]]
+        else {
+            throw AppServerClientError.invalidResponse
+        }
+
+        return try starters.map { starter in
+            guard
+                let presetID = starter["preset_id"] as? String,
+                let repositoryRootPath = starter["repository_root"] as? String,
+                let workflowID = starter["workflow_id"] as? String
+            else {
+                throw AppServerClientError.invalidResponse
+            }
+
+            return WorkflowStarterRecentEntry(
+                presetID: presetID,
+                repositoryRootPath: repositoryRootPath,
+                workflowID: workflowID,
+                recommendationReason: starter["recommendation_reason"] as? String,
+                outcomeLabel: starter["outcome_label"] as? String,
+                outcomeText: starter["outcome_text"] as? String
+            )
+        }
+    }
+
+    func recordStarter(
+        _ entry: WorkflowStarterRecentEntry,
+        recommendationReason: String?
+    ) async throws {
+        // See docs/wiki/features/workflow-starters.md: starter reuse should be
+        // shared so CLI and mac can point users back to proven workflows.
+        var params: [String: Any] = [
+            "workflow_id": entry.workflowID,
+            "preset_id": entry.presetID,
+            "repository_root": entry.repositoryRootPath,
+        ]
+        if let recommendationReason {
+            params["recommendation_reason"] = recommendationReason
+        }
+        if let outcomeLabel = entry.outcomeLabel {
+            params["outcome_label"] = outcomeLabel
+        }
+        if let outcomeText = entry.outcomeText {
+            params["outcome_text"] = outcomeText
+        }
+        _ = try await request(
+            method: "starter.record",
+            params: params
+        )
+    }
+
     func events(runID: String, cursor: Int) async throws -> WorkflowEventsPage {
         let result = try await request(
             method: "workflow.events",

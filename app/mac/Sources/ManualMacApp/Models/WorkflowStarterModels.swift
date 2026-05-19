@@ -54,6 +54,8 @@ struct WorkflowStarterPreset: Equatable, Sendable {
     let id: String
     let title: String
     let summary: String
+    let bestWhen: String
+    let expectedOutcome: String
     let workflowIDSuffix: String
 }
 
@@ -62,10 +64,36 @@ struct WorkflowStarterRecommendation: Equatable, Sendable {
     let reason: String
 }
 
+struct WorkflowStarterRecommendationPreview: Equatable, Sendable {
+    let preset: WorkflowStarterPreset
+    let reason: String
+    let changedFilesHint: String
+    let expectedOutcome: String
+}
+
 struct WorkflowStarterRecentEntry: Codable, Equatable, Sendable {
     let presetID: String
     let repositoryRootPath: String
     let workflowID: String
+    let recommendationReason: String?
+    let outcomeLabel: String?
+    let outcomeText: String?
+
+    init(
+        presetID: String,
+        repositoryRootPath: String,
+        workflowID: String,
+        recommendationReason: String? = nil,
+        outcomeLabel: String? = nil,
+        outcomeText: String? = nil
+    ) {
+        self.presetID = presetID
+        self.repositoryRootPath = repositoryRootPath
+        self.workflowID = workflowID
+        self.recommendationReason = recommendationReason
+        self.outcomeLabel = outcomeLabel
+        self.outcomeText = outcomeText
+    }
 }
 
 enum WorkflowStarterDefinition {
@@ -74,21 +102,33 @@ enum WorkflowStarterDefinition {
             id: "code-review",
             title: "Code Review Starter",
             summary: "Review repository changes for correctness bugs, regressions, risky assumptions, and missing tests.",
+            bestWhen: "You want a correctness-focused review before trusting the change.",
+            expectedOutcome: "You get a concise review of bugs, regressions, risky assumptions, and missing tests.",
             workflowIDSuffix: "review"
         ),
         WorkflowStarterPreset(
             id: "change-summary",
             title: "Change Summary Starter",
             summary: "summarize the repository changes into a concise update covering what changed, why it matters, and what to verify next.",
+            bestWhen: "The diff is mostly docs, markdown, or reader-facing content updates.",
+            expectedOutcome: "You get a short human-readable change update with follow-up verification guidance.",
             workflowIDSuffix: "summary"
         ),
         WorkflowStarterPreset(
             id: "test-plan",
             title: "Test Plan Starter",
             summary: "outline the highest-value automated and manual checks for the repository changes before you run them.",
+            bestWhen: "Code changed but matching tests or verification steps did not.",
+            expectedOutcome: "You get a focused test plan covering the highest-value automated and manual checks.",
             workflowIDSuffix: "test-plan"
         ),
     ]
+
+    static func recommendedStarterSelectionSummary() -> String {
+        // See docs/wiki/features/workflow-starters.md: before launch, users
+        // should understand both why Manual recommends a starter and what they will get.
+        "Docs-only changes -> Change Summary. Code without matching tests -> Test Plan. Otherwise -> Code Review."
+    }
 
     static func suggestedWorkflowID(repositoryRootPath: String, presetID: String = "code-review") -> String {
         let name = repositoryDisplayName(repositoryRootPath: repositoryRootPath)
@@ -134,6 +174,24 @@ enum WorkflowStarterDefinition {
         return Array(updated.prefix(limit))
     }
 
+    static func mergedRecentEntries(
+        local: [WorkflowStarterRecentEntry],
+        shared: [WorkflowStarterRecentEntry],
+        limit: Int = 5
+    ) -> [WorkflowStarterRecentEntry] {
+        // See docs/wiki/features/workflow-starters.md: starter history should
+        // follow the user across surfaces instead of feeling device-local.
+        var merged = shared
+
+        for entry in local where !merged.contains(where: {
+            $0.presetID == entry.presetID && $0.repositoryRootPath == entry.repositoryRootPath
+        }) {
+            merged.append(entry)
+        }
+
+        return Array(merged.prefix(limit))
+    }
+
     static func preferredAgent(from agents: [AppServerAgentAvailability]) -> String? {
         for candidate in ["codex", "claude", "pi"] {
             if agents.contains(where: { $0.name == candidate && $0.available }) {
@@ -176,6 +234,24 @@ enum WorkflowStarterDefinition {
 
     static func recommendedPreset(repositoryRootPath: String) throws -> WorkflowStarterRecommendation {
         recommendedPreset(forChangedFiles: try changedFiles(repositoryRootPath: repositoryRootPath))
+    }
+
+    static func recommendedStarterPreview(forChangedFiles changedFiles: [String]) -> WorkflowStarterRecommendationPreview {
+        let recommendation = recommendedPreset(forChangedFiles: changedFiles)
+        return WorkflowStarterRecommendationPreview(
+            preset: recommendation.preset,
+            reason: recommendation.reason,
+            changedFilesHint: changedFilesHint(forChangedFiles: changedFiles),
+            expectedOutcome: recommendation.preset.expectedOutcome
+        )
+    }
+
+    static func recommendedStarterPreview(repositoryRootPath: String) throws -> WorkflowStarterRecommendationPreview {
+        // See docs/wiki/features/workflow-starters.md: the quick-start surface
+        // should explain the next recommended starter before the user launches it.
+        return recommendedStarterPreview(
+            forChangedFiles: try changedFiles(repositoryRootPath: repositoryRootPath)
+        )
     }
 
     static func codeReviewWorkflow(
@@ -457,6 +533,20 @@ enum WorkflowStarterDefinition {
 
     private static func preset(id: String) -> WorkflowStarterPreset {
         availablePresets.first(where: { $0.id == id }) ?? availablePresets[0]
+    }
+
+    static func changedFilesHint(forChangedFiles changedFiles: [String]) -> String {
+        let unique = Array(Set(changedFiles)).sorted()
+        guard !unique.isEmpty else {
+            return "Changed files: No active diff detected."
+        }
+
+        let preview = unique.prefix(2).joined(separator: ", ")
+        let overflow = unique.count - min(unique.count, 2)
+        if overflow > 0 {
+            return "Changed files: \(preview) (+\(overflow) more)"
+        }
+        return "Changed files: \(preview)"
     }
 
     private static func collectChangedFiles(arguments: [String], repositoryRootPath: String) -> [String] {

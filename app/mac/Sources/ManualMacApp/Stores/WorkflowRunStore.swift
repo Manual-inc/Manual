@@ -23,12 +23,21 @@ final class WorkflowRunStore: ObservableObject {
     @Published private(set) var optimizationReport: WorkflowOptimizationReport?
     @Published private(set) var optimizationAnalysis: WorkflowOptimizationAnalysis?
     @Published private(set) var optimizationLoading = false
+    @Published private(set) var recentSharedStarters: [WorkflowStarterRecentEntry] = []
 
     private let client: AppServerClient
     private let executionIntent: WorkflowExecutionIntent
     private var currentWorkflow = BusinessWorkflowExample.jsonDefinition
     private var liveEventsTask: Task<Void, Never>?
     private var observedRunIDs = Set<String>()
+    private var activeStarterContext: StarterRunContext?
+
+    private struct StarterRunContext {
+        let workflowID: String
+        let presetID: String
+        let repositoryRootPath: String
+        let recommendationReason: String?
+    }
 
     init(client: AppServerClient = AppServerClient()) {
         self.client = client
@@ -86,6 +95,7 @@ final class WorkflowRunStore: ObservableObject {
             guard let self else { return }
             await self.refreshWorkflows(createExampleIfMissing: true)
             await self.refreshSandboxes(createDefaultIfMissing: true)
+            await self.refreshSharedStarterHistory()
         }
     }
 
@@ -93,6 +103,7 @@ final class WorkflowRunStore: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             await self.refreshWorkflows(createExampleIfMissing: false)
+            await self.refreshSharedStarterHistory()
         }
     }
 
@@ -457,6 +468,7 @@ final class WorkflowRunStore: ObservableObject {
 
     private func startViaJSONRPC(workflowID: String) async {
         do {
+            activeStarterContext = nil
             let result = try await executionIntent.execute(workflow: currentWorkflow, knownWorkflows: workflows)
             selectedWorkflowID = result.workflowID
             await refreshWorkflows(createExampleIfMissing: false)
@@ -478,7 +490,14 @@ final class WorkflowRunStore: ObservableObject {
                 presetID: presetID,
                 repositoryRootPath: repositoryRootPath
             )
+            activeStarterContext = StarterRunContext(
+                workflowID: result.workflowID,
+                presetID: presetID,
+                repositoryRootPath: repositoryRootPath,
+                recommendationReason: nil
+            )
             selectedWorkflowID = result.workflowID
+            await refreshSharedStarterHistory()
             await refreshWorkflows(createExampleIfMissing: false)
             self.runID = result.runID
             observedRunIDs.insert(result.runID)
@@ -495,6 +514,12 @@ final class WorkflowRunStore: ObservableObject {
         do {
             let repositoryRootPath = try WorkflowStarterDefinition.resolveRepositoryRootPath(from: repositoryPath)
             let result = try await executionIntent.executeRecommendedStarter(repositoryRootPath: repositoryRootPath)
+            activeStarterContext = StarterRunContext(
+                workflowID: result.workflowID,
+                presetID: result.starterPresetID ?? "code-review",
+                repositoryRootPath: repositoryRootPath,
+                recommendationReason: result.starterRecommendationReason
+            )
             if let presetID = result.starterPresetID {
                 let reason = result.starterRecommendationReason ?? "Using the best-fit starter for the current repository changes."
                 appendEvent(
@@ -505,6 +530,7 @@ final class WorkflowRunStore: ObservableObject {
                 statusMessage = "Recommended \(presetID) starter"
             }
             selectedWorkflowID = result.workflowID
+            await refreshSharedStarterHistory()
             await refreshWorkflows(createExampleIfMissing: false)
             self.runID = result.runID
             observedRunIDs.insert(result.runID)
@@ -545,8 +571,42 @@ final class WorkflowRunStore: ObservableObject {
         if optimizationReport == nil, let selectedWorkflowID {
             await refreshOptimization(for: selectedWorkflowID)
         }
+        await persistStarterOutcomeIfNeeded(for: runID)
         statusMessage = "Completed \(runID)"
         isRunning = false
+    }
+
+    private func refreshSharedStarterHistory() async {
+        // See docs/wiki/features/workflow-starters.md: quick-start should reuse
+        // proven starter flows even when the user switches between CLI and mac.
+        if let starters = try? await client.recentStarters(limit: 5) {
+            recentSharedStarters = starters
+        }
+    }
+
+    private func persistStarterOutcomeIfNeeded(for runID: String) async {
+        guard let context = activeStarterContext else { return }
+        guard context.workflowID == selectedWorkflowID else { return }
+        guard let summary = starterOutcomeSummary(
+            workflowID: context.workflowID,
+            runID: runID,
+            nodes: nodes
+        ) else {
+            activeStarterContext = nil
+            return
+        }
+
+        let entry = WorkflowStarterRecentEntry(
+            presetID: context.presetID,
+            repositoryRootPath: context.repositoryRootPath,
+            workflowID: context.workflowID,
+            recommendationReason: context.recommendationReason,
+            outcomeLabel: summary.label,
+            outcomeText: summary.text
+        )
+        try? await client.recordStarter(entry, recommendationReason: context.recommendationReason)
+        await refreshSharedStarterHistory()
+        activeStarterContext = nil
     }
 
     private func syncDisplay(with workflow: [String: Any]) {

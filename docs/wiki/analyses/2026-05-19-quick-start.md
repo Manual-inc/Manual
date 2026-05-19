@@ -68,7 +68,7 @@ manual workflow starter code-review --run
 manual workflow starter test-plan --run
 ```
 
-첫 명령은 starter catalog를 보여준다. 두 번째 명령은 현재 저장소 변경 유형을 보고 맞는 starter를 추천한다. 세 번째 명령은 그 추천 starter를 바로 실행한다. 네 번째 명령은 마지막으로 기억된 저장소 기준으로 추천 starter를 다시 실행한다. catalog에는 recent starter history와 `manual workflow run <workflow_id> --human` rerun 힌트도 함께 보인다. `code-review`는 correctness review를, `change-summary`는 사람이 읽을 변경 요약을, `test-plan`은 자동/수동 검증 계획을 만든다. 모두 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 workflow를 생성한 뒤 실행까지 이어 줄 수 있다. review 입력은 changed file summary와 bounded patch preview로 제한해 첫 실행이 과도하게 무거워지지 않게 한다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
+첫 명령은 starter catalog를 보여준다. 두 번째 명령은 현재 저장소 변경 유형을 보고 맞는 starter를 추천한다. 세 번째 명령은 그 추천 starter를 바로 실행한다. 네 번째 명령은 마지막으로 기억된 저장소 기준으로 추천 starter를 다시 실행한다. catalog에는 recent starter history와 `manual workflow run <workflow_id> --human` rerun 힌트도 함께 보인다. 각 preset에는 언제 쓰기 좋은지와 실행 뒤 어떤 결과를 얻게 되는지도 같이 표시된다. 저장소가 해석되면 추천 이유, 기대 결과, 그리고 어떤 changed file을 보고 그 추천이 나왔는지도 즉시 보여 준다. recent starter 목록도 가능한 경우 왜 그 starter가 잘 맞았는지, 기대 결과, 마지막 결과 preview를 함께 보여 준다. 이후 일반 `workflow run` rerun으로 결과가 바뀌어도 shared recent history는 그 최신 output을 다시 반영하고, CLI rerun 출력도 `Starter Outcome` block을 다시 보여 줘 follow-through를 잃지 않게 한다. rerun 없이 저장된 summary만 다시 보고 싶으면 `manual workflow starter-outcome <workflow_id>`를 쓰면 되고, 최신 starter 결과 하나만 바로 보고 싶으면 `manual workflow starter-outcome --latest`를 쓰면 된다. 두 형태 모두 `--copy`를 붙이면 clipboard로 바로 보낼 수 있다. 실행이 끝나면 CLI는 `Starter Outcome` block을 추가로 보여 줘 workflow ID, 재실행 명령, 핵심 결과를 바로 공유하거나 복붙하기 쉽게 만든다. `code-review`는 correctness review를, `change-summary`는 사람이 읽을 변경 요약을, `test-plan`은 자동/수동 검증 계획을 만든다. 모두 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 workflow를 생성한 뒤 실행까지 이어 줄 수 있다. review 입력은 changed file summary와 bounded patch preview로 제한해 첫 실행이 과도하게 무거워지지 않게 한다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
 
 ## 소스에서 빌드
 
@@ -98,7 +98,7 @@ macOS 앱 실행:
 bash app/mac/script/build_and_run.sh
 ```
 
-앱 안에서는 sidebar quick-start card에서 starter catalog를 보고 저장소를 고른 뒤 starter workflow를 바로 생성하고 실행할 수 있다. `Recommended Starter…` 버튼은 현재 저장소 변경 유형을 보고 맞는 starter를 골라 준다. 마지막으로 쓴 저장소는 기억되어 `Run Recommended Again`으로 다시 실행할 수 있고, recent starter 목록에서도 exact preset rerun을 고를 수 있다. 실행이 시작되면 bottom panel이 `Output` 탭으로 열려 결과를 바로 확인할 수 있다.
+앱 안에서는 sidebar quick-start card에서 starter catalog를 보고 저장소를 고른 뒤 starter workflow를 바로 생성하고 실행할 수 있다. `Recommended Starter…` 버튼은 docs-only/code-without-tests/other diff 규칙을 미리 설명해 왜 특정 starter가 선택될지 실행 전에 이해할 수 있게 한다. 각 starter 카드도 언제 쓰기 좋은지와 어떤 결과를 얻게 되는지 같이 보여 준다. 마지막으로 쓴 저장소는 기억되어 `Run Recommended Again`으로 다시 실행할 수 있고, `Last repository` 카드에서 지금 다시 누르면 어떤 starter가 추천되는지와 그 이유, 기대 결과, changed file 힌트도 먼저 볼 수 있다. recent starter 목록도 가능한 경우 이유, 기대 결과, 마지막 결과 preview를 같이 보여 주므로 exact preset rerun을 더 안심하고 고를 수 있고, 결과가 있으면 `Copy Summary`로 바로 공유할 수 있다. 실행이 시작되면 bottom panel이 `Output` 탭으로 열려 결과를 바로 확인할 수 있고, starter workflow일 때는 `Starter Outcome` summary와 `Copy Summary` action도 보여 준다.
 
 Windows shell:
 

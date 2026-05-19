@@ -32,7 +32,8 @@ public struct ContentView: View {
                                 lastStarterRepositoryPath = repositoryRootPath
                                 rememberRecentStarter(
                                     presetID: recommendation.preset.id,
-                                    repositoryRootPath: repositoryRootPath
+                                    repositoryRootPath: repositoryRootPath,
+                                    recommendationReason: recommendation.reason
                                 )
                             } else {
                                 lastStarterRepositoryPath = repositoryURL.path
@@ -41,12 +42,14 @@ public struct ContentView: View {
                             store.createAndRunRecommendedStarter(selectedPath: repositoryURL.path)
                         },
                         onRerunRecommendedStarter: {
-                            guard !lastStarterRepositoryPath.isEmpty else { return }
+                            guard let repositoryRootPath = effectiveLastStarterRepositoryPath else { return }
+                            lastStarterRepositoryPath = repositoryRootPath
                             presentOutputPanel()
-                            store.createAndRunRecommendedStarter(selectedPath: lastStarterRepositoryPath)
+                            store.createAndRunRecommendedStarter(selectedPath: repositoryRootPath)
                         },
-                        lastStarterRepositoryPath: lastStarterRepositoryPath.isEmpty ? nil : lastStarterRepositoryPath,
-                        recentStarters: recentStarterHistory,
+                        lastStarterRepositoryPath: effectiveLastStarterRepositoryPath,
+                        lastStarterRecommendation: effectiveLastStarterRecommendation,
+                        recentStarters: mergedStarterHistory,
                         onRerunRecentStarter: { entry in
                             lastStarterRepositoryPath = entry.repositoryRootPath
                             presentOutputPanel()
@@ -61,7 +64,8 @@ public struct ContentView: View {
                                 lastStarterRepositoryPath = repositoryRootPath
                                 rememberRecentStarter(
                                     presetID: preset.id,
-                                    repositoryRootPath: repositoryRootPath
+                                    repositoryRootPath: repositoryRootPath,
+                                    recommendationReason: nil
                                 )
                             } else {
                                 lastStarterRepositoryPath = repositoryURL.path
@@ -110,6 +114,8 @@ public struct ContentView: View {
                                     BottomPanel(
                                         events: store.events,
                                         nodes: store.nodes,
+                                        workflowID: store.selectedWorkflowID,
+                                        runID: store.runID,
                                         rawWorkflowJSON: store.rawWorkflowJSON,
                                         optimizationReport: store.optimizationReport,
                                         optimizationAnalysis: store.optimizationAnalysis,
@@ -177,6 +183,31 @@ public struct ContentView: View {
         WorkflowStarterDefinition.recentEntries(from: recentStarterHistoryJSON)
     }
 
+    private var mergedStarterHistory: [WorkflowStarterRecentEntry] {
+        WorkflowStarterDefinition.mergedRecentEntries(
+            local: recentStarterHistory,
+            shared: store.recentSharedStarters
+        )
+    }
+
+    private var effectiveLastStarterRepositoryPath: String? {
+        if !lastStarterRepositoryPath.isEmpty {
+            return lastStarterRepositoryPath
+        }
+        return mergedStarterHistory.first?.repositoryRootPath
+    }
+
+    private var effectiveLastStarterRecommendation: WorkflowStarterRecommendationPreview? {
+        // See docs/wiki/features/workflow-starters.md: the last-repository
+        // rerun affordance should preview the next recommended starter first.
+        guard let repositoryRootPath = effectiveLastStarterRepositoryPath else {
+            return nil
+        }
+        return try? WorkflowStarterDefinition.recommendedStarterPreview(
+            repositoryRootPath: repositoryRootPath
+        )
+    }
+
     private func presentOptimizationPanel() {
         var panelState = WorkflowPanelState(
             isBottomPanelVisible: bottomPanelVisible,
@@ -219,14 +250,21 @@ public struct ContentView: View {
         }
     }
 
-    private func rememberRecentStarter(presetID: String, repositoryRootPath: String) {
+    private func rememberRecentStarter(
+        presetID: String,
+        repositoryRootPath: String,
+        recommendationReason: String?
+    ) {
         let entry = WorkflowStarterRecentEntry(
             presetID: presetID,
             repositoryRootPath: repositoryRootPath,
             workflowID: WorkflowStarterDefinition.suggestedWorkflowID(
                 repositoryRootPath: repositoryRootPath,
                 presetID: presetID
-            )
+            ),
+            recommendationReason: recommendationReason,
+            outcomeLabel: nil,
+            outcomeText: nil
         )
         let updated = WorkflowStarterDefinition.updatedRecentEntries(recentStarterHistory, with: entry)
         recentStarterHistoryJSON = WorkflowStarterDefinition.encodeRecentEntries(updated)
@@ -302,6 +340,7 @@ private struct WorkflowSidebar: View {
     let onCreateRecommendedStarter: () -> Void
     let onRerunRecommendedStarter: () -> Void
     let lastStarterRepositoryPath: String?
+    let lastStarterRecommendation: WorkflowStarterRecommendationPreview?
     let recentStarters: [WorkflowStarterRecentEntry]
     let onRerunRecentStarter: (WorkflowStarterRecentEntry) -> Void
     let onCreateStarter: (WorkflowStarterPreset) -> Void
@@ -335,6 +374,7 @@ private struct WorkflowSidebar: View {
                 onCreateRecommendedStarter: onCreateRecommendedStarter,
                 onRerunRecommendedStarter: onRerunRecommendedStarter,
                 lastStarterRepositoryPath: lastStarterRepositoryPath,
+                lastStarterRecommendation: lastStarterRecommendation,
                 recentStarters: recentStarters,
                 onRerunRecentStarter: onRerunRecentStarter,
                 action: onCreateStarter
@@ -389,6 +429,7 @@ private struct QuickStartCard: View {
     let onCreateRecommendedStarter: () -> Void
     let onRerunRecommendedStarter: () -> Void
     let lastStarterRepositoryPath: String?
+    let lastStarterRecommendation: WorkflowStarterRecommendationPreview?
     let recentStarters: [WorkflowStarterRecentEntry]
     let onRerunRecentStarter: (WorkflowStarterRecentEntry) -> Void
     let action: (WorkflowStarterPreset) -> Void
@@ -416,6 +457,25 @@ private struct QuickStartCard: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.text)
                         .lineLimit(1)
+
+                    if let lastStarterRecommendation {
+                        Text("Recommended now: \(lastStarterRecommendation.preset.title)")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(AppTheme.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Why: \(lastStarterRecommendation.reason)")
+                            .font(.system(size: 10))
+                            .foregroundStyle(AppTheme.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(lastStarterRecommendation.changedFilesHint)
+                            .font(.system(size: 10))
+                            .foregroundStyle(AppTheme.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(lastStarterRecommendation.expectedOutcome)
+                            .font(.system(size: 10))
+                            .foregroundStyle(AppTheme.textFaint)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     Button(action: onRerunRecommendedStarter) {
                         HStack(spacing: 6) {
@@ -449,29 +509,73 @@ private struct QuickStartCard: View {
                         .foregroundStyle(AppTheme.textFaint)
 
                     ForEach(recentStarters.prefix(3), id: \.workflowID) { entry in
-                        Button(action: { onRerunRecentStarter(entry) }) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("\(title(for: entry.presetID)) · \(WorkflowStarterDefinition.repositoryDisplayName(repositoryRootPath: entry.repositoryRootPath))")
-                                    .font(.system(size: 11, weight: .semibold))
-                                Text("Run \(entry.workflowID) again")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(AppTheme.textMuted)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Button(action: { onRerunRecentStarter(entry) }) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("\(title(for: entry.presetID)) · \(WorkflowStarterDefinition.repositoryDisplayName(repositoryRootPath: entry.repositoryRootPath))")
+                                        .font(.system(size: 11, weight: .semibold))
+                                    if let recommendationReason = entry.recommendationReason {
+                                        Text("Why it fit: \(recommendationReason)")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(AppTheme.textMuted)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    Text(expectedOutcome(for: entry.presetID))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(AppTheme.textFaint)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    if let outcomeText = entry.outcomeText {
+                                        Text("Last result: \(starterOutcomePreviewText(outcomeText))")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(AppTheme.textMuted)
+                                            .lineLimit(2)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    Text("Run \(entry.workflowID) again")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(AppTheme.textMuted)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .foregroundStyle(AppTheme.text)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 9)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 9)
+                                        .fill(AppTheme.panel)
+                                )
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 9)
+                                        .stroke(AppTheme.stroke, lineWidth: 1)
+                                }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .foregroundStyle(AppTheme.text)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(
-                                RoundedRectangle(cornerRadius: 9)
-                                    .fill(AppTheme.panel)
-                            )
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 9)
-                                    .stroke(AppTheme.stroke, lineWidth: 1)
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("rerun-starter-\(entry.presetID)-button")
+
+                            if let shareText = starterOutcomeShareText(from: entry) {
+                                Button {
+                                    let pasteboard = NSPasteboard.general
+                                    pasteboard.clearContents()
+                                    pasteboard.setString(shareText, forType: .string)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "doc.on.doc")
+                                            .font(.system(size: 10, weight: .semibold))
+                                        Text("Copy Summary")
+                                            .font(.system(size: 10, weight: .semibold))
+                                    }
+                                    .foregroundStyle(AppTheme.text)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Capsule().fill(AppTheme.panel))
+                                    .overlay {
+                                        Capsule().stroke(AppTheme.stroke, lineWidth: 1)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("copy-starter-summary-\(entry.workflowID)-button")
                             }
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("rerun-starter-\(entry.presetID)-button")
                     }
                 }
             }
@@ -485,6 +589,14 @@ private struct QuickStartCard: View {
                             .font(.system(size: 11, weight: .semibold))
                     }
                     Text("Manual will inspect changed files and choose the best-fit starter for this repository.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppTheme.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(WorkflowStarterDefinition.recommendedStarterSelectionSummary())
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppTheme.textFaint)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("You get a ready-to-run review, summary, or test plan in the Output panel.")
                         .font(.system(size: 10))
                         .foregroundStyle(AppTheme.textMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -517,6 +629,14 @@ private struct QuickStartCard: View {
                         Text(preset.summary)
                             .font(.system(size: 10))
                             .foregroundStyle(.white.opacity(0.82))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Best when: \(preset.bestWhen)")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.72))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(preset.expectedOutcome)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.9))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -553,6 +673,10 @@ private struct QuickStartCard: View {
 
     private func title(for presetID: String) -> String {
         presets.first(where: { $0.id == presetID })?.title ?? presetID
+    }
+
+    private func expectedOutcome(for presetID: String) -> String {
+        presets.first(where: { $0.id == presetID })?.expectedOutcome ?? presetID
     }
 }
 
@@ -893,6 +1017,8 @@ private struct BottomToggle: View {
 private struct BottomPanel: View {
     let events: [WorkflowEventModel]
     let nodes: [WorkflowNodeModel]
+    let workflowID: String?
+    let runID: String?
     let rawWorkflowJSON: String
     let optimizationReport: WorkflowOptimizationReport?
     let optimizationAnalysis: WorkflowOptimizationAnalysis?
@@ -949,7 +1075,11 @@ private struct BottomPanel: View {
                 }
                 .background(AppTheme.panel)
             } else if selectedTab == .output {
-                WorkflowOutputsView(nodes: nodes)
+                WorkflowOutputsView(
+                    workflowID: workflowID,
+                    runID: runID,
+                    nodes: nodes
+                )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(AppTheme.panel)
             } else {
@@ -966,10 +1096,20 @@ private struct BottomPanel: View {
 }
 
 private struct WorkflowOutputsView: View {
+    let workflowID: String?
+    let runID: String?
     let nodes: [WorkflowNodeModel]
 
     private var completedOutputs: [WorkflowNodeModel] {
         nodes.filter { $0.result != nil }
+    }
+
+    private var starterSummary: StarterOutcomeSummary? {
+        starterOutcomeSummary(
+            workflowID: workflowID,
+            runID: runID,
+            nodes: nodes
+        )
     }
 
     var body: some View {
@@ -991,6 +1131,58 @@ private struct WorkflowOutputsView: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    if let starterSummary {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 8) {
+                                Text("Starter Outcome")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(AppTheme.text)
+                                Spacer()
+                                Button {
+                                    let pasteboard = NSPasteboard.general
+                                    pasteboard.clearContents()
+                                    pasteboard.setString(starterOutcomeShareText(starterSummary), forType: .string)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "doc.on.doc")
+                                            .font(.system(size: 10, weight: .semibold))
+                                        Text("Copy Summary")
+                                            .font(.system(size: 10, weight: .semibold))
+                                    }
+                                    .foregroundStyle(AppTheme.text)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Capsule().fill(AppTheme.panel))
+                                    .overlay {
+                                        Capsule().stroke(AppTheme.stroke, lineWidth: 1)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            Text(starterSummary.label)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(AppTheme.textMuted)
+                            Text(starterSummary.text)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(AppTheme.text)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("Reusable command: \(starterSummary.rerunCommand)")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(AppTheme.textFaint)
+                                .textSelection(.enabled)
+                        }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14).fill(AppTheme.panelElev)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(AppTheme.strokeStrong, lineWidth: 1)
+                        }
+                    }
+
                     ForEach(completedOutputs) { node in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 8) {

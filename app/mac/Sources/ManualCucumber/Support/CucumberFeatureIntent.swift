@@ -60,6 +60,22 @@ enum CucumberFeatureIntent {
             world.currentRunID = result.runID
             world.currentWorkflowID = result.workflowID
             return true
+        case "사용자가 UI에서 추천 starter 실행을 선택한다":
+            let ui = world.macAppUI ?? MacAppUIDriver(appServer: world.appServer)
+            world.macAppUI = ui
+            world.workflowRunIDsBeforeUIAction = world.appServer.workflowRunIDs()
+            let result = try ui.chooseCreateRecommendedStarterFromUI()
+            world.currentRunID = result.runID
+            world.currentWorkflowID = result.workflowID
+            return true
+        case "사용자가 UI에서 recent starter rerun을 선택한다":
+            let ui = world.macAppUI ?? MacAppUIDriver(appServer: world.appServer)
+            world.macAppUI = ui
+            world.workflowRunIDsBeforeUIAction = world.appServer.workflowRunIDs()
+            let result = try ui.chooseRerunRecentStarterFromUI()
+            world.currentRunID = result.runID
+            world.currentWorkflowID = result.workflowID
+            return true
         case "app-server에는 UI가 시작한 workflow run이 생성되어야 한다":
             let runID = try world.currentRunID
                 ?? world.appServer.waitForNewWorkflowRunID(after: world.workflowRunIDsBeforeUIAction)
@@ -106,6 +122,13 @@ enum CucumberFeatureIntent {
             return true
         case "UI starter workflow는 code review 단계와 diff 수집 단계를 가져야 한다":
             let workflowID = world.currentWorkflowID ?? "starter-code-review"
+            world.lastResponse = try world.appServer.rpc(
+                method: "workflow.get",
+                params: ["workflow_id": workflowID]
+            )
+            return true
+        case "UI recommended starter workflow는 summary 단계와 diff 수집 단계를 가져야 한다":
+            let workflowID = world.currentWorkflowID ?? "starter-docs-summary"
             world.lastResponse = try world.appServer.rpc(
                 method: "workflow.get",
                 params: ["workflow_id": workflowID]

@@ -223,6 +223,29 @@ fn handle_workflow(
             "workflow.compose_from_registry",
             json!({ "node_id": node_id }),
         ),
+        WorkflowCommand::StarterOutcome {
+            workflow_id,
+            latest,
+            copy,
+        } => {
+            let rendered = if latest {
+                let starter = latest_starter_record(client)?;
+                render_starter_outcome_from_record(&starter)?
+            } else {
+                let workflow_id = workflow_id.ok_or(CliError::InvalidResponse(
+                    "workflow_id is required when --latest is not set".to_owned(),
+                ))?;
+                let result = client.request("starter.get", json!({ "workflow_id": workflow_id }))?;
+                render_starter_outcome_from_record(&result["starter"])?
+            };
+            print_text(&rendered)?;
+            if copy {
+                copy_text_to_clipboard(&rendered)?;
+                print_text("Copied starter outcome to clipboard.")
+            } else {
+                Ok(())
+            }
+        }
         WorkflowCommand::Starter {
             preset,
             list,
@@ -237,18 +260,24 @@ fn handle_workflow(
             } else if preset.is_none() && !run {
                 print_text(&render_workflow_starter_catalog(repo.as_deref(), starter_state_file))
             } else {
-                let resolved_preset = if let Some(preset) = preset {
-                    preset
+                let (resolved_preset, recommendation_reason) = if let Some(preset) = preset {
+                    (preset, None)
                 } else {
                     let repository_root =
                         resolve_starter_repo_root(repo.as_deref(), starter_state_file)?;
-                    if let Some((preset_id, reason)) = recommend_starter_for_repo(&repository_root) {
+                    if let Some(recommendation) = recommend_starter_for_repo(&repository_root) {
                         print_text(&format!(
-                            "Workflow Starter Recommendation\nRecommended now: {preset_id}\n{reason}\n"
+                            "Workflow Starter Recommendation\nRecommended now: {}\nWhy: {}\n{}\n\n",
+                            recommendation.preset_id,
+                            recommendation.reason,
+                            recommendation.changed_files_hint
                         ))?;
-                        preset_id.to_owned()
+                        (
+                            recommendation.preset_id.to_owned(),
+                            Some(recommendation.reason),
+                        )
                     } else {
-                        "code-review".to_owned()
+                        ("code-review".to_owned(), None)
                     }
                 };
                 run_workflow_starter(
@@ -260,6 +289,7 @@ fn handle_workflow(
                     model,
                     run,
                     starter_state_file,
+                    recommendation_reason,
                 )
             }
         }
@@ -683,6 +713,7 @@ fn run_workflow_starter(
     model: Option<String>,
     run: bool,
     starter_state_file: &Path,
+    recommendation_reason: Option<&str>,
 ) -> Result<(), CliError> {
     // Why this exists: docs/wiki/features/workflow-starters.md defines the
     // shortest path from demo value to a user's first real workflow.
@@ -700,7 +731,26 @@ fn run_workflow_starter(
     )?;
 
     client.request("workflow.create", json!({ "workflow": workflow }))?;
-    save_recent_starter(starter_state_file, &preset, &repo_root, &workflow_id)?;
+    save_recent_starter(
+        starter_state_file,
+        &preset,
+        &repo_root,
+        &workflow_id,
+        recommendation_reason,
+        None,
+        None,
+    )?;
+    let _ = client.request(
+        "starter.record",
+        json!({
+            "workflow_id": workflow_id,
+            "preset_id": preset,
+            "repository_root": repo_root.display().to_string(),
+            "recommendation_reason": recommendation_reason,
+            "outcome_label": Value::Null,
+            "outcome_text": Value::Null,
+        }),
+    );
     print_text(&render_workflow_starter_summary(
         &preset,
         &workflow_id,
@@ -732,11 +782,55 @@ fn run_workflow_starter(
     print_events(client, run_id.clone(), 0, true, 100, true)?;
     let final_result = client.request("workflow.events", json!({ "run_id": run_id, "cursor": 0 }))?;
     if let Some(failure_output) = workflow_starter_failure_output(&final_result) {
+        save_recent_starter(
+            starter_state_file,
+            &preset,
+            &repo_root,
+            &workflow_id,
+            recommendation_reason,
+            Some("Starter Failure"),
+            Some(&failure_output),
+        )?;
+        let _ = client.request(
+            "starter.record",
+            json!({
+                "workflow_id": workflow_id,
+                "preset_id": preset,
+                "repository_root": repo_root.display().to_string(),
+                "recommendation_reason": recommendation_reason,
+                "outcome_label": "Starter Failure",
+                "outcome_text": failure_output,
+            }),
+        );
         print_text(&format!("\nStarter Failure\n{failure_output}"))?;
         return Ok(());
     }
     if let Some((label, output)) = workflow_starter_primary_output(&preset, &final_result) {
+        save_recent_starter(
+            starter_state_file,
+            &preset,
+            &repo_root,
+            &workflow_id,
+            recommendation_reason,
+            Some(&label),
+            Some(&output),
+        )?;
+        let _ = client.request(
+            "starter.record",
+            json!({
+                "workflow_id": workflow_id,
+                "preset_id": preset,
+                "repository_root": repo_root.display().to_string(),
+                "recommendation_reason": recommendation_reason,
+                "outcome_label": label,
+                "outcome_text": output,
+            }),
+        );
         print_text(&format!("\n{label}\n{output}"))?;
+        print_text(&format!(
+            "\n{}",
+            render_starter_outcome_summary(&workflow_id, &label, &output)
+        ))?;
     }
 
     Ok(())
@@ -1031,6 +1125,7 @@ fn render_workflow_starter_summary(
         format!("Agent: {agent}"),
     ];
     lines.push(format!("What it does: {}", metadata.summary));
+    lines.push(format!("You get: {}", metadata.expected_outcome));
     lines.push(String::new());
     lines.push("Next steps".to_owned());
     if run {
@@ -1057,6 +1152,137 @@ fn workflow_starter_primary_output(preset: &str, result: &Value) -> Option<(Stri
         .map(str::to_owned)
         .or_else(|| value.as_str().map(str::to_owned));
     output.map(|output| (workflow_starter_preset(preset).output_label.to_owned(), output))
+}
+
+fn render_starter_outcome_summary(
+    workflow_id: &str,
+    label: &str,
+    output: &str,
+) -> String {
+    format!(
+        "Starter Outcome\nWorkflow ID: {workflow_id}\nReusable command: manual workflow run {workflow_id} --human\n{label}\n{output}"
+    )
+}
+
+fn render_starter_outcome_from_record(starter: &Value) -> Result<String, CliError> {
+    let workflow_id = starter["workflow_id"]
+        .as_str()
+        .ok_or(CliError::InvalidResponse("starter missing workflow_id".to_owned()))?;
+    let label = starter["outcome_label"]
+        .as_str()
+        .ok_or(CliError::InvalidResponse("starter missing outcome_label".to_owned()))?;
+    let output = starter["outcome_text"]
+        .as_str()
+        .ok_or(CliError::InvalidResponse("starter missing outcome_text".to_owned()))?;
+    Ok(render_starter_outcome_summary(workflow_id, label, output))
+}
+
+fn latest_starter_record(client: &mut AppServerClient) -> Result<Value, CliError> {
+    let result = client.request("starter.list", json!({ "limit": 1 }))?;
+    result["starters"]
+        .as_array()
+        .and_then(|starters| starters.first())
+        .cloned()
+        .ok_or(CliError::InvalidResponse(
+            "no stored starter outcome is available yet".to_owned(),
+        ))
+}
+
+fn copy_text_to_clipboard(text: &str) -> Result<(), CliError> {
+    let mut command = clipboard_command()?;
+    command.stdin(Stdio::piped());
+    command.stdout(Stdio::null());
+    command.stderr(Stdio::piped());
+
+    let mut child = command.spawn()?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(text.as_bytes())?;
+    }
+    let output = child.wait_with_output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+        Err(CliError::InvalidResponse(if stderr.is_empty() {
+            "clipboard command failed".to_owned()
+        } else {
+            format!("clipboard command failed: {stderr}")
+        }))
+    }
+}
+
+fn clipboard_command() -> Result<Command, CliError> {
+    if let Some(path) = env::var_os("MANUAL_CLIPBOARD_CMD") {
+        return Ok(Command::new(path));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return Ok(Command::new("pbcopy"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        return Ok(Command::new("clip"));
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        if find_command_in_path("wl-copy").is_some() {
+            return Ok(Command::new("wl-copy"));
+        }
+        if find_command_in_path("xclip").is_some() {
+            let mut command = Command::new("xclip");
+            command.args(["-selection", "clipboard"]);
+            return Ok(command);
+        }
+        Err(CliError::InvalidResponse(
+            "no clipboard command is available; set MANUAL_CLIPBOARD_CMD or install wl-copy/xclip".to_owned(),
+        ))
+    }
+}
+
+fn starter_outcome_summary_from_events_result(result: &Value) -> Option<String> {
+    let workflow_id = result["run"]["workflow_id"]
+        .as_str()
+        .or_else(|| {
+            result["run"]["run_id"]
+                .as_str()
+                .and_then(|run_id| run_id.strip_suffix("-run"))
+        })?;
+    if !workflow_id.starts_with("starter-") {
+        return None;
+    }
+
+    if let Some(failure_output) = workflow_starter_failure_output(result) {
+        return Some(render_starter_outcome_summary(
+            workflow_id,
+            "Starter Failure",
+            &failure_output,
+        ));
+    }
+
+    let nodes = result["run"]["nodes"].as_object()?;
+    let preferred = [
+        ("review", "Review Output"),
+        ("summary", "Summary Output"),
+        ("test_plan", "Test Plan Output"),
+    ];
+    for (node_id, label) in preferred {
+        let Some(node_state) = nodes.get(node_id) else {
+            continue;
+        };
+        let value = &node_state["result"];
+        let output = value["stdout"]
+            .as_str()
+            .map(str::to_owned)
+            .or_else(|| value.as_str().map(str::to_owned));
+        if let Some(output) = output {
+            return Some(render_starter_outcome_summary(workflow_id, label, &output));
+        }
+    }
+
+    None
 }
 
 fn workflow_starter_failure_output(result: &Value) -> Option<String> {
@@ -1093,13 +1319,23 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
+// Why this exists: docs/wiki/features/workflow-starters.md says starter
+// discovery should explain both fit and expected value before execution.
 struct WorkflowStarterPreset<'a> {
     id: &'a str,
     title: &'a str,
     summary: &'a str,
+    best_when: &'a str,
+    expected_outcome: &'a str,
     workflow_id_suffix: &'a str,
     primary_output_node: &'a str,
     output_label: &'a str,
+}
+
+struct WorkflowStarterRecommendationPreview {
+    preset_id: &'static str,
+    reason: &'static str,
+    changed_files_hint: String,
 }
 
 const WORKFLOW_STARTER_PRESETS: &[WorkflowStarterPreset<'static>] = &[
@@ -1107,6 +1343,8 @@ const WORKFLOW_STARTER_PRESETS: &[WorkflowStarterPreset<'static>] = &[
         id: "code-review",
         title: "Code Review Starter",
         summary: "Review repository changes for correctness bugs, regressions, risky assumptions, and missing tests.",
+        best_when: "You want a correctness-focused review before trusting the change.",
+        expected_outcome: "A concise review of bugs, regressions, risky assumptions, and missing tests.",
         workflow_id_suffix: "review",
         primary_output_node: "review",
         output_label: "Review Output",
@@ -1115,6 +1353,8 @@ const WORKFLOW_STARTER_PRESETS: &[WorkflowStarterPreset<'static>] = &[
         id: "change-summary",
         title: "Change Summary Starter",
         summary: "summarize the repository changes into a concise update covering what changed, why it matters, and what to verify next.",
+        best_when: "The diff is mostly docs, markdown, or reader-facing content updates.",
+        expected_outcome: "A short human-readable change update with follow-up verification guidance.",
         workflow_id_suffix: "summary",
         primary_output_node: "summary",
         output_label: "Summary Output",
@@ -1123,6 +1363,8 @@ const WORKFLOW_STARTER_PRESETS: &[WorkflowStarterPreset<'static>] = &[
         id: "test-plan",
         title: "Test Plan Starter",
         summary: "outline the highest-value automated and manual checks for the repository changes before you run them.",
+        best_when: "Code changed but matching tests or verification steps did not.",
+        expected_outcome: "A focused test plan covering the highest-value automated and manual checks.",
         workflow_id_suffix: "test-plan",
         primary_output_node: "test_plan",
         output_label: "Test Plan Output",
@@ -1144,28 +1386,53 @@ fn render_workflow_starter_catalog(repo: Option<&Path>, starter_state_file: &Pat
     if let Some(repository_root) = try_resolve_starter_repo_root(repo, starter_state_file) {
         lines.push(String::new());
         lines.push(format!("Repository: {}", repository_root.display()));
-        if let Some((preset_id, reason)) = recommend_starter_for_repo(&repository_root) {
-            lines.push(format!("Recommended now: {preset_id}"));
-            lines.push(reason.to_owned());
+        if let Some(recommendation) = recommend_starter_for_repo(&repository_root) {
+            let preset = workflow_starter_preset(recommendation.preset_id);
+            lines.push(format!("Recommended now: {}", recommendation.preset_id));
+            lines.push(format!("Why: {}", recommendation.reason));
+            lines.push(recommendation.changed_files_hint);
+            lines.push(format!("You get: {}", preset.expected_outcome));
         }
     }
-    let recent = load_recent_starters(starter_state_file);
+    let recent = merged_recent_starters(starter_state_file);
     if !recent.is_empty() {
         lines.push(String::new());
         lines.push("Recent starters".to_owned());
-        for entry in recent {
+        for entry in &recent {
+            let preset = workflow_starter_preset(&entry.preset_id);
+            lines.push(format!("- {} on {}", entry.preset_id, entry.repository_root));
+            if let Some(reason) = entry.recommendation_reason.as_deref() {
+                lines.push(format!("  Why it fit: {reason}"));
+            }
+            lines.push(format!("  You get: {}", preset.expected_outcome));
+            if let Some(outcome_text) = entry.outcome_text.as_deref() {
+                lines.push(format!(
+                    "  Last result: {}",
+                    starter_outcome_preview(outcome_text)
+                ));
+            }
+            lines.push(format!("  Run: manual workflow run {} --human", entry.workflow_id));
             lines.push(format!(
-                "- {} on {} -> manual workflow run {} --human",
-                entry.preset_id,
-                entry.repository_root,
+                "  Share: manual workflow starter-outcome {}",
+                entry.workflow_id
+            ));
+            lines.push(format!(
+                "  Copy: manual workflow starter-outcome {} --copy",
                 entry.workflow_id
             ));
         }
+    }
+    if !recent.is_empty() {
+        lines.push(String::new());
+        lines.push("Latest summary shortcut: manual workflow starter-outcome --latest".to_owned());
+        lines.push("Latest copy shortcut: manual workflow starter-outcome --latest --copy".to_owned());
     }
     for preset in WORKFLOW_STARTER_PRESETS {
         lines.push(String::new());
         lines.push(format!("{} ({})", preset.title, preset.id));
         lines.push(preset.summary.to_owned());
+        lines.push(format!("Best when: {}", preset.best_when));
+        lines.push(format!("You get: {}", preset.expected_outcome));
         lines.push(format!("Try: manual workflow starter {} --run", preset.id));
     }
     lines.join("\n")
@@ -1268,36 +1535,40 @@ fn try_resolve_git_repo_root(repo: Option<&Path>) -> Option<PathBuf> {
     (!repo_root.is_empty()).then(|| PathBuf::from(repo_root))
 }
 
-fn recommend_starter_for_repo(repo_root: &Path) -> Option<(&'static str, &'static str)> {
+fn recommend_starter_for_repo(repo_root: &Path) -> Option<WorkflowStarterRecommendationPreview> {
     let changed_files = collect_changed_files(repo_root);
     if changed_files.is_empty() {
-        return Some((
-            "code-review",
-            "No active diff was detected, so code-review is the safest general default.",
-        ));
+        return Some(WorkflowStarterRecommendationPreview {
+            preset_id: "code-review",
+            reason: "No active diff was detected, so code-review is the safest general default.",
+            changed_files_hint: changed_files_hint(&changed_files),
+        });
     }
 
     let docs_like = changed_files.iter().filter(|path| is_docs_like_path(path)).count();
     if docs_like == changed_files.len() {
-        return Some((
-            "change-summary",
-            "Detected mostly documentation or markdown changes.",
-        ));
+        return Some(WorkflowStarterRecommendationPreview {
+            preset_id: "change-summary",
+            reason: "Detected mostly documentation or markdown changes.",
+            changed_files_hint: changed_files_hint(&changed_files),
+        });
     }
 
     let code_like = changed_files.iter().filter(|path| is_code_like_path(path)).count();
     let test_like = changed_files.iter().filter(|path| is_test_like_path(path)).count();
     if code_like > 0 && test_like == 0 {
-        return Some((
-            "test-plan",
-            "Detected code changes without matching test updates.",
-        ));
+        return Some(WorkflowStarterRecommendationPreview {
+            preset_id: "test-plan",
+            reason: "Detected code changes without matching test updates.",
+            changed_files_hint: changed_files_hint(&changed_files),
+        });
     }
 
-    Some((
-        "code-review",
-        "Detected implementation changes that benefit from a correctness and regression review.",
-    ))
+    Some(WorkflowStarterRecommendationPreview {
+        preset_id: "code-review",
+        reason: "Detected implementation changes that benefit from a correctness and regression review.",
+        changed_files_hint: changed_files_hint(&changed_files),
+    })
 }
 
 fn collect_changed_files(repo_root: &Path) -> Vec<String> {
@@ -1357,6 +1628,41 @@ fn collect_changed_files(repo_root: &Path) -> Vec<String> {
     files
 }
 
+fn changed_files_hint(changed_files: &[String]) -> String {
+    if changed_files.is_empty() {
+        return "Changed files: No active diff detected.".to_owned();
+    }
+
+    let preview = changed_files
+        .iter()
+        .take(2)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let overflow = changed_files.len().saturating_sub(2);
+    if overflow > 0 {
+        format!("Changed files: {preview} (+{overflow} more)")
+    } else {
+        format!("Changed files: {preview}")
+    }
+}
+
+fn starter_outcome_preview(outcome_text: &str) -> String {
+    let first_line = outcome_text.lines().find(|line| !line.trim().is_empty()).unwrap_or_default().trim();
+    let preview = if first_line.is_empty() {
+        outcome_text.trim()
+    } else {
+        first_line
+    };
+    let char_count = preview.chars().count();
+    if char_count > 120 {
+        let truncated = preview.chars().take(117).collect::<String>();
+        format!("{truncated}...")
+    } else {
+        preview.to_owned()
+    }
+}
+
 fn is_docs_like_path(path: &str) -> bool {
     let lowercase = path.to_ascii_lowercase();
     lowercase.starts_with("docs/")
@@ -1400,6 +1706,9 @@ struct RecentStarterEntry {
     preset_id: String,
     repository_root: String,
     workflow_id: String,
+    recommendation_reason: Option<String>,
+    outcome_label: Option<String>,
+    outcome_text: Option<String>,
 }
 
 fn load_remembered_starter_repo(state_file: &Path) -> Option<PathBuf> {
@@ -1425,6 +1734,9 @@ fn save_recent_starter(
     preset_id: &str,
     repo_root: &Path,
     workflow_id: &str,
+    recommendation_reason: Option<&str>,
+    outcome_label: Option<&str>,
+    outcome_text: Option<&str>,
 ) -> Result<(), CliError> {
     let mut state = load_starter_state(state_file);
     state["last_repository_root"] = json!(repo_root.display().to_string());
@@ -1438,6 +1750,9 @@ fn save_recent_starter(
             preset_id: preset_id.to_owned(),
             repository_root: repo_root,
             workflow_id: workflow_id.to_owned(),
+            recommendation_reason: recommendation_reason.map(str::to_owned),
+            outcome_label: outcome_label.map(str::to_owned),
+            outcome_text: outcome_text.map(str::to_owned),
         },
     );
     recent.truncate(5);
@@ -1449,7 +1764,10 @@ fn save_recent_starter(
                 json!({
                     "preset_id": entry.preset_id,
                     "repository_root": entry.repository_root,
-                    "workflow_id": entry.workflow_id
+                    "workflow_id": entry.workflow_id,
+                    "recommendation_reason": entry.recommendation_reason,
+                    "outcome_label": entry.outcome_label,
+                    "outcome_text": entry.outcome_text
                 })
             })
             .collect(),
@@ -1468,9 +1786,87 @@ fn load_recent_starters(state_file: &Path) -> Vec<RecentStarterEntry> {
                 preset_id: entry["preset_id"].as_str()?.to_owned(),
                 repository_root: entry["repository_root"].as_str()?.to_owned(),
                 workflow_id: entry["workflow_id"].as_str()?.to_owned(),
+                recommendation_reason: entry["recommendation_reason"].as_str().map(str::to_owned),
+                outcome_label: entry["outcome_label"].as_str().map(str::to_owned),
+                outcome_text: entry["outcome_text"].as_str().map(str::to_owned),
             })
         })
         .collect()
+}
+
+fn load_shared_recent_starters(state_file: &Path) -> Vec<RecentStarterEntry> {
+    // Why this exists: docs/wiki/features/workflow-starters.md describes
+    // starter reuse as a shared team habit, not only a single-device memory.
+    let discovery_file = state_file
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join("app-server.json");
+    let discovery = fs::read_to_string(discovery_file)
+        .ok()
+        .and_then(|contents| serde_json::from_str::<Value>(&contents).ok());
+    let Some(discovery) = discovery else {
+        return Vec::new();
+    };
+    let Some(server_url) = discovery["url"].as_str() else {
+        return Vec::new();
+    };
+    let Some(auth_token) = discovery["auth_token"].as_str() else {
+        return Vec::new();
+    };
+
+    let mut client = HttpAppServerClient {
+        server_url: server_url.to_owned(),
+        auth_token: auth_token.to_owned(),
+    };
+    let result = client.request("starter.list", json!({ "limit": 5 })).ok();
+    let starters = result
+        .as_ref()
+        .and_then(|value| value["starters"].as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    starters
+        .into_iter()
+        .filter_map(|entry| {
+            Some(RecentStarterEntry {
+                preset_id: entry["preset_id"].as_str()?.to_owned(),
+                repository_root: entry["repository_root"].as_str()?.to_owned(),
+                workflow_id: entry["workflow_id"].as_str()?.to_owned(),
+                recommendation_reason: entry["recommendation_reason"].as_str().map(str::to_owned),
+                outcome_label: entry["outcome_label"].as_str().map(str::to_owned),
+                outcome_text: entry["outcome_text"].as_str().map(str::to_owned),
+            })
+        })
+        .collect()
+}
+
+fn merge_recent_starters(
+    local: Vec<RecentStarterEntry>,
+    shared: Vec<RecentStarterEntry>,
+    limit: usize,
+) -> Vec<RecentStarterEntry> {
+    let mut merged = shared;
+
+    for entry in local {
+        if merged.iter().any(|existing| {
+            existing.preset_id == entry.preset_id
+                && existing.repository_root == entry.repository_root
+        }) {
+            continue;
+        }
+        merged.push(entry);
+    }
+
+    merged.truncate(limit);
+    merged
+}
+
+fn merged_recent_starters(state_file: &Path) -> Vec<RecentStarterEntry> {
+    merge_recent_starters(
+        load_recent_starters(state_file),
+        load_shared_recent_starters(state_file),
+        5,
+    )
 }
 
 fn load_starter_state(state_file: &Path) -> Value {
@@ -1772,6 +2168,15 @@ enum WorkflowCommand {
     },
     #[command(about = "Compose a workflow candidate from a registered node template")]
     ComposeFromRegistry { node_id: String },
+    #[command(about = "Print a stored starter outcome summary for sharing")]
+    StarterOutcome {
+        #[arg(value_name = "WORKFLOW_ID", required_unless_present = "latest")]
+        workflow_id: Option<String>,
+        #[arg(long, help = "Use the most recently stored starter outcome")]
+        latest: bool,
+        #[arg(long, help = "Copy the rendered starter outcome summary to the clipboard")]
+        copy: bool,
+    },
     #[command(about = "Create a starter workflow preset for a local repository")]
     Starter {
         preset: Option<String>,
@@ -2683,6 +3088,62 @@ mod tests {
     }
 
     #[test]
+    fn merge_recent_starters_prefers_shared_order_and_deduplicates_local_entries() {
+        let local = vec![
+            RecentStarterEntry {
+                preset_id: "code-review".to_owned(),
+                repository_root: "/tmp/repo-a".to_owned(),
+                workflow_id: "starter-repo-a-review-local".to_owned(),
+                recommendation_reason: None,
+                outcome_label: None,
+                outcome_text: None,
+            },
+            RecentStarterEntry {
+                preset_id: "test-plan".to_owned(),
+                repository_root: "/tmp/repo-b".to_owned(),
+                workflow_id: "starter-repo-b-test-plan".to_owned(),
+                recommendation_reason: None,
+                outcome_label: None,
+                outcome_text: None,
+            },
+        ];
+        let shared = vec![
+            RecentStarterEntry {
+                preset_id: "change-summary".to_owned(),
+                repository_root: "/tmp/repo-c".to_owned(),
+                workflow_id: "starter-repo-c-summary".to_owned(),
+                recommendation_reason: Some(
+                    "Detected mostly documentation or markdown changes.".to_owned(),
+                ),
+                outcome_label: Some("Summary Output".to_owned()),
+                outcome_text: Some("Updated the docs and guide.".to_owned()),
+            },
+            RecentStarterEntry {
+                preset_id: "code-review".to_owned(),
+                repository_root: "/tmp/repo-a".to_owned(),
+                workflow_id: "starter-repo-a-review-shared".to_owned(),
+                recommendation_reason: None,
+                outcome_label: None,
+                outcome_text: None,
+            },
+        ];
+
+        let merged = merge_recent_starters(local, shared, 5);
+
+        assert_eq!(
+            merged
+                .into_iter()
+                .map(|entry| entry.workflow_id)
+                .collect::<Vec<_>>(),
+            vec![
+                "starter-repo-c-summary".to_owned(),
+                "starter-repo-a-review-shared".to_owned(),
+                "starter-repo-b-test-plan".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
     fn human_optimization_report_includes_main_sections() {
         let rendered = render_optimization_report_human(&json!({
             "sections": ["Token Usage", "Verification", "Time"],
@@ -3034,6 +3495,12 @@ fn render_workflow_events_human(result: &Value) -> String {
             lines.push(render_optimization_analysis_human(&result["optimization_analysis"]));
         }
     }
+    if result["completed"].as_bool() == Some(true)
+        && let Some(starter_outcome) = starter_outcome_summary_from_events_result(result)
+    {
+        lines.push(String::new());
+        lines.push(starter_outcome);
+    }
     lines.join("\n")
 }
 
@@ -3085,6 +3552,12 @@ fn render_workflow_events_incremental_human(
             lines.push(String::new());
             lines.push(render_optimization_analysis_human(&result["optimization_analysis"]));
         }
+    }
+    if result["completed"].as_bool() == Some(true)
+        && let Some(starter_outcome) = starter_outcome_summary_from_events_result(result)
+    {
+        lines.push(String::new());
+        lines.push(starter_outcome);
     }
 
     lines.join("\n")

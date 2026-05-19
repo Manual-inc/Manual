@@ -41,6 +41,9 @@ const EXPECTED_APP_SERVER_METHODS: &[&str] = &[
     "skill.configure",
     "skill.record_execution",
     "skill.verify",
+    "starter.get",
+    "starter.list",
+    "starter.record",
     "workflow.compose_from_registry",
     "workflow.create",
     "workflow.delete",
@@ -76,7 +79,7 @@ fn expected_method_set_matches_current_app_server_dispatch() {
         .map(|method| (*method).to_owned())
         .collect::<BTreeSet<_>>();
 
-    assert_eq!(expected.len(), 46);
+    assert_eq!(expected.len(), 49);
     assert_eq!(actual, expected);
 }
 
@@ -424,6 +427,10 @@ fn workflow_starter_catalog_lists_available_presets_without_rpc() {
     assert!(stdout.contains("manual workflow starter code-review --run"));
     assert!(stdout.contains("manual workflow starter change-summary --run"));
     assert!(stdout.contains("manual workflow starter test-plan --run"));
+    assert!(stdout.contains("Best when: You want a correctness-focused review before trusting the change."));
+    assert!(stdout.contains("You get: A concise review of bugs, regressions, risky assumptions, and missing tests."));
+    assert!(stdout.contains("You get: A short human-readable change update with follow-up verification guidance."));
+    assert!(stdout.contains("You get: A focused test plan covering the highest-value automated and manual checks."));
     assert!(
         !log.exists() || fs::read_to_string(&log).unwrap_or_default().trim().is_empty(),
         "starter catalog should not need an app-server RPC"
@@ -452,7 +459,9 @@ fn workflow_starter_catalog_recommends_change_summary_for_docs_only_changes() {
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Recommended now: change-summary"));
-    assert!(stdout.contains("Detected mostly documentation or markdown changes"));
+    assert!(stdout.contains("Why: Detected mostly documentation or markdown changes"));
+    assert!(stdout.contains("Changed files: docs/guide.md"));
+    assert!(stdout.contains("You get: A short human-readable change update with follow-up verification guidance."));
     assert!(stdout.contains("manual workflow starter change-summary --run"));
 }
 
@@ -478,7 +487,9 @@ fn workflow_starter_catalog_recommends_test_plan_for_code_changes_without_tests(
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Recommended now: test-plan"));
-    assert!(stdout.contains("Detected code changes without matching test updates"));
+    assert!(stdout.contains("Why: Detected code changes without matching test updates"));
+    assert!(stdout.contains("Changed files: src/lib.rs"));
+    assert!(stdout.contains("You get: A focused test plan covering the highest-value automated and manual checks."));
     assert!(stdout.contains("manual workflow starter test-plan --run"));
 }
 
@@ -506,7 +517,9 @@ fn workflow_starter_run_without_explicit_preset_executes_recommended_change_summ
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Preset: change-summary"));
     assert!(stdout.contains("Recommended now: change-summary"));
+    assert!(stdout.contains("Changed files: docs/guide.md"));
     assert!(stdout.contains("Summary Output"));
+    assert!(stdout.contains("Starter Outcome"));
 
     let requests = fs::read_to_string(log).unwrap();
     assert!(requests.contains(r#""method":"agent.list""#));
@@ -538,7 +551,9 @@ fn workflow_starter_run_without_explicit_preset_executes_recommended_test_plan()
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Preset: test-plan"));
     assert!(stdout.contains("Recommended now: test-plan"));
+    assert!(stdout.contains("Changed files: src/lib.rs"));
     assert!(stdout.contains("Test Plan Output"));
+    assert!(stdout.contains("Starter Outcome"));
 
     let requests = fs::read_to_string(log).unwrap();
     assert!(requests.contains(r#""method":"agent.list""#));
@@ -607,9 +622,9 @@ fn workflow_starter_catalog_lists_recent_starters_from_state() {
             discovery.display().to_string(),
             "workflow".into(),
             "starter".into(),
-            "test-plan".into(),
             "--repo".into(),
             repo.display().to_string(),
+            "--run".into(),
         ],
     );
     assert!(seed.status.success(), "stderr: {}", String::from_utf8_lossy(&seed.stderr));
@@ -630,7 +645,142 @@ fn workflow_starter_catalog_lists_recent_starters_from_state() {
     assert!(stdout.contains("Recent starters"));
     assert!(stdout.contains("test-plan"));
     assert!(stdout.contains(&canonical_repo.display().to_string()));
+    assert!(stdout.contains("Why it fit: Detected code changes without matching test updates."));
+    assert!(stdout.contains("You get: A focused test plan covering the highest-value automated and manual checks."));
+    assert!(stdout.contains("Last result: 1. Run unit tests"));
     assert!(stdout.contains("manual workflow run starter-history-repo-test-plan --human"));
+    assert!(stdout.contains("manual workflow starter-outcome starter-history-repo-test-plan"));
+    assert!(stdout.contains("manual workflow starter-outcome starter-history-repo-test-plan --copy"));
+    assert!(stdout.contains("manual workflow starter-outcome --latest --copy"));
+}
+
+#[test]
+fn workflow_starter_outcome_prints_stored_summary() {
+    let temp = TestDir::new("manual-cli-starter-outcome");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+
+    let output = run_manual::<Vec<String>, String>(
+        &server,
+        vec![
+            "workflow".into(),
+            "starter-outcome".into(),
+            "starter-review".into(),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Starter Outcome"));
+    assert!(stdout.contains("Workflow ID: starter-review"));
+    assert!(stdout.contains("Reusable command: manual workflow run starter-review --human"));
+    assert!(stdout.contains("Review Output"));
+    assert!(stdout.contains("Looks good overall."));
+
+    let requests = fs::read_to_string(log).unwrap();
+    assert!(requests.contains(r#""method":"starter.get""#));
+}
+
+#[test]
+fn workflow_starter_outcome_latest_prints_most_recent_stored_summary() {
+    let temp = TestDir::new("manual-cli-starter-outcome-latest");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+
+    let output = run_manual::<Vec<String>, String>(
+        &server,
+        vec![
+            "workflow".into(),
+            "starter-outcome".into(),
+            "--latest".into(),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Starter Outcome"));
+    assert!(stdout.contains("Workflow ID: starter-review"));
+    assert!(stdout.contains("Review Output"));
+
+    let requests = fs::read_to_string(log).unwrap();
+    assert!(requests.contains(r#""method":"starter.list""#));
+    assert!(!requests.contains(r#""method":"starter.get""#));
+}
+
+#[test]
+fn workflow_starter_outcome_copy_writes_summary_to_configured_clipboard_command() {
+    let temp = TestDir::new("manual-cli-starter-outcome-copy");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let capture = temp.path().join("clipboard.txt");
+    let clipboard = fake_clipboard(&temp, &capture);
+
+    let output = run_manual_with_env::<Vec<String>, String>(
+        &server,
+        vec![
+            ("MANUAL_CLIPBOARD_CMD", clipboard.display().to_string()),
+            ("MANUAL_CLIPBOARD_CAPTURE", capture.display().to_string()),
+        ],
+        vec![
+            "workflow".into(),
+            "starter-outcome".into(),
+            "starter-review".into(),
+            "--copy".into(),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Starter Outcome"));
+    assert!(stdout.contains("Copied starter outcome to clipboard."));
+
+    let copied = fs::read_to_string(capture).unwrap();
+    assert!(copied.contains("Workflow ID: starter-review"));
+    assert!(copied.contains("Looks good overall."));
+}
+
+#[test]
+fn workflow_starter_outcome_latest_copy_writes_latest_summary_to_configured_clipboard_command() {
+    let temp = TestDir::new("manual-cli-starter-outcome-latest-copy");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+    let capture = temp.path().join("clipboard.txt");
+    let clipboard = fake_clipboard(&temp, &capture);
+
+    let output = run_manual_with_env::<Vec<String>, String>(
+        &server,
+        vec![
+            ("MANUAL_CLIPBOARD_CMD", clipboard.display().to_string()),
+            ("MANUAL_CLIPBOARD_CAPTURE", capture.display().to_string()),
+        ],
+        vec![
+            "workflow".into(),
+            "starter-outcome".into(),
+            "--latest".into(),
+            "--copy".into(),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let copied = fs::read_to_string(capture).unwrap();
+    assert!(copied.contains("Workflow ID: starter-review"));
+    assert!(copied.contains("Looks good overall."));
 }
 
 #[test]
@@ -721,6 +871,7 @@ fn workflow_starter_creates_change_summary_workflow() {
     assert!(requests.contains(r#""kind":"codex""#));
     assert!(requests.contains(&format!(r#""cwd":"{}""#, canonical_repo.display())));
     assert!(requests.contains(r#""depends_on":"collect_diff""#));
+    assert!(requests.contains(r#""method":"starter.record""#));
 }
 
 #[test]
@@ -761,6 +912,7 @@ fn workflow_starter_creates_test_plan_workflow_with_default_id() {
     assert!(requests.contains(r#""kind":"codex""#));
     assert!(requests.contains(&format!(r#""cwd":"{}""#, canonical_repo.display())));
     assert!(requests.contains(r#""depends_on":"collect_diff""#));
+    assert!(requests.contains(r#""method":"starter.record""#));
 }
 
 #[test]
@@ -796,12 +948,44 @@ fn workflow_starter_run_prints_review_output_after_completion() {
     assert!(stdout.contains("Started workflow run starter-review-run"));
     assert!(stdout.contains("Workflow Events"));
     assert!(stdout.contains("Review Output"));
+    assert!(stdout.contains("Starter Outcome"));
+    assert!(stdout.contains("Reusable command: manual workflow run starter-review --human"));
     assert!(stdout.contains("Looks good overall."));
 
     let requests = fs::read_to_string(log).unwrap();
     assert!(requests.contains(r#""method":"workflow.create""#));
     assert!(requests.contains(r#""method":"workflow.start""#));
     assert!(requests.contains(r#""method":"workflow.events""#));
+}
+
+#[test]
+fn generic_workflow_run_human_reprints_starter_outcome_for_starter_workflow() {
+    let temp = TestDir::new("manual-cli-generic-starter-run");
+    let log = temp.path().join("requests.jsonl");
+    let server = fake_server(&temp, &log);
+
+    let output = run_manual::<Vec<String>, String>(
+        &server,
+        vec![
+            "workflow".into(),
+            "run".into(),
+            "starter-review".into(),
+            "--human".into(),
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Started workflow run starter-review-run"));
+    assert!(stdout.contains("Workflow Events"));
+    assert!(stdout.contains("Review Output"));
+    assert!(stdout.contains("Starter Outcome"));
+    assert!(stdout.contains("Reusable command: manual workflow run starter-review --human"));
+    assert!(stdout.contains("Looks good overall."));
 }
 
 #[test]
@@ -1354,6 +1538,26 @@ where
     command.output().unwrap()
 }
 
+fn run_manual_with_env<I, S>(
+    server: &Path,
+    envs: Vec<(&str, String)>,
+    args: I,
+) -> std::process::Output
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let mut command = manual_cli();
+    command.arg("--server-bin").arg(server);
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+    for arg in args {
+        command.arg(arg);
+    }
+    command.output().unwrap()
+}
+
 fn run_manual_in_dir<I, S>(server: &Path, cwd: &Path, args: I) -> std::process::Output
 where
     I: IntoIterator<Item = S>,
@@ -1673,6 +1877,57 @@ for line in sys.stdin:
             "id": request["id"],
             "error": {{"code": -32000, "message": "workflow not found"}},
         }}
+    elif method == "starter.get":
+        workflow_id = request["params"].get("workflow_id", "starter-review")
+        if workflow_id.endswith("-summary"):
+            starter = {{
+                "workflow_id": workflow_id,
+                "preset_id": "change-summary",
+                "repository_root": "/tmp/repo",
+                "recommendation_reason": "Detected mostly documentation or markdown changes.",
+                "outcome_label": "Summary Output",
+                "outcome_text": "Changed docs and updated the reader-facing guide."
+            }}
+        elif workflow_id.endswith("-test-plan"):
+            starter = {{
+                "workflow_id": workflow_id,
+                "preset_id": "test-plan",
+                "repository_root": "/tmp/repo",
+                "recommendation_reason": "Detected code changes without matching test updates.",
+                "outcome_label": "Test Plan Output",
+                "outcome_text": "1. Run unit tests\\n2. Verify docs links\\n3. Smoke the changed workflow path"
+            }}
+        else:
+            starter = {{
+                "workflow_id": workflow_id,
+                "preset_id": "code-review",
+                "repository_root": "/tmp/repo",
+                "recommendation_reason": "Detected implementation changes that benefit from a correctness and regression review.",
+                "outcome_label": "Review Output",
+                "outcome_text": "Looks good overall."
+            }}
+        response = {{
+            "jsonrpc": "2.0",
+            "id": request["id"],
+            "result": {{"starter": starter}}
+        }}
+    elif method == "starter.list":
+        response = {{
+            "jsonrpc": "2.0",
+            "id": request["id"],
+            "result": {{
+                "starters": [
+                    {{
+                        "workflow_id": "starter-review",
+                        "preset_id": "code-review",
+                        "repository_root": "/tmp/repo",
+                        "recommendation_reason": "Detected implementation changes that benefit from a correctness and regression review.",
+                        "outcome_label": "Review Output",
+                        "outcome_text": "Looks good overall."
+                    }}
+                ]
+            }}
+        }}
     else:
         response = {{"jsonrpc": "2.0", "id": request["id"], "result": {{"ok": True}}}}
 
@@ -1692,6 +1947,28 @@ for line in sys.stdin:
     }
 
     server
+}
+
+fn fake_clipboard(temp: &TestDir, capture: &Path) -> PathBuf {
+    let script = temp.path().join("fake_clipboard.sh");
+    fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\ncat > \"{}\"\n",
+            capture.display()
+        ),
+    )
+    .unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&script).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&script, permissions).unwrap();
+    }
+
+    script
 }
 
 struct TestDir {

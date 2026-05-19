@@ -217,6 +217,28 @@ enum CucumberFeatureAssertions {
                 file: file,
                 line: line
             )
+        case "UI recommended starter workflow는 summary 단계와 diff 수집 단계를 가져야 한다":
+            let workflow = try result(world)["workflow"] as? [String: Any]
+            let nodes = workflow?["nodes"] as? [[String: Any]] ?? []
+            try expectStep(
+                nodes.contains { ($0["id"] as? String) == "collect_diff" && ($0["kind"] as? String) == "script" },
+                "recommended starter workflow should include collect_diff script node",
+                file: file,
+                line: line
+            )
+            try expectStep(
+                nodes.contains { ($0["id"] as? String) == "summary" && ["codex", "claude", "pi"].contains($0["kind"] as? String ?? "") },
+                "recommended starter workflow should include summary agent node",
+                file: file,
+                line: line
+            )
+        case "UI는 shared recent starter history를 조회해야 한다":
+            try expectStep(
+                world.appServer.evidence.contains("starter.list"),
+                "UI rerun should query shared recent starter history from app-server",
+                file: file,
+                line: line
+            )
 
         default:
             try assertGenericServerBackedResult(world: world, step: step, file: file, line: line)
