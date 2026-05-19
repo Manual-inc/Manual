@@ -96,7 +96,7 @@ macOS 앱 실행:
 bash app/mac/script/build_and_run.sh
 ```
 
-앱 안에서는 sidebar quick-start card에서 starter catalog를 보고 저장소를 고른 뒤 starter workflow를 바로 생성하고 실행할 수 있다. 실행이 시작되면 bottom panel이 `Output` 탭으로 열려 결과를 바로 확인할 수 있다.
+앱 안에서는 sidebar quick-start card에서 starter catalog를 보고 저장소를 고른 뒤 starter workflow를 바로 생성하고 실행할 수 있다. `Recommended Starter…` 버튼은 현재 저장소 변경 유형에 맞는 starter를 골라 준다. 실행이 시작되면 bottom panel이 `Output` 탭으로 열려 결과를 바로 확인할 수 있다.
 
 Windows shell:
 

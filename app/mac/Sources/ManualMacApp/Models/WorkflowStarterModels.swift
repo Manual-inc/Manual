@@ -57,6 +57,11 @@ struct WorkflowStarterPreset: Equatable, Sendable {
     let workflowIDSuffix: String
 }
 
+struct WorkflowStarterRecommendation: Equatable, Sendable {
+    let preset: WorkflowStarterPreset
+    let reason: String
+}
+
 enum WorkflowStarterDefinition {
     static let availablePresets: [WorkflowStarterPreset] = [
         WorkflowStarterPreset(
@@ -101,6 +106,41 @@ enum WorkflowStarterDefinition {
             }
         }
         return nil
+    }
+
+    static func recommendedPreset(forChangedFiles changedFiles: [String]) -> WorkflowStarterRecommendation {
+        if changedFiles.isEmpty {
+            return WorkflowStarterRecommendation(
+                preset: preset(id: "code-review"),
+                reason: "No active diff was detected, so code-review is the safest general default."
+            )
+        }
+
+        let docsLike = changedFiles.filter(isDocsLikePath)
+        if docsLike.count == changedFiles.count {
+            return WorkflowStarterRecommendation(
+                preset: preset(id: "change-summary"),
+                reason: "Detected mostly documentation or markdown changes."
+            )
+        }
+
+        let codeLike = changedFiles.filter(isCodeLikePath)
+        let testLike = changedFiles.filter(isTestLikePath)
+        if !codeLike.isEmpty && testLike.isEmpty {
+            return WorkflowStarterRecommendation(
+                preset: preset(id: "test-plan"),
+                reason: "Detected code changes without matching test updates."
+            )
+        }
+
+        return WorkflowStarterRecommendation(
+            preset: preset(id: "code-review"),
+            reason: "Detected implementation changes that benefit from a correctness and regression review."
+        )
+    }
+
+    static func recommendedPreset(repositoryRootPath: String) throws -> WorkflowStarterRecommendation {
+        recommendedPreset(forChangedFiles: try changedFiles(repositoryRootPath: repositoryRootPath))
     }
 
     static func codeReviewWorkflow(
@@ -257,6 +297,20 @@ enum WorkflowStarterDefinition {
         return root
     }
 
+    static func changedFiles(repositoryRootPath: String) throws -> [String] {
+        var files = collectChangedFiles(arguments: ["diff", "--name-only", "--", "."], repositoryRootPath: repositoryRootPath)
+        files.append(contentsOf: collectChangedFiles(arguments: ["diff", "--cached", "--name-only", "--", "."], repositoryRootPath: repositoryRootPath))
+
+        if files.isEmpty {
+            files = collectChangedFiles(arguments: ["diff", "--name-only", "HEAD~1", "--", "."], repositoryRootPath: repositoryRootPath)
+        }
+        if files.isEmpty {
+            files = collectChangedFiles(arguments: ["show", "--pretty=", "--name-only", "HEAD", "--", "."], repositoryRootPath: repositoryRootPath)
+        }
+
+        return Array(Set(files)).sorted()
+    }
+
     private static func codeReviewPrompt() -> String {
         """
         Review the repository changes described in Input.collect_diff.stdout.
@@ -364,5 +418,59 @@ enum WorkflowStarterDefinition {
             }
         }
         return nil
+    }
+
+    private static func preset(id: String) -> WorkflowStarterPreset {
+        availablePresets.first(where: { $0.id == id }) ?? availablePresets[0]
+    }
+
+    private static func collectChangedFiles(arguments: [String], repositoryRootPath: String) -> [String] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["git", "-C", repositoryRootPath] + arguments
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = nil
+
+        do {
+            try process.run()
+        } catch {
+            return []
+        }
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return [] }
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        let text = String(data: data, encoding: .utf8) ?? ""
+        return text
+            .split(separator: "\n")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private static func isDocsLikePath(_ path: String) -> Bool {
+        let lowercase = path.lowercased()
+        return lowercase.hasPrefix("docs/")
+            || lowercase.hasSuffix(".md")
+            || lowercase.hasSuffix(".mdx")
+            || lowercase.hasSuffix(".txt")
+            || lowercase.hasSuffix(".rst")
+            || lowercase.contains("readme")
+            || lowercase.contains("changelog")
+    }
+
+    private static func isTestLikePath(_ path: String) -> Bool {
+        let lowercase = path.lowercased()
+        return lowercase.contains("/test")
+            || lowercase.contains("/tests")
+            || lowercase.contains("_test.")
+            || lowercase.contains(".test.")
+            || lowercase.contains(".spec.")
+            || lowercase.hasSuffix(".feature")
+    }
+
+    private static func isCodeLikePath(_ path: String) -> Bool {
+        let lowercase = path.lowercased()
+        return [".rs", ".swift", ".cs", ".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".kt", ".go", ".rb", ".php"]
+            .contains { lowercase.hasSuffix($0) }
     }
 }

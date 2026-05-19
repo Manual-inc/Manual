@@ -234,6 +234,21 @@ final class WorkflowRunStore: ObservableObject {
         }
     }
 
+    func createAndRunRecommendedStarter(selectedPath: String) {
+        guard !isRunning else { return }
+
+        isRunning = true
+        runID = nil
+        events.removeAll()
+        resetNodes()
+        statusMessage = "Preparing recommended starter"
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.createAndRunRecommendedStarter(repositoryPath: selectedPath)
+        }
+    }
+
     private func refreshWorkflows(createExampleIfMissing: Bool) async {
         isLoading = true
         defer { isLoading = false }
@@ -463,6 +478,23 @@ final class WorkflowRunStore: ObservableObject {
                 presetID: presetID,
                 repositoryRootPath: repositoryRootPath
             )
+            selectedWorkflowID = result.workflowID
+            await refreshWorkflows(createExampleIfMissing: false)
+            self.runID = result.runID
+            observedRunIDs.insert(result.runID)
+            statusMessage = "Running \(result.runID)"
+            try await streamEvents(runID: result.runID)
+        } catch {
+            appendEvent(nodeID: nil, title: "Starter failed", detail: error.localizedDescription)
+            statusMessage = error.localizedDescription
+            isRunning = false
+        }
+    }
+
+    private func createAndRunRecommendedStarter(repositoryPath: String) async {
+        do {
+            let repositoryRootPath = try WorkflowStarterDefinition.resolveRepositoryRootPath(from: repositoryPath)
+            let result = try await executionIntent.executeRecommendedStarter(repositoryRootPath: repositoryRootPath)
             selectedWorkflowID = result.workflowID
             await refreshWorkflows(createExampleIfMissing: false)
             self.runID = result.runID

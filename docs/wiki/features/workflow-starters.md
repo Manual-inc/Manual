@@ -45,7 +45,7 @@ manual workflow starter test-plan --run
 CLI에서는 `manual workflow starter`만 실행해 available preset catalog를 먼저 볼 수 있다.
 저장소 안에서 `manual workflow starter --repo .`를 실행하면 changed file 유형을 바탕으로 지금 가장 맞는 starter를 같이 추천한다.
 
-mac app에서는 sidebar quick-start card에 starter catalog가 보이고, 각 starter를 바로 실행할 수 있다. 실행 중에는 bottom panel이 `Output` 탭으로 열려 결과가 completion 뒤 바로 보이게 한다.
+mac app에서는 sidebar quick-start card에 starter catalog가 보이고, `Recommended Starter…` 버튼으로 현재 저장소에 맞는 starter를 바로 고를 수 있다. 개별 starter를 눌러 직접 실행할 수도 있다. 실행 중에는 bottom panel이 `Output` 탭으로 열려 결과가 completion 뒤 바로 보이게 한다.
 
 ### `code-review`
 

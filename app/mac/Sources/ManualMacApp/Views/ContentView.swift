@@ -20,19 +20,19 @@ public struct ContentView: View {
                     .frame(width: 56)
 
                 if sidebarVisible {
-                    WorkflowSidebar(store: store) { preset in
-                        guard let repositoryURL = pickWorkflowStarterRepository(for: preset) else { return }
-                        var panelState = WorkflowPanelState(
-                            isBottomPanelVisible: bottomPanelVisible,
-                            selectedTab: selectedBottomPanelTab
-                        )
-                        panelState.showOutput()
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            bottomPanelVisible = panelState.isBottomPanelVisible
-                            bottomPanelTabRawValue = panelState.selectedTab.rawValue
+                    WorkflowSidebar(
+                        store: store,
+                        onCreateRecommendedStarter: {
+                            guard let repositoryURL = pickWorkflowStarterRepository(message: "Pick a git repository and Manual will choose the best starter.") else { return }
+                            presentOutputPanel()
+                            store.createAndRunRecommendedStarter(selectedPath: repositoryURL.path)
+                        },
+                        onCreateStarter: { preset in
+                            guard let repositoryURL = pickWorkflowStarterRepository(for: preset) else { return }
+                            presentOutputPanel()
+                            store.createAndRunStarter(presetID: preset.id, selectedPath: repositoryURL.path)
                         }
-                        store.createAndRunStarter(presetID: preset.id, selectedPath: repositoryURL.path)
-                    }
+                    )
                         .frame(width: 260)
                         .transition(.move(edge: .leading).combined(with: .opacity))
                 }
@@ -149,17 +149,33 @@ public struct ContentView: View {
     }
 
     private func pickWorkflowStarterRepository(for preset: WorkflowStarterPreset) -> URL? {
+        pickWorkflowStarterRepository(message: "Pick a git repository for \(preset.title).")
+    }
+
+    private func pickWorkflowStarterRepository(message: String) -> URL? {
         // See docs/wiki/features/workflow-starters.md: mac onboarding should let
         // users pick a real repository before creating the starter workflow.
         let panel = NSOpenPanel()
         panel.title = "Choose a Repository"
-        panel.message = "Pick a git repository for \(preset.title)."
+        panel.message = message
         panel.prompt = "Use Repository"
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = false
         return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    private func presentOutputPanel() {
+        var panelState = WorkflowPanelState(
+            isBottomPanelVisible: bottomPanelVisible,
+            selectedTab: selectedBottomPanelTab
+        )
+        panelState.showOutput()
+        withAnimation(.easeInOut(duration: 0.18)) {
+            bottomPanelVisible = panelState.isBottomPanelVisible
+            bottomPanelTabRawValue = panelState.selectedTab.rawValue
+        }
     }
 }
 
@@ -229,6 +245,7 @@ private struct BrandLogo: View {
 
 private struct WorkflowSidebar: View {
     @ObservedObject var store: WorkflowRunStore
+    let onCreateRecommendedStarter: () -> Void
     let onCreateStarter: (WorkflowStarterPreset) -> Void
 
     var body: some View {
@@ -257,6 +274,7 @@ private struct WorkflowSidebar: View {
 
             QuickStartCard(
                 presets: WorkflowStarterDefinition.availablePresets,
+                onCreateRecommendedStarter: onCreateRecommendedStarter,
                 action: onCreateStarter
             )
                 .padding(10)
@@ -306,6 +324,7 @@ private struct WorkflowSidebar: View {
 
 private struct QuickStartCard: View {
     let presets: [WorkflowStarterPreset]
+    let onCreateRecommendedStarter: () -> Void
     let action: (WorkflowStarterPreset) -> Void
 
     var body: some View {
@@ -321,6 +340,29 @@ private struct QuickStartCard: View {
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: onCreateRecommendedStarter) {
+                HStack(spacing: 6) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Recommended Starter…")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundStyle(AppTheme.text)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(AppTheme.panel)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 9)
+                        .stroke(AppTheme.strokeStrong, lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("create-recommended-starter-button")
 
             ForEach(presets, id: \.id) { preset in
                 Button(action: { action(preset) }) {

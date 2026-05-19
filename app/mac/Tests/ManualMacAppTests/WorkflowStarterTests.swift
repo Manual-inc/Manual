@@ -8,6 +8,24 @@ struct WorkflowStarterDefinitionTests {
         #expect(presets.map(\.id) == ["code-review", "change-summary", "test-plan"])
     }
 
+    @Test func recommendedPreset_prefersChangeSummaryForDocsOnlyChanges() {
+        let recommendation = WorkflowStarterDefinition.recommendedPreset(
+            forChangedFiles: ["docs/guide.md", "README.md"]
+        )
+
+        #expect(recommendation.preset.id == "change-summary")
+        #expect(recommendation.reason.contains("documentation"))
+    }
+
+    @Test func recommendedPreset_prefersTestPlanForCodeChangesWithoutTests() {
+        let recommendation = WorkflowStarterDefinition.recommendedPreset(
+            forChangedFiles: ["src/lib.rs", "app/main.swift"]
+        )
+
+        #expect(recommendation.preset.id == "test-plan")
+        #expect(recommendation.reason.contains("without matching test updates"))
+    }
+
     @Test func suggestedWorkflowID_sanitizesRepositoryName() throws {
         let repositoryRootPath = "/tmp/My Cool.Repo"
 

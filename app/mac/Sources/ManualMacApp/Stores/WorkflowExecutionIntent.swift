@@ -56,6 +56,14 @@ public final class WorkflowExecutionIntent {
         try await executeStarter(presetID: "change-summary", repositoryRootPath: repositoryRootPath)
     }
 
+    public func executeRecommendedStarter(repositoryRootPath: String) async throws -> WorkflowExecutionIntentResult {
+        let recommendation = try WorkflowStarterDefinition.recommendedPreset(repositoryRootPath: repositoryRootPath)
+        return try await executeStarter(
+            presetID: recommendation.preset.id,
+            repositoryRootPath: repositoryRootPath
+        )
+    }
+
     public func executeStarter(
         presetID: String,
         repositoryRootPath: String
