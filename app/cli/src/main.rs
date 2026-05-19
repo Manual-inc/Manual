@@ -20,6 +20,17 @@ fn main() {
 
 fn run() -> Result<(), CliError> {
     let cli = Cli::parse();
+    let discovery_file = cli.discovery_file.clone().unwrap_or_else(default_discovery_file);
+
+    if matches!(cli.command, CommandGroup::Doctor) {
+        return run_doctor(
+            cli.server_bin,
+            cli.server_url,
+            cli.auth_token,
+            discovery_file,
+        );
+    }
+
     let mut client = if let Some(server_bin) = cli.server_bin.as_deref() {
         AppServerClient::stdio(resolve_server_bin(Some(server_bin))?)?
     } else if let Some(server_url) = cli.server_url {
@@ -28,10 +39,7 @@ fn run() -> Result<(), CliError> {
         })?;
         AppServerClient::http(server_url, auth_token)
     } else {
-        AppServerClient::daemon(
-            resolve_server_bin(None)?,
-            cli.discovery_file.unwrap_or_else(default_discovery_file),
-        )?
+        AppServerClient::daemon(resolve_server_bin(None)?, discovery_file)?
     };
 
     match cli.command {
@@ -50,6 +58,7 @@ fn run() -> Result<(), CliError> {
             };
             print_json(&client.request(&method, params)?)
         }
+        CommandGroup::Doctor => unreachable!("doctor returns before client initialization"),
     }
 }
 
@@ -405,6 +414,82 @@ fn handle_demo(command: DemoCommand, client: &mut AppServerClient) -> Result<(),
     }
 }
 
+fn run_doctor(
+    explicit_server_bin: Option<PathBuf>,
+    explicit_server_url: Option<String>,
+    explicit_auth_token: Option<String>,
+    discovery_file: PathBuf,
+) -> Result<(), CliError> {
+    // Why this exists: first-time users need a non-destructive way to inspect
+    // Manual connectivity before trying workflow/demo commands. See
+    // docs/wiki/architecture/manual-cli-command-surface.md.
+    let current_exe = env::current_exe().ok();
+    let cwd = env::current_dir().ok();
+    let env_server_bin = env::var_os("MANUAL_APP_SERVER_BIN").map(PathBuf::from);
+    let server_probe = probe_server_binary(
+        explicit_server_bin.as_deref(),
+        env_server_bin.as_deref(),
+        current_exe.as_deref(),
+        cwd.as_deref(),
+    );
+
+    let discovery_exists = discovery_file.is_file();
+    let discovery = read_discovery_file(&discovery_file);
+    let discovery_status = if discovery_exists {
+        if discovery.is_some() { "found" } else { "invalid" }
+    } else {
+        "missing"
+    };
+
+    let server_url = explicit_server_url
+        .clone()
+        .or_else(|| discovery.as_ref().map(|value| value.server_url.clone()));
+    let auth_token_present = explicit_auth_token.is_some()
+        || discovery
+            .as_ref()
+            .is_some_and(|value| !value.auth_token.is_empty());
+    let health = if let Some(server_url) = server_url.clone() {
+        let client = HttpAppServerClient {
+            server_url,
+            auth_token: explicit_auth_token
+                .or_else(|| discovery.as_ref().map(|value| value.auth_token.clone()))
+                .unwrap_or_default(),
+        };
+        if client.health().is_ok() {
+            "healthy"
+        } else {
+            "unreachable"
+        }
+    } else {
+        "not checked"
+    };
+
+    let lines = vec![
+        "Manual Doctor".to_owned(),
+        String::new(),
+        format!(
+            "Server binary: {}",
+            if server_probe.exists { "found" } else { "missing" }
+        ),
+        format!("Path: {}", server_probe.path.display()),
+        format!("Source: {}", server_probe.source),
+        String::new(),
+        format!("Discovery file: {discovery_status}"),
+        format!("Path: {}", discovery_file.display()),
+        format!(
+            "Server URL: {}",
+            server_url.unwrap_or_else(|| "not configured".to_owned())
+        ),
+        format!(
+            "Auth token: {}",
+            if auth_token_present { "present" } else { "missing" }
+        ),
+        format!("Health: {health}"),
+    ];
+
+    print_text(&lines.join("\n"))
+}
+
 fn handle_sandbox(command: SandboxCommand, client: &mut AppServerClient) -> Result<(), CliError> {
     match command {
         SandboxCommand::Create { params } => {
@@ -712,6 +797,8 @@ enum CommandGroup {
         #[command(subcommand)]
         command: OptimizationCommand,
     },
+    #[command(about = "Inspect local Manual CLI connectivity and discovery state")]
+    Doctor,
     #[command(about = "Run built-in product demos")]
     Demo {
         #[command(subcommand)]
@@ -1251,6 +1338,73 @@ fn resolve_server_bin(explicit: Option<&Path>) -> Result<PathBuf, CliError> {
         current_exe.as_deref(),
         cwd.as_deref(),
     )
+}
+
+struct ServerBinaryProbe {
+    source: &'static str,
+    path: PathBuf,
+    exists: bool,
+}
+
+fn probe_server_binary(
+    explicit: Option<&Path>,
+    env_path: Option<&Path>,
+    current_exe: Option<&Path>,
+    cwd: Option<&Path>,
+) -> ServerBinaryProbe {
+    if let Some(path) = explicit {
+        return ServerBinaryProbe {
+            source: "flag",
+            path: path.to_owned(),
+            exists: path.is_file(),
+        };
+    }
+
+    if let Some(path) = env_path {
+        return ServerBinaryProbe {
+            source: "env",
+            path: path.to_owned(),
+            exists: path.is_file(),
+        };
+    }
+
+    if let Some(current_exe) = current_exe
+        && let Some(bin_dir) = current_exe.parent()
+    {
+        let sibling = bin_dir.join(server_binary_name());
+        if sibling.is_file() {
+            return ServerBinaryProbe {
+                source: "sibling",
+                path: sibling,
+                exists: true,
+            };
+        }
+    }
+
+    let fallback = cwd
+        .map(|cwd| cwd.join("manual-rs/target/debug/manual-app-server"))
+        .unwrap_or_else(|| PathBuf::from("manual-app-server"));
+    let candidate = cwd
+        .map(|cwd| {
+            [
+                cwd.join("manual-rs/target/debug/manual-app-server"),
+                cwd.join("../manual-rs/target/debug/manual-app-server"),
+                cwd.join("../../manual-rs/target/debug/manual-app-server"),
+                cwd.join("manual-rs/target/debug/app-server"),
+                cwd.join("../manual-rs/target/debug/app-server"),
+                cwd.join("../../manual-rs/target/debug/app-server"),
+            ]
+            .into_iter()
+            .find(|path| path.is_file())
+            .unwrap_or(fallback.clone())
+        })
+        .unwrap_or(fallback);
+
+    ServerBinaryProbe {
+        source: "workspace search",
+        exists: candidate.is_file(),
+        path: candidate,
+    }
 }
 
 fn resolve_server_bin_from(

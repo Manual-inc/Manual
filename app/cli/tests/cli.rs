@@ -117,6 +117,32 @@ fn create_sends_workflow_file_to_app_server() {
 }
 
 #[test]
+fn doctor_reports_missing_binary_and_discovery_without_launching_server() {
+    let temp = TestDir::new("manual-cli-doctor");
+    let missing_server = temp.path().join("manual-app-server");
+    let missing_discovery = temp.path().join("app-server.json");
+
+    let output = manual_cli()
+        .arg("--server-bin")
+        .arg(&missing_server)
+        .arg("--discovery-file")
+        .arg(&missing_discovery)
+        .arg("doctor")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Manual Doctor"));
+    assert!(stdout.contains("Server binary: missing"));
+    assert!(stdout.contains("Discovery file: missing"));
+}
+
+#[test]
 fn events_supports_cursor_and_prints_server_run_summary() {
     let temp = TestDir::new("manual-cli-events");
     let log = temp.path().join("requests.jsonl");

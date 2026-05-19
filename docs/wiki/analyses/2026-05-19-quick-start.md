@@ -28,6 +28,12 @@ curl -fsSL "https://github.com/Manual-inc/Manual/releases/download/${TAG}/instal
 
 ## 가장 빠른 데모
 
+처음 연결 상태를 먼저 확인하고 싶다면:
+
+```bash
+manual doctor
+```
+
 설치된 CLI가 있다면:
 
 ```bash

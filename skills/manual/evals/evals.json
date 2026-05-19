@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "manual-cli로 두 단계짜리 워크플로우를 만들고 실행하고 싶어. 첫 단계는 git diff를 수집하는 스크립트 노드고, 두 번째 단계는 claude 에이전트가 그 diff를 받아 코드 리뷰를 작성하는 거야. JSON 어떻게 쓰고 어떻게 실행해?",
+      "prompt": "manual CLI로 두 단계짜리 워크플로우를 만들고 실행하고 싶어. 첫 단계는 git diff를 수집하는 스크립트 노드고, 두 번째 단계는 claude 에이전트가 그 diff를 받아 코드 리뷰를 작성하는 거야. JSON 어떻게 쓰고 어떻게 실행해?",
       "expected_output": "kind:script + sandbox_policy + kind:claude + prompt({{node_id}} 참조) 형태의 JSON, 별도 dependencies 배열, workflow create → workflow run 안내"
     },
     {

@@ -353,6 +353,21 @@ fn workflow_and_node_commands_work_against_real_app_server() {
 }
 
 #[test]
+fn doctor_reports_healthy_server_with_real_app_server() {
+    let harness = RealHarness::new("manual-cli-doctor-real");
+    let output = harness.run(vec!["doctor".to_owned()]);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Manual Doctor"));
+    assert!(stdout.contains("Health: healthy"));
+}
+
+#[test]
 fn manual_sandbox_skill_optimization_and_agent_commands_work_against_real_app_server() {
     let harness = RealHarness::new("manual-cli-real-manual");
 

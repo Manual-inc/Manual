@@ -1,4 +1,4 @@
-# manual-cli 전체 명령어 참조
+# manual CLI 전체 명령어 참조
 
 소스: `app/cli/src/main.rs`
 
@@ -21,7 +21,7 @@ CLI 시작 시 다음 순서로 서버 연결을 결정한다:
 | `--auth-token <TOKEN>` | `MANUAL_APP_SERVER_TOKEN` | Bearer 인증 토큰 (URL과 함께 필수) |
 | `--discovery-file <PATH>` | `MANUAL_APP_SERVER_DISCOVERY` | discovery JSON 파일 경로 |
 
-기본 discovery 파일 위치 (macOS): `~/Library/Application Support/Manual/app-server.json`
+기본 discovery 파일 위치 (macOS): `~/.manual/app-server.json`
 
 `HOME`이 없으면: `$TMPDIR/manual-app-server.json`
 
@@ -37,9 +37,9 @@ CLI 시작 시 다음 순서로 서버 연결을 결정한다:
 ### 기본 서버 바이너리 탐색 경로
 
 `--server-bin` / `MANUAL_APP_SERVER_BIN` 모두 없으면 다음 순서로 탐색:
-- `./manual-rs/target/debug/app-server`
-- `../manual-rs/target/debug/app-server`
-- `../../manual-rs/target/debug/app-server`
+- `./manual-rs/target/debug/manual-app-server`
+- `../manual-rs/target/debug/manual-app-server`
+- `../../manual-rs/target/debug/manual-app-server`
 
 ---
 
@@ -50,7 +50,7 @@ CLI 시작 시 다음 순서로 서버 연결을 결정한다:
 JSON 파일을 읽어 `workflow.create` RPC를 호출한다.
 
 ```bash
-manual-cli workflow create my-workflow.json
+manual workflow create my-workflow.json
 # → { "workflow_id": "...", "node_count": 2 }
 ```
 
@@ -61,7 +61,7 @@ manual-cli workflow create my-workflow.json
 워크플로우 정의를 반환한다.
 
 ```bash
-manual-cli workflow get lead-review
+manual workflow get lead-review
 # → { "workflow": { "id": "...", "nodes": [...], "dependencies": [...] } }
 ```
 
@@ -70,7 +70,7 @@ manual-cli workflow get lead-review
 저장된 워크플로우 목록.
 
 ```bash
-manual-cli workflow list
+manual workflow list
 # → { "workflows": [ { "workflow_id": "...", "node_count": N }, ... ] }
 ```
 
@@ -79,7 +79,7 @@ manual-cli workflow list
 기존 워크플로우를 JSON 파일 내용으로 전체 교체한다 (부분 수정 아님).
 
 ```bash
-manual-cli workflow update lead-review updated.json
+manual workflow update lead-review updated.json
 ```
 
 부분 수정이 필요하면 rpc로 `workflow.patch`를 호출한다 (아래 참조).
@@ -89,7 +89,7 @@ manual-cli workflow update lead-review updated.json
 워크플로우 삭제.
 
 ```bash
-manual-cli workflow delete lead-review
+manual workflow delete lead-review
 # → { "workflow_id": "...", "deleted": true }
 ```
 
@@ -108,10 +108,10 @@ manual-cli workflow delete lead-review
 | `--resume-run-id <RUN_ID>` | 이전 run ID (재시작용) |
 
 ```bash
-manual-cli workflow start lead-review
-manual-cli workflow start lead-review --start-node review --inputs overrides.json
-manual-cli workflow start lead-review --mode step
-manual-cli workflow start lead-review --resume-from-failure --resume-run-id run-prev
+manual workflow start lead-review
+manual workflow start lead-review --start-node review --inputs overrides.json
+manual workflow start lead-review --mode step
+manual workflow start lead-review --resume-from-failure --resume-run-id run-prev
 ```
 
 ### `workflow run <workflow_id>`
@@ -121,9 +121,9 @@ manual-cli workflow start lead-review --resume-from-failure --resume-run-id run-
 `start`의 모든 옵션 + `--interval-ms <MS>` (기본 100).
 
 ```bash
-manual-cli workflow run lead-review
-manual-cli workflow run lead-review --mode step
-manual-cli workflow run lead-review --interval-ms 500
+manual workflow run lead-review
+manual workflow run lead-review --mode step
+manual workflow run lead-review --interval-ms 500
 ```
 
 ---
@@ -139,9 +139,9 @@ manual-cli workflow run lead-review --interval-ms 500
 | `--interval-ms <MS>` | 100 | watch 폴링 간격 |
 
 ```bash
-manual-cli workflow events run-xyz
-manual-cli workflow events run-xyz --watch
-manual-cli workflow events run-xyz --cursor 5
+manual workflow events run-xyz
+manual workflow events run-xyz --watch
+manual workflow events run-xyz --cursor 5
 ```
 
 응답 예시:
@@ -174,7 +174,7 @@ manual-cli workflow events run-xyz --cursor 5
 실행 중인 워크플로우를 취소한다. 현재 실행 중인 노드 이후에는 새 노드가 시작되지 않는다. 응답: `{ "cancelled": true }`.
 
 ```bash
-manual-cli workflow stop run-xyz
+manual workflow stop run-xyz
 ```
 
 이후 이벤트 조회 시 `run.status: "cancelled"`로 표시된다.
@@ -195,9 +195,9 @@ paused/실패 상태의 실행을 재개한다.
 > `resume`은 `--resume-run-id` 옵션을 받지 않는다 (run_id가 위치 인자로 이미 들어가므로).
 
 ```bash
-manual-cli workflow resume run-xyz
-manual-cli workflow resume run-xyz --resume-from-failure
-manual-cli workflow resume run-xyz --start-node review --inputs fix.json
+manual workflow resume run-xyz
+manual workflow resume run-xyz --resume-from-failure
+manual workflow resume run-xyz --start-node review --inputs fix.json
 ```
 
 ---
@@ -207,16 +207,16 @@ manual-cli workflow resume run-xyz --start-node review --inputs fix.json
 CLI가 래핑하지 않은 RPC 메서드를 직접 호출한다.
 
 ```bash
-manual-cli rpc <METHOD> [PARAMS_JSON]
+manual rpc <METHOD> [PARAMS_JSON]
 ```
 
 - `PARAMS_JSON`이 없으면 params=null로 호출
 - `PARAMS_JSON`이 `-`이면 stdin에서 JSON 읽음
 
 ```bash
-manual-cli rpc workflow.list
-manual-cli rpc workflow.get params.json
-echo '{"workflow_id":"lead-review"}' | manual-cli rpc workflow.get -
+manual rpc workflow.list
+manual rpc workflow.get params.json
+echo '{"workflow_id":"lead-review"}' | manual rpc workflow.get -
 ```
 
 ### CLI가 아직 래핑하지 않은 주요 RPC
@@ -255,17 +255,17 @@ cat > workflow.json <<'EOF'
 EOF
 
 # 2. 생성
-manual-cli workflow create workflow.json
+manual workflow create workflow.json
 
 # 3. 실행 + Watch
-manual-cli workflow run demo
+manual workflow run demo
 ```
 
 ### 실패 디버그 → 재시작
 
 ```bash
 # 1. 이전 실행에서 실패 확인
-manual-cli workflow events $OLD_RUN_ID
+manual workflow events $OLD_RUN_ID
 #  → run.first_failed_node = "review", run.resumable = true
 
 # 2. 입력 오버라이드 작성
@@ -274,24 +274,24 @@ cat > fix.json <<'EOF'
 EOF
 
 # 3. 같은 run을 재개하거나
-manual-cli workflow resume $OLD_RUN_ID --resume-from-failure --inputs fix.json
+manual workflow resume $OLD_RUN_ID --resume-from-failure --inputs fix.json
 
 # 또는 새 run으로 재시작
-manual-cli workflow start demo --resume-from-failure --resume-run-id $OLD_RUN_ID --inputs fix.json
+manual workflow start demo --resume-from-failure --resume-run-id $OLD_RUN_ID --inputs fix.json
 ```
 
 ### Step 모드 단계별 검토
 
 ```bash
 # 백그라운드로 시작
-manual-cli workflow start demo --mode step
+manual workflow start demo --mode step
 #  → 첫 노드 실행 후 paused
 
 # 이벤트 확인
-manual-cli workflow events $RUN_ID
+manual workflow events $RUN_ID
 #  → run.paused = true
 
 # 다음 노드 진행
-manual-cli workflow resume $RUN_ID
+manual workflow resume $RUN_ID
 # 반복
 ```

@@ -8,6 +8,12 @@ Fastest demo:
 manual demo optimization
 ```
 
+Before the first run, you can check local connectivity with:
+
+```bash
+manual doctor
+```
+
 Repository demo wrapper:
 
 ```bash

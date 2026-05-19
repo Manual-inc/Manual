@@ -197,7 +197,7 @@ pub struct NodeDefinition {
 
 ### 특정 노드부터 실행
 ```bash
-manual-cli workflow start <id> --start-node review
+manual workflow start <id> --start-node review
 ```
 의존 노드는 이전 실행 결과나 `--inputs` 오버라이드로 충당.
 
@@ -207,10 +207,10 @@ manual-cli workflow start <id> --start-node review
 
 ```bash
 # 새 run으로 재시작
-manual-cli workflow start <id> --resume-from-failure --resume-run-id <previous_run>
+manual workflow start <id> --resume-from-failure --resume-run-id <previous_run>
 
 # 같은 run을 그대로 재개
-manual-cli workflow resume <run_id> --resume-from-failure
+manual workflow resume <run_id> --resume-from-failure
 ```
 
 ### Auto vs Step 모드
@@ -232,7 +232,7 @@ resume            → 3rd 노드 완료 → completed
 { "review": { "diff_summary": "..." } }
 ```
 ```bash
-manual-cli workflow start <id> --inputs overrides.json
+manual workflow start <id> --inputs overrides.json
 ```
 
 해당 node_id가 실행될 때 평소의 상위 노드 결과 대신 오버라이드 값이 입력으로 사용된다.
