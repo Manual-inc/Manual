@@ -771,13 +771,13 @@ fn code_review_starter_workflow(
 }
 
 fn code_review_starter_prompt() -> &'static str {
-    "Review the repository changes described in Input.collect_diff.stdout.\nFocus on correctness bugs, regressions, risky assumptions, and missing tests.\nKeep the answer concise and actionable."
+    "Review the repository changes described in Input.collect_diff.stdout.\nFocus on correctness bugs, regressions, risky assumptions, and missing tests.\nThe input includes file summaries and a bounded patch preview.\nIf the diff is truncated or seems insufficient, say that explicitly and focus on the highest-risk observations you can support.\nKeep the answer concise and actionable."
 }
 
 fn code_review_starter_script(repo_root: &Path) -> String {
     let repo = shell_quote(repo_root.to_string_lossy().as_ref());
     format!(
-        "set -eu\ncd {repo}\nif ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n  echo \"starter code-review requires a git repository\" >&2\n  exit 1\nfi\nif ! git diff --quiet -- . || ! git diff --cached --quiet -- .; then\n  git --no-pager diff -- . || true\n  if ! git diff --cached --quiet -- .; then\n    printf '\\n\\n--- STAGED CHANGES ---\\n'\n    git --no-pager diff --cached -- .\n  fi\nelif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then\n  git --no-pager diff HEAD~1 -- .\nelif git rev-parse --verify HEAD >/dev/null 2>&1; then\n  git --no-pager show --stat --patch --format=medium HEAD -- .\nelse\n  echo \"No commits or working tree changes available to review.\"\nfi"
+        "set -eu\ncd {repo}\nPATCH_LIMIT=220\nprint_limited_git_output() {{\n  \"$@\" | {{\n    count=0\n    while IFS= read -r line; do\n      printf '%s\\n' \"$line\"\n      count=$((count + 1))\n      if [ \"$count\" -ge \"$PATCH_LIMIT\" ]; then\n        printf '\\n--- PATCH TRUNCATED AFTER %s LINES ---\\n' \"$PATCH_LIMIT\"\n        break\n      fi\n    done\n  }}\n}}\nif ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n  echo \"starter code-review requires a git repository\" >&2\n  exit 1\nfi\nif ! git diff --quiet -- . || ! git diff --cached --quiet -- .; then\n  if ! git diff --quiet -- .; then\n    printf '%s\\n' '--- FILE SUMMARY ---'\n    git --no-pager diff --stat -- . || true\n    printf '\\n%s\\n' '--- PATCH (first 220 lines) ---'\n    print_limited_git_output git --no-pager diff --unified=3 -- .\n  fi\n  if ! git diff --cached --quiet -- .; then\n    printf '\\n%s\\n' '--- STAGED FILE SUMMARY ---'\n    git --no-pager diff --cached --stat -- . || true\n    printf '\\n%s\\n' '--- STAGED PATCH (first 220 lines) ---'\n    print_limited_git_output git --no-pager diff --cached --unified=3 -- .\n  fi\nelif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then\n  printf '%s\\n' '--- FILE SUMMARY ---'\n  git --no-pager diff --stat HEAD~1 -- .\n  printf '\\n%s\\n' '--- PATCH (first 220 lines) ---'\n  print_limited_git_output git --no-pager diff --unified=3 HEAD~1 -- .\nelif git rev-parse --verify HEAD >/dev/null 2>&1; then\n  printf '%s\\n' '--- FILE SUMMARY ---'\n  git --no-pager show --stat --format=medium HEAD -- .\n  printf '\\n%s\\n' '--- PATCH (first 220 lines) ---'\n  print_limited_git_output git --no-pager show --patch --format=medium HEAD -- .\nelse\n  echo \"No commits or working tree changes available to review.\"\nfi"
     )
 }
 
@@ -2090,6 +2090,24 @@ mod tests {
         assert!(commands.contains(&"/bin/sh"));
         assert!(commands.contains(&"/bin/bash"));
         assert_eq!(sandbox["scope_root"], "/workspace/repo");
+    }
+
+    #[test]
+    fn code_review_starter_script_caps_patch_size_and_shows_change_summary() {
+        let script = code_review_starter_script(Path::new("/workspace/repo"));
+
+        assert!(script.contains("git --no-pager diff --stat -- ."));
+        assert!(script.contains("PATCH TRUNCATED AFTER"));
+        assert!(script.contains("git --no-pager diff --unified=3 -- ."));
+        assert!(script.contains("--- FILE SUMMARY ---"));
+    }
+
+    #[test]
+    fn code_review_starter_prompt_mentions_truncated_diff_handling() {
+        let prompt = code_review_starter_prompt();
+
+        assert!(prompt.contains("If the diff is truncated"));
+        assert!(prompt.contains("say that explicitly"));
     }
 
     #[test]

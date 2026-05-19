@@ -63,7 +63,7 @@ bash scripts/demo-optimization.sh
 manual workflow starter code-review --run
 ```
 
-이 명령은 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 code review workflow를 생성한 뒤 즉시 실행까지 이어 준다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
+이 명령은 로컬 git repository를 확인하고, 사용 가능한 local agent를 선택해 code review workflow를 생성한 뒤 즉시 실행까지 이어 준다. review 입력은 changed file summary와 bounded patch preview로 제한해 첫 실행이 과도하게 무거워지지 않게 한다. 자세한 배경은 [[workflow-starters|워크플로우 스타터]]를 본다.
 
 ## 소스에서 빌드
 

@@ -82,6 +82,7 @@ manual workflow starter code-review --agent codex
 - git repository 여부를 확인한다
 - 로컬에서 사용 가능한 `codex`, `claude`, `pi` 중 하나를 자동 선택한다
 - `collect_diff` script 노드와 `review` agent 노드가 있는 workflow를 생성한다
+- `collect_diff`는 changed file summary와 bounded patch preview만 넘겨 큰 repo에서도 첫 review 입력을 줄인다
 - `--run`이면 workflow 실행, optimization follow-through, review output까지 이어서 보여준다
 
 옵션:

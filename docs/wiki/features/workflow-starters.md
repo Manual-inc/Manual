@@ -27,8 +27,9 @@ date_updated: 2026-05-19
 1. 대상 저장소가 git repository인지 확인한다.
 2. `codex`, `claude`, `pi` 순서로 로컬 가용 에이전트를 탐색한다.
 3. repo diff를 수집하는 `collect_diff` script 노드와 review agent 노드를 가진 workflow를 생성한다.
-4. workflow ID, repo 경로, 선택된 agent, 다음 실행 명령을 사람이 읽기 쉬운 형태로 출력한다.
-5. `--run`이 붙으면 starter workflow를 바로 실행하고 optimization follow-through 뒤에 review output까지 보여준다.
+4. `collect_diff`는 changed file summary와 bounded patch preview를 만들어 큰 저장소에서도 첫 review 입력이 과도하게 커지지 않게 한다.
+5. workflow ID, repo 경로, 선택된 agent, 다음 실행 명령을 사람이 읽기 쉬운 형태로 출력한다.
+6. `--run`이 붙으면 starter workflow를 바로 실행하고 optimization follow-through 뒤에 review output까지 보여준다.
 
 ## 현재 preset
 
@@ -43,6 +44,7 @@ manual workflow starter code-review --run
 이 preset은 다음 흐름을 만든다.
 
 - `collect_diff` — 현재 working tree diff 또는 최근 commit diff를 수집한다.
+- `collect_diff` — 현재 working tree diff 또는 최근 commit diff를 수집하되, file summary와 잘린 patch preview만 넘긴다.
 - `review` — 로컬에서 사용 가능한 agent가 diff를 검토한다.
 
 ## 기대 효과
